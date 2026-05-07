@@ -7,16 +7,20 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+const authRoutes = require("./routes/auth"); // imports the router from auth.js
+app.use("/api/auth", authRoutes);
+
 const pool = new Pool({
+  // creates a PostgreSQL connection pool
   connectionString: process.env.DATABASE_URL,
 });
 
-// Test database connection
 pool.query("SELECT NOW()", (err, res) => {
+  // check if can connect to database
   if (err) {
     console.log("Database connection FAILED:", err.message);
   } else {
-    console.log("Database connected successfully at:", res.rows[0].now);
+    console.log("Database connected successfully at:", res.rows[0].now); // now: time of connection
   }
 });
 
