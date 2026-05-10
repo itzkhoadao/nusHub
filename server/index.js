@@ -8,7 +8,12 @@ app.use(cors());
 app.use(express.json());
 
 const authRoutes = require("./routes/auth"); // imports the router from auth.js
+const postRoutes = require("./routes/posts");
+const commentRoutes = require("./routes/comments");
+
 app.use("/api/auth", authRoutes);
+app.use("/api/posts", postRoutes);
+app.use("/api/posts/:postId/comments", commentRoutes);
 
 const pool = new Pool({
   // creates a PostgreSQL connection pool
