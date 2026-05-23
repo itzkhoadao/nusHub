@@ -75,9 +75,12 @@ export default function HomePage() {
       <div className="bg-white border-b px-6 py-4 flex justify-between items-center">
         <h1 className="text-xl font-bold text-blue-600">NUSHub</h1>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-500">
-            Hello, {user?.username}!
-          </span>
+          <Link
+            to="/profile"
+            className="text-sm text-gray-500 hover:text-blue-600"
+          >
+            Hello, Hello, {user?.username}!
+          </Link>
           <Link
             to="/create-post"
             className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700"
