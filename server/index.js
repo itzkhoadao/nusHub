@@ -10,12 +10,14 @@ app.use(express.json());
 const authRoutes = require("./routes/auth"); // imports the router from auth.js
 const postRoutes = require("./routes/posts");
 const commentRoutes = require("./routes/comments");
-const userRoutes = require('./routes/users');
+const userRoutes = require("./routes/users");
+const groupRoutes = require("./routes/groups");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/posts/:postId/comments", commentRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/groups", groupRoutes);
 
 const pool = new Pool({
   // creates a PostgreSQL connection pool

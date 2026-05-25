@@ -40,8 +40,12 @@ export default function HomePage() {
     setLoading(true);
     try {
       let url = `http://localhost:5000/api/posts?sort=${sort}`;
-      if (topic !== "All") url += `&topic=${topic}`;
-      if (search) url += `&search=${search}`;
+      if (topic !== "All") {
+        url += `&topic=${topic}`;
+      }
+      if (search) {
+        url += `&search=${search}`;
+      }
 
       const res = await fetch(url); // send a request to backend URL
       const data = await res.json(); // take the response
@@ -76,10 +80,16 @@ export default function HomePage() {
         <h1 className="text-xl font-bold text-blue-600">NUSHub</h1>
         <div className="flex items-center gap-4">
           <Link
+            to="/groups"
+            className="text-sm text-gray-500 hover:text-blue-600"
+          >
+            Study Groups
+          </Link>
+          <Link
             to="/profile"
             className="text-sm text-gray-500 hover:text-blue-600"
           >
-            Hello, Hello, {user?.username}!
+            Hi there, {user?.username}!
           </Link>
           <Link
             to="/create-post"

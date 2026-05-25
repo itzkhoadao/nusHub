@@ -20,35 +20,37 @@ export default function PostDetailPage() {
 
   // runs when the page loads or whenever id changes
   useEffect(() => {
+    const fetchPost = async () => {
+      try {
+        const res = await fetch(`http://localhost:5000/api/posts/${id}`);
+        const data = await res.json();
+        if (!res.ok) {
+          navigate("/"); // post not found, go home
+          return;
+        }
+        setPost(data);
+      } catch (err) {
+        console.error("Failed to fetch post:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const fetchComments = async () => {
+      try {
+        const res = await fetch(
+          `http://localhost:5000/api/posts/${id}/comments`,
+        );
+        const data = await res.json();
+        setComments(data);
+      } catch (err) {
+        console.error("Failed to fetch comments:", err);
+      }
+    };
+
     fetchPost();
     fetchComments();
   }, [id]);
-
-  const fetchPost = async () => {
-    try {
-      const res = await fetch(`http://localhost:5000/api/posts/${id}`);
-      const data = await res.json();
-      if (!res.ok) {
-        navigate("/"); // post not found, go home
-        return;
-      }
-      setPost(data);
-    } catch (err) {
-      console.error("Failed to fetch post:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchComments = async () => {
-    try {
-      const res = await fetch(`http://localhost:5000/api/posts/${id}/comments`);
-      const data = await res.json();
-      setComments(data);
-    } catch (err) {
-      console.error("Failed to fetch comments:", err);
-    }
-  };
 
   const handleSubmitComment = async () => {
     if (!newComment.trim()) {
@@ -85,6 +87,18 @@ export default function PostDetailPage() {
         return;
       }
 
+      const fetchComments = async () => {
+        try {
+          const res = await fetch(
+            `http://localhost:5000/api/posts/${id}/comments`,
+          );
+          const data = await res.json();
+          setComments(data);
+        } catch (err) {
+          console.error("Failed to fetch comments:", err);
+        }
+      };
+
       // Clear the input and refresh comments
       setNewComment("");
       setIsAnonymous(false);
@@ -106,6 +120,18 @@ export default function PostDetailPage() {
         headers: { Authorization: `Bearer ${token}` },
       },
     ); // go to toggle upvote route
+
+    const fetchComments = async () => {
+      try {
+        const res = await fetch(
+          `http://localhost:5000/api/posts/${id}/comments`,
+        );
+        const data = await res.json();
+        setComments(data);
+      } catch (err) {
+        console.error("Failed to fetch comments:", err);
+      }
+    };
 
     fetchComments(); // refresh comments to show new upvote count and reorder
   };
