@@ -12,13 +12,21 @@
   "dependencies": {
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
+<<<<<<< HEAD
     "react-router-dom": "^7.15.0"
+=======
+    "react-router-dom": "^7.15.1"
+>>>>>>> 67d3699 (Fix bugs, add study groups backend)
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+<<<<<<< HEAD
     "@vitejs/plugin-react": "^6.0.1",
+=======
+    "@vitejs/plugin-react": "^6.0.2",
+>>>>>>> 67d3699 (Fix bugs, add study groups backend)
     "autoprefixer": "^10.5.0",
     "eslint": "^10.2.1",
     "eslint-plugin-react-hooks": "^7.1.1",
@@ -26,6 +34,10 @@
     "globals": "^17.5.0",
     "postcss": "^8.5.13",
     "tailwindcss": "^3.4.19",
+<<<<<<< HEAD
     "vite": "^8.0.10"
+=======
+    "vite": "^8.0.14"
+>>>>>>> 67d3699 (Fix bugs, add study groups backend)
   }
 }

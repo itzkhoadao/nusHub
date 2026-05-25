@@ -1,15 +1,15 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const { Pool } = require('pg');
+const { Pool } = require("pg");
 
-const authenticate = require('../middleware/authenticate');
+const authenticate = require("../middleware/authenticate");
 
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
+  connectionString: process.env.DATABASE_URL,
 });
 
 // get the user's profile when logging in
-router.get('/me', authenticate, async (req, res) => {
+router.get("/me", authenticate, async (req, res) => {
   try {
     const userId = req.user.id;
 
@@ -17,11 +17,11 @@ router.get('/me', authenticate, async (req, res) => {
     const userResult = await pool.query(
       `SELECT id, username, email, avatar_url, created_at
        FROM users WHERE id = $1`,
-      [userId]
+      [userId],
     );
 
     if (userResult.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: "User not found" });
     }
 
     // Get user's posts
@@ -30,7 +30,7 @@ router.get('/me', authenticate, async (req, res) => {
        FROM posts
        WHERE user_id = $1
        ORDER BY created_at DESC`,
-      [userId]
+      [userId],
     );
 
     // Get user's comments
@@ -41,15 +41,14 @@ router.get('/me', authenticate, async (req, res) => {
        JOIN posts p ON c.post_id = p.id
        WHERE c.user_id = $1
        ORDER BY c.created_at DESC`,
-      [userId]
+      [userId],
     );
 
     res.json({
       user: userResult.rows[0],
       posts: postsResult.rows,
-      comments: commentsResult.rows
+      comments: commentsResult.rows,
     });
-
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

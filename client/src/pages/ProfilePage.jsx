@@ -1,48 +1,50 @@
-import { useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
 
 export default function ProfilePage() {
-  const [profileData, setProfileData] = useState(null)
-  const [activeTab, setActiveTab] = useState('posts')
-  const [loading, setLoading] = useState(true)
-  const navigate = useNavigate()
+  const [profileData, setProfileData] = useState(null);
+  const [activeTab, setActiveTab] = useState("posts"); // switch between viewing posts and comments
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
-  const user = JSON.parse(localStorage.getItem('user'))
+  const user = JSON.parse(localStorage.getItem("user"));
 
+  // tell user to log in if they have not, if logged in, show their profile page
   useEffect(() => {
-    if (!user) navigate('/login')
-  }, [user, navigate])
-
-  useEffect(() => {
-    fetchProfile()
-  }, [])
-
-  const fetchProfile = async () => {
-    try {
-      const token = localStorage.getItem('token')
-
-      const res = await fetch('http://localhost:5000/api/users/me', {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-
-      const data = await res.json()
-      setProfileData(data)
-    } catch (err) {
-      console.error('Failed to fetch profile:', err)
-    } finally {
-      setLoading(false)
+    if (!user) {
+      navigate("/login");
+      return;
     }
-  }
+
+    const fetchProfile = async () => {
+      try {
+        const token = localStorage.getItem("token");
+
+        const res = await fetch("http://localhost:5000/api/users/me", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const data = await res.json();
+        setProfileData(data);
+      } catch (err) {
+        console.error("Failed to fetch profile:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, []);
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <p className="text-gray-400">Loading profile...</p>
       </div>
-    )
+    );
   }
 
-  const { user: profileUser, posts, comments } = profileData
+  const { user: profileUser, posts, comments } = profileData;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -54,7 +56,6 @@ export default function ProfilePage() {
       </div>
 
       <div className="max-w-2xl mx-auto p-6">
-
         {/* Profile card */}
         <div className="bg-white border rounded-lg p-6 mb-6">
           {/* Avatar circle */}
@@ -99,21 +100,21 @@ export default function ProfilePage() {
         {/* Tabs */}
         <div className="flex gap-2 mb-4 border-b">
           <button
-            onClick={() => setActiveTab('posts')}
+            onClick={() => setActiveTab("posts")}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'posts'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+              activeTab === "posts"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >
             Posts ({posts.length})
           </button>
           <button
-            onClick={() => setActiveTab('comments')}
+            onClick={() => setActiveTab("comments")}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'comments'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+              activeTab === "comments"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >
             Comments ({comments.length})
@@ -121,17 +122,20 @@ export default function ProfilePage() {
         </div>
 
         {/* Posts tab */}
-        {activeTab === 'posts' && (
+        {activeTab === "posts" && (
           <div>
             {posts.length === 0 ? (
               <p className="text-center text-gray-400 py-8">
-                No posts yet.{' '}
-                <Link to="/create-post" className="text-blue-600 hover:underline">
+                No posts yet.{" "}
+                <Link
+                  to="/create-post"
+                  className="text-blue-600 hover:underline"
+                >
                   Create your first post!
                 </Link>
               </p>
             ) : (
-              posts.map(post => (
+              posts.map((post) => (
                 <Link
                   to={`/posts/${post.id}`}
                   key={post.id}
@@ -167,14 +171,12 @@ export default function ProfilePage() {
         )}
 
         {/* Comments tab */}
-        {activeTab === 'comments' && (
+        {activeTab === "comments" && (
           <div>
             {comments.length === 0 ? (
-              <p className="text-center text-gray-400 py-8">
-                No comments yet.
-              </p>
+              <p className="text-center text-gray-400 py-8">No comments yet.</p>
             ) : (
-              comments.map(comment => (
+              comments.map((comment) => (
                 <Link
                   to={`/posts/${comment.post_id}`}
                   key={comment.id}
@@ -192,7 +194,9 @@ export default function ProfilePage() {
                   <div className="text-xs text-gray-400 mt-2 flex gap-3">
                     <span>on: {comment.post_title}</span>
                     <span>·</span>
-                    <span>{new Date(comment.created_at).toLocaleDateString()}</span>
+                    <span>
+                      {new Date(comment.created_at).toLocaleDateString()}
+                    </span>
                     <span>·</span>
                     <span>▲ {comment.upvotes}</span>
                   </div>
@@ -201,8 +205,7 @@ export default function ProfilePage() {
             )}
           </div>
         )}
-
       </div>
     </div>
-  )
+  );
 }
