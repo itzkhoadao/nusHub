@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import Navbar from "../components/Navbar";
 
 export default function ProfilePage() {
   const [profileData, setProfileData] = useState(null);
@@ -38,29 +39,28 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-400">Loading profile...</p>
+      <div className="min-h-screen bg-gray-50">
+        <Navbar />
+        <div className="flex items-center justify-center py-20">
+          <p className="text-gray-400">Loading profile...</p>
+        </div>
       </div>
-    );
+    )
   }
+
 
   const { user: profileUser, posts, comments } = profileData;
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navbar */}
-      <div className="bg-white border-b px-6 py-4">
-        <Link to="/" className="text-blue-600 text-sm hover:underline">
-          ← Back to forum
-        </Link>
-      </div>
+      <Navbar />
 
-      <div className="max-w-2xl mx-auto p-6">
+      <div className="max-w-2xl mx-auto px-4 py-6">
+
         {/* Profile card */}
-        <div className="bg-white border rounded-lg p-6 mb-6">
-          {/* Avatar circle */}
+        <div className="bg-white border border-gray-100 rounded-2xl p-6 mb-6">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-2xl font-bold">
+            <div className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center text-white text-2xl font-bold shadow-sm">
               {profileUser.username.charAt(0).toUpperCase()}
             </div>
             <div>
@@ -74,137 +74,114 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Stats row */}
-          <div className="flex gap-6 mt-6 pt-4 border-t">
-            <div className="text-center">
-              <div className="text-xl font-bold text-gray-800">
-                {posts.length}
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-4 mt-6 pt-5 border-t border-gray-50">
+            {[
+              { label: 'Posts', value: posts.length },
+              { label: 'Comments', value: comments.length },
+              { label: 'Upvotes received', value: posts.reduce((sum, p) => sum + parseInt(p.upvotes), 0) }
+            ].map(stat => (
+              <div key={stat.label} className="text-center bg-gray-50 rounded-xl p-3">
+                <div className="text-2xl font-bold text-blue-600">{stat.value}</div>
+                <div className="text-xs text-gray-400 mt-0.5">{stat.label}</div>
               </div>
-              <div className="text-xs text-gray-400">Posts</div>
-            </div>
-            <div className="text-center">
-              <div className="text-xl font-bold text-gray-800">
-                {comments.length}
-              </div>
-              <div className="text-xs text-gray-400">Comments</div>
-            </div>
-            <div className="text-center">
-              <div className="text-xl font-bold text-gray-800">
-                {posts.reduce((sum, p) => sum + parseInt(p.upvotes), 0)}
-              </div>
-              <div className="text-xs text-gray-400">Post upvotes</div>
-            </div>
+            ))}
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-4 border-b">
-          <button
-            onClick={() => setActiveTab("posts")}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === "posts"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            Posts ({posts.length})
-          </button>
-          <button
-            onClick={() => setActiveTab("comments")}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === "comments"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            Comments ({comments.length})
-          </button>
+        <div className="flex gap-1 bg-white border border-gray-100 rounded-xl p-1 mb-5 w-fit">
+          {['posts', 'comments'].map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${activeTab === tab
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-500 hover:text-gray-700'
+                }`}
+            >
+              {tab} ({tab === 'posts' ? posts.length : comments.length})
+            </button>
+          ))}
         </div>
 
         {/* Posts tab */}
-        {activeTab === "posts" && (
-          <div>
-            {posts.length === 0 ? (
-              <p className="text-center text-gray-400 py-8">
-                No posts yet.{" "}
-                <Link
-                  to="/create-post"
-                  className="text-blue-600 hover:underline"
-                >
-                  Create your first post!
-                </Link>
-              </p>
-            ) : (
-              posts.map((post) => (
+        {activeTab === 'posts' && (
+          posts.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-400 text-sm">No posts yet.</p>
+              <Link
+                to="/create-post"
+                className="inline-block mt-3 text-blue-600 text-sm hover:underline"
+              >
+                Create your first post →
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {posts.map(post => (
                 <Link
                   to={`/posts/${post.id}`}
                   key={post.id}
-                  className="block bg-white border rounded-lg p-4 mb-3 hover:shadow transition-shadow"
+                  className="block bg-white border border-gray-100 rounded-xl p-4 hover:shadow-sm transition-all"
                 >
                   <div className="flex justify-between items-start">
                     <div>
-                      <span className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-full">
+                      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
                         {post.topic}
                       </span>
-                      <h3 className="font-medium text-gray-800 mt-2">
-                        {post.is_anonymous ? (
-                          <span className="text-gray-400 italic">
-                            Posted anonymously
-                          </span>
-                        ) : (
-                          post.title
-                        )}
-                      </h3>
+                      <p className="font-medium text-gray-800 text-sm mt-2">
+                        {post.is_anonymous
+                          ? <span className="italic text-gray-400">Posted anonymously</span>
+                          : post.title
+                        }
+                      </p>
                       <p className="text-xs text-gray-400 mt-1">
                         {new Date(post.created_at).toLocaleDateString()}
                       </p>
                     </div>
-                    <div className="flex items-center gap-1 text-gray-400 text-sm">
+                    <div className="flex items-center gap-1 text-sm text-gray-400">
                       <span>▲</span>
                       <span>{post.upvotes}</span>
                     </div>
                   </div>
                 </Link>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )
         )}
 
         {/* Comments tab */}
-        {activeTab === "comments" && (
-          <div>
-            {comments.length === 0 ? (
-              <p className="text-center text-gray-400 py-8">No comments yet.</p>
-            ) : (
-              comments.map((comment) => (
+        {activeTab === 'comments' && (
+          comments.length === 0 ? (
+            <p className="text-center text-gray-400 text-sm py-12">No comments yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {comments.map(comment => (
                 <Link
                   to={`/posts/${comment.post_id}`}
                   key={comment.id}
-                  className="block bg-white border rounded-lg p-4 mb-3 hover:shadow transition-shadow"
+                  className="block bg-white border border-gray-100 rounded-xl p-4 hover:shadow-sm transition-all"
                 >
                   <p className="text-sm text-gray-700">
-                    {comment.is_anonymous ? (
-                      <span className="text-gray-400 italic">
-                        Commented anonymously
-                      </span>
-                    ) : (
-                      comment.content
-                    )}
+                    {comment.is_anonymous
+                      ? <span className="italic text-gray-400">Commented anonymously</span>
+                      : comment.content
+                    }
                   </p>
-                  <div className="text-xs text-gray-400 mt-2 flex gap-3">
+                  <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
                     <span>on: {comment.post_title}</span>
                     <span>·</span>
-                    <span>
-                      {new Date(comment.created_at).toLocaleDateString()}
-                    </span>
+                    <span>{new Date(comment.created_at).toLocaleDateString()}</span>
                     <span>·</span>
                     <span>▲ {comment.upvotes}</span>
                   </div>
                 </Link>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )
         )}
+
       </div>
     </div>
   );
