@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import Navbar from "../components/Navbar"
 
 const TOPICS = ["Modules", "Housing", "Food", "Buses", "Facilities", "General"];
 
@@ -55,86 +56,91 @@ export default function CreatePostPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b px-6 py-4">
-        <Link to="/" className="text-blue-600 text-sm hover:underline">
-          ← Back to forum
-        </Link>
-      </div>
+      <Navbar />
 
-      <div className="max-w-2xl mx-auto p-6">
+      <div className="max-w-2xl mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold text-gray-800 mb-6">Create a Post</h1>
 
-        {error && (
-          <div className="bg-red-50 text-red-600 p-3 rounded mb-4 text-sm">
-            {error}
+        <div className="bg-white border border-gray-100 rounded-2xl p-6 space-y-5">
+          {error && (
+            <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm flex items-center gap-2">
+              <span>⚠</span> {error}
+            </div>
+          )}
+
+          {/* Topic */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Topic</label>
+            <div className="flex gap-2 flex-wrap">
+              {TOPICS.map(t => (
+                <button
+                  key={t}
+                  onClick={() => setTopic(t)}
+                  className={`px-3 py-1.5 rounded-full text-sm border font-medium transition-colors ${topic === t
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
+                    }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
           </div>
-        )}
 
-        {/* Topic selector */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Topic
+          {/* Title */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+            <input
+              className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+              placeholder="What's your question or topic?"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+            />
+          </div>
+
+          {/* Content */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Content <span className="text-gray-400 font-normal">(optional)</span>
+            </label>
+            <textarea
+              className="w-full border border-gray-200 rounded-lg p-3 text-sm h-36 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+              placeholder="Add more details..."
+              value={content}
+              onChange={e => setContent(e.target.value)}
+            />
+          </div>
+
+          {/* Anonymous toggle */}
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <div
+              onClick={() => setIsAnonymous(!isAnonymous)}
+              className={`w-10 h-6 rounded-full transition-colors relative ${isAnonymous ? 'bg-blue-600' : 'bg-gray-200'
+                }`}
+            >
+              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${isAnonymous ? 'translate-x-5' : 'translate-x-1'
+                }`} />
+            </div>
+            <span className="text-sm text-gray-600">Post anonymously</span>
           </label>
-          <select
-            value={topic}
-            onChange={(e) => setTopic(e.target.value)}
-            className="w-full border border-gray-300 rounded p-2 text-sm"
-          >
-            {TOPICS.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </div>
 
-        {/* Title */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Title
-          </label>
-          <input
-            className="w-full border border-gray-300 rounded p-3 text-sm"
-            placeholder="What's your question or topic?"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
+          {/* Buttons */}
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={handleSubmit}
+              disabled={loading}
+              className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+            >
+              {loading ? 'Posting...' : 'Post'}
+            </button>
+            <button
+              onClick={() => navigate('/')}
+              className="px-5 py-3 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
-
-        {/* Content */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Content (optional)
-          </label>
-          <textarea
-            className="w-full border border-gray-300 rounded p-3 text-sm h-40 resize-none"
-            placeholder="Add more details..."
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-          />
-        </div>
-
-        {/* Anonymous toggle */}
-        <div className="flex items-center gap-2 mb-6">
-          <input
-            type="checkbox"
-            id="anonymous"
-            checked={isAnonymous}
-            onChange={(e) => setIsAnonymous(e.target.checked)}
-            className="w-4 h-4"
-          />
-          <label htmlFor="anonymous" className="text-sm text-gray-600">
-            Post anonymously
-          </label>
-        </div>
-
-        <button
-          onClick={handleSubmit}
-          disabled={loading}
-          className="w-full bg-blue-600 text-white py-3 rounded font-medium hover:bg-blue-700 disabled:opacity-50"
-        >
-          {loading ? "Posting..." : "Post"}
-        </button>
       </div>
     </div>
   );

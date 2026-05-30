@@ -37,46 +37,69 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="bg-white p-8 rounded-lg shadow w-full max-w-md">
-        <h1 className="text-2xl font-bold text-gray-800 mb-6">
-          Welcome back to NUSHub
-        </h1>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
 
-        {error && (
-          <div className="bg-red-50 text-red-600 p-3 rounded mb-4 text-sm">
-            {error}
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <span className="text-white font-bold text-2xl">N</span>
           </div>
-        )}
+          <h1 className="text-2xl font-bold text-gray-800">Welcome back</h1>
+          <p className="text-gray-500 text-sm mt-1">Log in to NUSHub</p>
+        </div>
 
-        <input
-          className="w-full border border-gray-300 rounded p-3 mb-3 text-sm"
-          placeholder="Email"
-          type="email"
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <input
-          className="w-full border border-gray-300 rounded p-3 mb-4 text-sm"
-          placeholder="Password"
-          type="password"
-          onChange={(e) => setPassword(e.target.value)}
-        />
+        {/* Card */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+          {error && (
+            <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-5 text-sm flex items-center gap-2">
+              <span>⚠</span> {error}
+            </div>
+          )}
 
-        <button
-          onClick={handleLogin}
-          disabled={loading}
-          className="w-full bg-blue-600 text-white py-3 rounded font-medium hover:bg-blue-700 disabled:opacity-50"
-        >
-          {loading ? "Logging in..." : "Log In"}
-        </button>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Email
+              </label>
+              <input
+                type="email"
+                className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                placeholder="you@u.nus.edu"
+                onChange={e => setEmail(e.target.value)}
+              />
+            </div>
 
-        <p className="text-center text-sm text-gray-500 mt-4">
-          Don't have an account?{" "}
-          <Link to="/register" className="text-blue-600 hover:underline">
-            Register
-          </Link>
-        </p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Password
+              </label>
+              <input
+                type="password"
+                className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                placeholder="••••••••"
+                onChange={e => setPassword(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleLogin()}
+              />
+            </div>
+          </div>
+
+          <button
+            onClick={handleLogin}
+            disabled={loading}
+            className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium mt-6 hover:bg-blue-700 transition-colors disabled:opacity-50"
+          >
+            {loading ? 'Logging in...' : 'Log In'}
+          </button>
+
+          <p className="text-center text-sm text-gray-500 mt-5">
+            Don't have an account?{' '}
+            <Link to="/register" className="text-blue-600 font-medium hover:underline">
+              Register
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
-  );
+  )
 }
