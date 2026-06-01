@@ -32,7 +32,7 @@ export default function RegisterPage() {
         return;
       }
 
-      // Save the token in localStorage so we remember the user is logged in
+      // user is logged in
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
 
@@ -48,7 +48,6 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
@@ -76,7 +75,7 @@ export default function RegisterPage() {
               <input
                 className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
                 placeholder="e.g. khoa123"
-                onChange={e => setUsername(e.target.value)}
+                onChange={(e) => setUsername(e.target.value)}
               />
             </div>
 
@@ -88,7 +87,7 @@ export default function RegisterPage() {
                 type="email"
                 className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
                 placeholder="you@u.nus.edu"
-                onChange={e => setEmail(e.target.value)}
+                onChange={(e) => setEmail(e.target.value)}
               />
             </div>
 
@@ -100,8 +99,8 @@ export default function RegisterPage() {
                 type="password"
                 className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
                 placeholder="••••••••"
-                onChange={e => setPassword(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleRegister()}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleRegister()}
               />
             </div>
           </div>
@@ -111,12 +110,15 @@ export default function RegisterPage() {
             disabled={loading}
             className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium mt-6 hover:bg-blue-700 transition-colors disabled:opacity-50"
           >
-            {loading ? 'Creating account...' : 'Create Account'}
+            {loading ? "Creating account..." : "Create Account"}
           </button>
 
           <p className="text-center text-sm text-gray-500 mt-5">
-            Already have an account?{' '}
-            <Link to="/login" className="text-blue-600 font-medium hover:underline">
+            Already have an account?{" "}
+            <Link
+              to="/login"
+              className="text-blue-600 font-medium hover:underline"
+            >
               Log in
             </Link>
           </p>
