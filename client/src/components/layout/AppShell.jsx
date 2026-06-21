@@ -6,6 +6,10 @@ import Topbar from "./Topbar";
 export default function AppShell({
   children,
   contextualPlaceholder,
+  onSearchChange,
+  onSearchClear,
+  onSearchSubmit,
+  searchValue,
   user,
   sidebar,
 }) {
@@ -16,7 +20,14 @@ export default function AppShell({
       <Sidebar onCreatePost={() => navigate("/create-post")} />
 
       <div className="min-w-0 flex-1 pb-24 lg:pb-0">
-        <Topbar contextualPlaceholder={contextualPlaceholder} user={user} />
+        <Topbar
+          contextualPlaceholder={contextualPlaceholder}
+          onSearchChange={onSearchChange}
+          onSearchClear={onSearchClear}
+          onSearchSubmit={onSearchSubmit}
+          searchValue={searchValue}
+          user={user}
+        />
         <main className="app-container py-6 lg:py-8">
           {sidebar ? (
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">

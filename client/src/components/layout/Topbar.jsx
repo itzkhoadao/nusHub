@@ -1,35 +1,88 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Icon from "../Icon";
 
 export default function Topbar({
   contextualPlaceholder = "Search NUSHub...",
+  onSearchChange,
+  onSearchClear,
+  onSearchSubmit,
+  searchValue,
   user,
 }) {
+  const [searchApplied, setSearchApplied] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const hasSearch = typeof onSearchChange === "function";
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!searchValue) {
+      setSearchApplied(false);
+    }
+  }, [searchValue]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+
+    if (searchValue?.trim()) {
+      setSearchApplied(true);
+    }
+
+    onSearchSubmit?.(searchValue);
+  };
+
+  const clearSearch = () => {
+    setSearchApplied(false);
+    onSearchChange("");
+    onSearchClear?.();
+  };
+
+  const handleSignOut = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setAccountOpen(false);
+    navigate("/login");
+  };
+
   return (
     <header className="sticky top-0 z-40 border-b border-surface-variant bg-white/95 backdrop-blur">
       <div className="app-container flex h-16 items-center gap-4">
-        <div className="relative hidden flex-1 md:block">
-          <Icon
-            name="search"
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-app-muted"
-          />
-          <input
-            className="app-input bg-surface-low pl-10"
-            placeholder="Search posts, groups, or topics..."
-            type="search"
-          />
-        </div>
+        {hasSearch ? (
+          <form className="relative flex-1" onSubmit={handleSubmit}>
+            <Icon
+              name="search"
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary"
+            />
+            <input
+              className="app-input border-primary/20 bg-primary/5 pl-10 pr-10"
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder={contextualPlaceholder}
+              type="text"
+              value={searchValue}
+            />
+            {searchValue && (
+              <button
+                aria-label="Remove search text"
+                className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-primary transition-colors hover:bg-primary-fixed"
+                onClick={() => {
+                  setSearchApplied(false);
+                  onSearchChange("");
+                }}
+                type="button"
+              >
+                x
+              </button>
+            )}
+          </form>
+        ) : (
+          <div className="flex-1" />
+        )}
 
-        <div className="relative flex-1 md:max-w-xs">
-          <Icon
-            name="search"
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary"
-          />
-          <input
-            className="app-input border-primary/20 bg-primary/5 pl-10"
-            placeholder={contextualPlaceholder}
-            type="search"
-          />
-        </div>
+        {hasSearch && searchApplied && (
+          <button className="app-button-ghost px-3 py-2" onClick={clearSearch}>
+            Clear
+          </button>
+        )}
 
         <button
           aria-label="Notifications"
@@ -39,8 +92,38 @@ export default function Topbar({
           <Icon name="bell" />
         </button>
 
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">
-          {user?.username?.charAt(0).toUpperCase() || "N"}
+        <div className="relative">
+          <button
+            aria-expanded={accountOpen}
+            aria-label="Open account menu"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-bold text-white transition-opacity hover:opacity-90"
+            onClick={() => setAccountOpen(!accountOpen)}
+            type="button"
+          >
+            {user?.username?.charAt(0).toUpperCase() || "N"}
+          </button>
+
+          {accountOpen && (
+            <div className="absolute right-0 top-12 z-50 w-44 overflow-hidden rounded-xl border border-surface-variant bg-white shadow-raised">
+              <button
+                className="block w-full px-4 py-3 text-left text-sm font-semibold text-app-text transition-colors hover:bg-surface-low hover:text-primary"
+                onClick={() => {
+                  setAccountOpen(false);
+                  navigate("/profile");
+                }}
+                type="button"
+              >
+                My Profile
+              </button>
+              <button
+                className="block w-full px-4 py-3 text-left text-sm font-semibold text-app-danger transition-colors hover:bg-red-50"
+                onClick={handleSignOut}
+                type="button"
+              >
+                Sign out
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>
