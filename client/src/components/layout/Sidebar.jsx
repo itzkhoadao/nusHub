@@ -3,7 +3,6 @@ import Icon from "../Icon";
 
 const NAV_ITEMS = [
   { label: "Forum", to: "/", icon: "home" },
-  { label: "Explore", to: "/", icon: "explore" },
   { label: "Study Groups", to: "/groups", icon: "groups" },
 ];
 
