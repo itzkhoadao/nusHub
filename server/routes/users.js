@@ -54,4 +54,50 @@ router.get("/me", authenticate, async (req, res) => {
   }
 });
 
+// get a public profile by user id
+router.get("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get public user info
+    const userResult = await pool.query(
+      `SELECT id, username, email, avatar_url, created_at
+       FROM users WHERE id = $1`,
+      [id],
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // In their profile, get user's public posts only, anonymous posts won't show
+    const postsResult = await pool.query(
+      `SELECT id, title, topic, upvotes, is_anonymous, created_at
+       FROM posts
+       WHERE user_id = $1 AND is_anonymous = false
+       ORDER BY created_at DESC`,
+      [id],
+    );
+
+    // Get user's public comments only
+    const commentsResult = await pool.query(
+      `SELECT c.id, c.content, c.upvotes, c.is_anonymous,
+              c.created_at, p.title as post_title, p.id as post_id
+       FROM comments c
+       JOIN posts p ON c.post_id = p.id
+       WHERE c.user_id = $1 AND c.is_anonymous = false
+       ORDER BY c.created_at DESC`,
+      [id],
+    );
+
+    res.json({
+      user: userResult.rows[0],
+      posts: postsResult.rows,
+      comments: commentsResult.rows,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

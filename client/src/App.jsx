@@ -17,6 +17,7 @@ function App() {
       <Route path="/create-post" element={<CreatePostPage />} />
       <Route path="/posts/:id" element={<PostDetailPage />} />
       <Route path="/profile" element={<ProfilePage />} />
+      <Route path="/users/:userId" element={<ProfilePage />} />
       <Route path="/groups" element={<GroupsPage />} />
       <Route path="/groups/:id" element={<GroupDetailPage />} />
     </Routes>
