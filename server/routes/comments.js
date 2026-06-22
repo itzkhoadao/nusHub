@@ -1,16 +1,41 @@
 const express = require("express");
 const router = express.Router({ mergeParams: true });
 const { Pool } = require("pg");
+const jwt = require("jsonwebtoken");
 const authenticate = require("../middleware/authenticate");
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
+function getOptionalUserId(req) {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (!token) {
+    return null;
+  }
+
+  try {
+    return jwt.verify(token, process.env.JWT_SECRET).id;
+  } catch (err) {
+    return null;
+  }
+}
+
 // GET /api/posts/:postId/comments — get all comments, display ones with the most upvotes first
 router.get("/", async (req, res) => {
   try {
     const { postId } = req.params;
+    const userId = getOptionalUserId(req);
+    const params = [postId];
+
+    const upvotedSelect = userId
+      ? `EXISTS (
+          SELECT 1 FROM comment_upvotes cu
+          WHERE cu.comment_id = c.id AND cu.user_id = $${params.push(userId)}
+        )`
+      : "false";
 
     const result = await pool.query(
       `SELECT 
@@ -19,12 +44,13 @@ router.get("/", async (req, res) => {
           WHEN c.is_anonymous = true THEN 'Anonymous'
           WHEN c.user_id IS NULL THEN '[Deleted user]'
           ELSE u.username
-        END as username
+        END as username,
+        ${upvotedSelect} as upvoted
        FROM comments c
        LEFT JOIN users u ON c.user_id = u.id
        WHERE c.post_id = $1
        ORDER BY c.upvotes DESC, c.created_at ASC`,
-      [postId],
+      params,
     );
 
     res.json(result.rows);

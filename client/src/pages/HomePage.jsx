@@ -44,7 +44,10 @@ export default function HomePage() {
         params.set("search", searchText.trim());
       }
 
-      const res = await fetch(`http://localhost:5000/api/posts?${params}`); // send a request to backend URL
+      const token = localStorage.getItem("token");
+      const res = await fetch(`http://localhost:5000/api/posts?${params}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }); // send a request to backend URL
       const data = await res.json(); // take the response
       setPosts(data); // the page updates
     } catch (err) {
@@ -80,12 +83,23 @@ export default function HomePage() {
   // refreshes posts so upvote count is shown
   const handleUpvote = async (postId) => {
     const token = localStorage.getItem("token");
-    await fetch(`http://localhost:5000/api/posts/${postId}/upvote`, {
+    const res = await fetch(`http://localhost:5000/api/posts/${postId}/upvote`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
+    const data = await res.json();
 
-    fetchPosts();
+    setPosts((currentPosts) =>
+      currentPosts.map((post) =>
+        post.id === postId
+          ? {
+              ...post,
+              upvoted: data.upvoted,
+              upvotes: Number(post.upvotes) + (data.upvoted ? 1 : -1),
+            }
+          : post,
+      ),
+    );
   };
 
   return (

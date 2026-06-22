@@ -22,7 +22,10 @@ export default function PostDetailPage() {
   // asks the backend for one post using id
   const fetchPost = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/posts/${id}`);
+      const token = localStorage.getItem("token");
+      const res = await fetch(`http://localhost:5000/api/posts/${id}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       const data = await res.json();
 
       if (!res.ok) {
@@ -41,8 +44,12 @@ export default function PostDetailPage() {
   // asks the backend for all comments belonging to this post
   const fetchComments = async () => {
     try {
+      const token = localStorage.getItem("token");
       const res = await fetch(
         `http://localhost:5000/api/posts/${id}/comments`,
+        {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        },
       );
       const data = await res.json();
       setComments(data);
@@ -114,26 +121,43 @@ export default function PostDetailPage() {
   const handleCommentUpvote = async (commentId) => {
     const token = localStorage.getItem("token"); // gets user's authentication token
 
-    await fetch(
+    const res = await fetch(
       `http://localhost:5000/api/posts/${id}/comments/${commentId}/upvote`,
       {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       },
     ); // go to toggle upvote route
-    fetchComments(); // refresh comments to show new upvote count and reorder
+    const data = await res.json();
+
+    setComments((currentComments) =>
+      currentComments.map((comment) =>
+        comment.id === commentId
+          ? {
+              ...comment,
+              upvoted: data.upvoted,
+              upvotes: Number(comment.upvotes) + (data.upvoted ? 1 : -1),
+            }
+          : comment,
+      ),
+    );
   };
 
   // toggle upvote then reload the post
   const handlePostUpvote = async () => {
     const token = localStorage.getItem("token");
 
-    await fetch(`http://localhost:5000/api/posts/${id}/upvote`, {
+    const res = await fetch(`http://localhost:5000/api/posts/${id}/upvote`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     }); // go to toggle upvote route
+    const data = await res.json();
 
-    fetchPost(); // refresh post to show new upvote count
+    setPost((currentPost) => ({
+      ...currentPost,
+      upvoted: data.upvoted,
+      upvotes: Number(currentPost.upvotes) + (data.upvoted ? 1 : -1),
+    }));
   };
 
   if (loading) {
@@ -193,12 +217,25 @@ export default function PostDetailPage() {
         {post && (
           <article className="app-card p-5 md:p-6">
             <div className="flex gap-4">
-              <VoteBlock count={post.upvotes} onUpvote={handlePostUpvote} />
+              <VoteBlock
+                active={post.upvoted}
+                count={post.upvotes}
+                onUpvote={handlePostUpvote}
+              />
 
               <div className="min-w-0 flex-1">
                 <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-app-muted">
                   <TopicBadge topic={post.topic} />
-                  <span>Posted by {post.username}</span>
+                  {post.is_anonymous || !post.user_id ? (
+                    <span>Posted by {post.username}</span>
+                  ) : (
+                    <Link
+                      className="font-semibold hover:text-primary"
+                      to={`/users/${post.user_id}`}
+                    >
+                      Posted by {post.username}
+                    </Link>
+                  )}
                   <span>{new Date(post.created_at).toLocaleDateString()}</span>
                 </div>
 
@@ -263,15 +300,15 @@ export default function PostDetailPage() {
             <label className="flex cursor-pointer select-none items-center gap-3">
               <button
                 aria-pressed={isAnonymous}
-                className={`relative h-6 w-10 rounded-full transition-colors ${
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
                   isAnonymous ? "bg-primary" : "bg-surface-highest"
                 }`}
                 onClick={() => setIsAnonymous(!isAnonymous)}
                 type="button"
               >
                 <span
-                  className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-transform ${
-                    isAnonymous ? "translate-x-5" : "translate-x-1"
+                  className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                    isAnonymous ? "translate-x-5" : "translate-x-0"
                   }`}
                 />
               </button>
@@ -315,14 +352,20 @@ export default function PostDetailPage() {
               <article className="app-card app-card-hover p-4" key={comment.id}>
                 <div className="flex gap-4">
                   <button
-                    className="flex h-fit w-10 shrink-0 flex-col items-center rounded-lg bg-surface-low py-2 text-app-muted transition-colors hover:text-secondary-container"
+                    aria-label={
+                      comment.upvoted ? "Remove comment upvote" : "Upvote comment"
+                    }
+                    aria-pressed={comment.upvoted}
+                    className={`inline-flex h-9 shrink-0 items-center gap-1.5 self-start rounded-full border px-3 text-xs font-bold transition-all hover:-translate-y-0.5 ${
+                      comment.upvoted
+                        ? "border-secondary-container/40 bg-secondary-container text-white shadow-[0_8px_18px_rgba(253,134,20,0.2)]"
+                        : "border-surface-variant bg-white text-app-muted hover:border-primary/30 hover:bg-primary-fixed hover:text-primary"
+                    }`}
                     onClick={() => handleCommentUpvote(comment.id)}
                     type="button"
                   >
                     <Icon name="chevronUp" className="h-4 w-4" />
-                    <span className="text-xs font-bold text-app-text">
-                      {comment.upvotes}
-                    </span>
+                    <span>{comment.upvotes}</span>
                   </button>
 
                   <div className="min-w-0 flex-1">
@@ -330,10 +373,29 @@ export default function PostDetailPage() {
                       {comment.content}
                     </p>
                     <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-app-muted">
-                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary-fixed text-xs font-bold text-primary">
-                        {comment.username.charAt(0).toUpperCase()}
-                      </div>
-                      <span>{comment.username}</span>
+                      {comment.is_anonymous || !comment.user_id ? (
+                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary-fixed text-xs font-bold text-primary">
+                          {comment.username.charAt(0).toUpperCase()}
+                        </div>
+                      ) : (
+                        <Link
+                          aria-label={`View ${comment.username}'s profile`}
+                          className="flex h-6 w-6 items-center justify-center rounded-full bg-primary-fixed text-xs font-bold text-primary transition-colors hover:bg-primary hover:text-white"
+                          to={`/users/${comment.user_id}`}
+                        >
+                          {comment.username.charAt(0).toUpperCase()}
+                        </Link>
+                      )}
+                      {comment.is_anonymous || !comment.user_id ? (
+                        <span>{comment.username}</span>
+                      ) : (
+                        <Link
+                          className="font-semibold hover:text-primary"
+                          to={`/users/${comment.user_id}`}
+                        >
+                          {comment.username}
+                        </Link>
+                      )}
                       <span>{new Date(comment.created_at).toLocaleDateString()}</span>
                       <button
                         className="font-semibold hover:text-primary"

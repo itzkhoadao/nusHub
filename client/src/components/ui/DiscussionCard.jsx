@@ -7,7 +7,11 @@ export default function DiscussionCard({ post, onUpvote }) {
   return (
     <article className="app-card app-card-hover p-5">
       <div className="flex gap-4">
-        <VoteBlock count={post.upvotes} onUpvote={() => onUpvote?.(post.id)} />
+        <VoteBlock
+          active={post.upvoted}
+          count={post.upvotes}
+          onUpvote={() => onUpvote?.(post.id)}
+        />
 
         <div className="min-w-0 flex-1">
           <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-app-muted">

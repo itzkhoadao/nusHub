@@ -1,17 +1,42 @@
 const express = require("express");
 const router = express.Router();
 const { Pool } = require("pg");
+const jwt = require("jsonwebtoken");
 const authenticate = require("../middleware/authenticate");
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
+function getOptionalUserId(req) {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (!token) {
+    return null;
+  }
+
+  try {
+    return jwt.verify(token, process.env.JWT_SECRET).id;
+  } catch (err) {
+    return null;
+  }
+}
+
 // GET /api/posts — fetch all posts
 router.get("/", async (req, res) => {
   // do not use authenticate => can view posts without logging in
   try {
     const { topic, sort, search } = req.query;
+    const userId = getOptionalUserId(req);
+    const params = [];
+
+    const upvotedSelect = userId
+      ? `EXISTS (
+          SELECT 1 FROM post_upvotes pu
+          WHERE pu.post_id = p.id AND pu.user_id = $${params.push(userId)}
+        )`
+      : "false";
 
     let query = `
       SELECT 
@@ -21,14 +46,13 @@ router.get("/", async (req, res) => {
           WHEN p.user_id IS NULL THEN '[Deleted user]'
           ELSE u.username
         END as username,
-        COUNT(c.id) as comment_count
+        COUNT(c.id) as comment_count,
+        ${upvotedSelect} as upvoted
       FROM posts p
       LEFT JOIN users u ON p.user_id = u.id
       LEFT JOIN comments c ON c.post_id = p.id
       WHERE 1=1
     `;
-
-    const params = [];
 
     if (topic && topic !== "All") {
       params.push(topic);
@@ -116,6 +140,15 @@ router.post("/:id/upvote", authenticate, async (req, res) => {
 router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = getOptionalUserId(req);
+    const params = [id];
+
+    const upvotedSelect = userId
+      ? `EXISTS (
+          SELECT 1 FROM post_upvotes pu
+          WHERE pu.post_id = p.id AND pu.user_id = $${params.push(userId)}
+        )`
+      : "false";
 
     const result = await pool.query(
       `SELECT 
@@ -124,11 +157,12 @@ router.get("/:id", async (req, res) => {
           WHEN p.is_anonymous = true THEN 'Anonymous'
           WHEN p.user_id IS NULL THEN '[Deleted user]'
           ELSE u.username
-        END as username
+        END as username,
+        ${upvotedSelect} as upvoted
        FROM posts p
        LEFT JOIN users u ON p.user_id = u.id
        WHERE p.id = $1`,
-      [id],
+      params,
     );
 
     if (result.rows.length === 0) {

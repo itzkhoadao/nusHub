@@ -79,10 +79,18 @@ router.get("/:id", async (req, res) => {
 // post: create a new group
 router.post("/", authenticate, async (req, res) => {
   try {
-    const { name, module_code, description } = req.body;
+    const name = req.body.name?.trim();
+    const module_code = req.body.module_code?.trim() || null;
+    const description = req.body.description?.trim() || null;
 
     if (!name) {
       return res.status(400).json({ error: "Please name your group!" });
+    }
+
+    if (module_code && module_code.length > 20) {
+      return res.status(400).json({
+        error: "Module code must be 20 characters or fewer, e.g. MA1521.",
+      });
     }
 
     // create the group

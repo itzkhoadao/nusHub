@@ -53,6 +53,11 @@ export default function GroupsPage() {
       return;
     }
 
+    if (newGroup.module_code.length > 20) {
+      setError("Module code must be 20 characters or fewer. Use something like MA1521.");
+      return;
+    }
+
     setCreating(true);
     setError("");
 
@@ -177,11 +182,19 @@ export default function GroupsPage() {
               <input
                 className="app-input"
                 onChange={(e) =>
-                  setNewGroup({ ...newGroup, module_code: e.target.value })
+                  setNewGroup({
+                    ...newGroup,
+                    module_code: e.target.value.toUpperCase(),
+                  })
                 }
-                placeholder="Module code (e.g. CS2103T) - optional"
+                maxLength={20}
+                placeholder="Module code only (e.g. MA1521) - optional"
                 value={newGroup.module_code}
               />
+              <p className="text-xs font-semibold text-app-muted">
+                Put the full module title in the group name or description.
+                Module code is limited to 20 characters.
+              </p>
               <textarea
                 className="app-input h-28 resize-none"
                 onChange={(e) =>
