@@ -12,12 +12,14 @@ const postRoutes = require("./routes/posts");
 const commentRoutes = require("./routes/comments");
 const userRoutes = require("./routes/users");
 const groupRoutes = require("./routes/groups");
+const recentRoutes = require("./routes/recent");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/posts/:postId/comments", commentRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/groups", groupRoutes);
+app.use("/api/recent", recentRoutes);
 
 const pool = new Pool({
   // creates a PostgreSQL connection pool

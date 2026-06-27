@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import AuthLayout from "../components/auth/AuthLayout";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -37,69 +38,71 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <span className="text-white font-bold text-2xl">N</span>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-800">Welcome back</h1>
-          <p className="text-gray-500 text-sm mt-1">Log in to NUSHub</p>
-        </div>
-
-        {/* Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-          {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-5 text-sm flex items-center gap-2">
-              <span>⚠</span> {error}
-            </div>
-          )}
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Email
-              </label>
-              <input
-                type="email"
-                className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                placeholder="you@u.nus.edu"
-                onChange={e => setEmail(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Password
-              </label>
-              <input
-                type="password"
-                className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                placeholder="••••••••"
-                onChange={e => setPassword(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleLogin()}
-              />
-            </div>
-          </div>
-
-          <button
-            onClick={handleLogin}
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium mt-6 hover:bg-blue-700 transition-colors disabled:opacity-50"
-          >
-            {loading ? 'Logging in...' : 'Log In'}
-          </button>
-
-          <p className="text-center text-sm text-gray-500 mt-5">
-            Don't have an account?{' '}
-            <Link to="/register" className="text-blue-600 font-medium hover:underline">
-              Register
-            </Link>
+    <AuthLayout>
+      <div className="rounded-2xl border border-surface-variant bg-white/90 p-7 shadow-raised backdrop-blur sm:p-8">
+        <div>
+          <p className="text-sm font-bold uppercase tracking-[0.18em] text-secondary-container">
+            Welcome back
+          </p>
+          <h1 className="auth-display mt-3 text-4xl font-black text-primary">
+            Log in to NUSHub
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-app-muted">
+            Continue to your forum feed, study groups, and recent campus discussions.
           </p>
         </div>
+
+        {error && (
+          <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-app-danger">
+            {error}
+          </div>
+        )}
+
+        <div className="mt-7 space-y-5">
+          <label className="block">
+            <span className="mb-2 block text-sm font-bold text-app-text">
+              Email
+            </span>
+            <input
+              className="h-12 w-full rounded-lg border border-outline-variant bg-white px-4 text-sm font-semibold text-app-text outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@u.nus.edu"
+              type="email"
+              value={email}
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-sm font-bold text-app-text">
+              Password
+            </span>
+            <input
+              className="h-12 w-full rounded-lg border border-outline-variant bg-white px-4 text-sm font-semibold text-app-text outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+              placeholder="Enter your password"
+              type="password"
+              value={password}
+            />
+          </label>
+        </div>
+
+        <button
+          className="mt-7 flex h-12 w-full items-center justify-center rounded-lg bg-primary px-4 text-sm font-black text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-primary-container disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-60"
+          disabled={loading}
+          onClick={handleLogin}
+          type="button"
+        >
+          {loading ? "Logging in..." : "Log in"}
+        </button>
+
+        <div className="mt-6 rounded-lg bg-surface-low px-4 py-3 text-center text-sm font-semibold text-app-muted">
+          New to NUSHub?{" "}
+          <Link className="font-black text-primary hover:underline" to="/register">
+            Create an account
+          </Link>
+        </div>
       </div>
-    </div>
-  )
+    </AuthLayout>
+  );
 }

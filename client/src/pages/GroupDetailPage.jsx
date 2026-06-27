@@ -22,7 +22,10 @@ export default function GroupDetailPage() {
 
     const fetchGroup = async () => {
       try {
-        const res = await fetch(`http://localhost:5000/api/groups/${id}`); // request
+        const token = localStorage.getItem("token");
+        const res = await fetch(`http://localhost:5000/api/groups/${id}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        }); // request
         const data = await res.json(); // get response
 
         if (!res.ok) {
