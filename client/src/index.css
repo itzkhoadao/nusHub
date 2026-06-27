@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -96,5 +98,14 @@ select {
 
   .app-badge {
     @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold;
+  }
+
+  .auth-page {
+    font-family: "Poppins", "Inter", "Segoe UI", sans-serif;
+  }
+
+  .auth-display {
+    font-family: "Poppins", "Inter", "Segoe UI", sans-serif;
+    letter-spacing: 0;
   }
 }

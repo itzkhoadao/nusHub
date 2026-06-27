@@ -3,6 +3,7 @@ const router = express.Router();
 const { Pool } = require("pg");
 const jwt = require("jsonwebtoken");
 const authenticate = require("../middleware/authenticate");
+const { saveRecentActivity } = require("../utils/recentActivity");
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -169,6 +170,7 @@ router.get("/:id", async (req, res) => {
       return res.status(404).json({ error: "Post not found" });
     }
 
+    await saveRecentActivity(userId, "post", id); // for the recent activities part
     res.json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });

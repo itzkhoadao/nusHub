@@ -7,6 +7,7 @@ import { Link, useNavigate } from "react-router-dom";
 import AppShell from "../components/layout/AppShell";
 import AiAssistantCard from "../components/ui/AiAssistantCard";
 import DiscussionCard from "../components/ui/DiscussionCard";
+import { getRecentActivity } from "../utils/recentActivity";
 
 const TOPICS = [
   "All",
@@ -24,6 +25,7 @@ export default function HomePage() {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("recent");
   const [loading, setLoading] = useState(true);
+  const [recentItems, setRecentItems] = useState([]);
   const navigate = useNavigate();
 
   const user = JSON.parse(localStorage.getItem("user"));
@@ -67,6 +69,25 @@ export default function HomePage() {
 
     fetchPosts();
   }, [topic, sort]);
+
+  // reads user's 3 most recently opened posts/groups from the database
+  useEffect(() => {
+    const fetchRecentItems = async () => {
+      setRecentItems(await getRecentActivity());
+    };
+
+    fetchRecentItems();
+
+    const handleFocus = () => {
+      fetchRecentItems();
+    };
+
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [user?.id]);
 
   // handleSearch runs whenenever user searches
   const handleSearch = (searchText = search) => {
@@ -113,22 +134,31 @@ export default function HomePage() {
         <div className="space-y-4">
           <AiAssistantCard />
 
-          {/* Right sidebar helper links inspired by the Stitch dashboard design */}
+          {/* Right sidebar remembers posts/groups the user opened recently */}
           <section className="app-card p-5">
             <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-app-muted">
-              Quick Links & Topics
+              Recent
             </h2>
-            <div className="space-y-3 text-sm font-semibold text-app-text">
-              <Link className="block hover:text-primary" to="/">
-                CS1101S Discussion
-              </Link>
-              <Link className="block hover:text-primary" to="/">
-                UTown Housing
-              </Link>
-              <Link className="block hover:text-primary" to="/">
-                NUS Bus Updates
-              </Link>
-            </div>
+            {recentItems.length > 0 ? (
+              <div className="space-y-3 text-sm font-semibold text-app-text">
+                {recentItems.map((item) => (
+                  <Link
+                    className="block rounded-lg border border-surface-variant bg-white p-3 transition-colors hover:border-primary hover:text-primary"
+                    key={`${item.type}-${item.id}`}
+                    to={item.path}
+                  >
+                    <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-app-muted">
+                      {item.type === "group" ? "Group" : "Post"}
+                    </span>
+                    {item.title}
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-app-muted">
+                Open a post or study group to see it here.
+              </p>
+            )}
           </section>
         </div>
       }

@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import AuthLayout from "../components/auth/AuthLayout";
 
 export default function RegisterPage() {
   // useState stores the values the user types into the form
@@ -8,6 +9,8 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const googleButtonRef = useRef(null);
 
   // useNavigate lets us redirect the user to another page
   const navigate = useNavigate();
@@ -45,89 +48,183 @@ export default function RegisterPage() {
     }
   };
 
+  const handleGoogleCredential = async (response) => {
+    setGoogleLoading(true);
+    setError("");
+
+    try { // send Google credentials data to backend
+      const res = await fetch("http://localhost:5000/api/auth/google", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credential: response.credential }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error);
+        return; 
+      }
+
+      // save user info got from backend to local storage
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      navigate("/");
+    } catch (err) {
+      setError("Google sign-in failed. Is your server running?");
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+    if (!clientId || !googleButtonRef.current) {
+      return;
+    }
+
+    const renderGoogleButton = () => {
+      if (!window.google?.accounts?.id || !googleButtonRef.current) {
+        return;
+      }
+
+      googleButtonRef.current.innerHTML = "";
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: handleGoogleCredential,
+      }); // Use this app's Google Client ID, after sign in call handleGoogleCredential
+
+      window.google.accounts.id.renderButton(googleButtonRef.current, {
+        logo_alignment: "left",
+        shape: "pill",
+        size: "large",
+        text: "continue_with",
+        theme: "outline",
+        width: 400,
+      }); // render the actual Google sign in button
+    };
+
+    // If Google script is already loaded, render the button immediately
+    if (window.google?.accounts?.id) {
+      renderGoogleButton();
+      return;
+    }
+
+    const existingScript = document.getElementById("google-identity-service");
+
+    // checks if the script tag already exists, waits for it to finish loading
+    if (existingScript) {
+      existingScript.addEventListener("load", renderGoogleButton);
+      return () =>
+        existingScript.removeEventListener("load", renderGoogleButton); // remove listener to avoid duplicates
+    }
+
+    // If script does not exist, create it
+    const script = document.createElement("script");
+    script.id = "google-identity-service";
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = renderGoogleButton;
+    document.body.appendChild(script);
+  }, []);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <span className="text-white font-bold text-2xl">N</span>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-800">Join NUSHub</h1>
-          <p className="text-gray-500 text-sm mt-1">
-            The NUS student community platform
+    <AuthLayout>
+      <div className="rounded-2xl border border-surface-variant bg-white/90 p-5 shadow-raised backdrop-blur sm:p-6">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-secondary-container">
+            Join the community
+          </p>
+          <h1 className="auth-display mt-2 text-3xl font-black text-primary">
+            Create your account
+          </h1>
+          <p className="mt-2 text-sm leading-5 text-app-muted">
+            Start posting, commenting, and joining NUS study groups with one account.
           </p>
         </div>
 
-        {/* Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-          {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-5 text-sm flex items-center gap-2">
-              <span>⚠</span> {error}
-            </div>
+        {error && (
+          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-app-danger">
+            {error}
+          </div>
+        )}
+
+        <div className="mt-5 space-y-3">
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-bold text-app-text">
+              Username
+            </span>
+            <input
+              className="h-11 w-full rounded-lg border border-outline-variant bg-white px-4 text-sm font-semibold text-app-text outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="e.g. khoa123"
+              value={username}
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-bold text-app-text">
+              Email
+            </span>
+            <input
+              className="h-11 w-full rounded-lg border border-outline-variant bg-white px-4 text-sm font-semibold text-app-text outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@u.nus.edu"
+              type="email"
+              value={email}
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-bold text-app-text">
+              Password
+            </span>
+            <input
+              className="h-11 w-full rounded-lg border border-outline-variant bg-white px-4 text-sm font-semibold text-app-text outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleRegister()}
+              placeholder="Create a password"
+              type="password"
+              value={password}
+            />
+          </label>
+        </div>
+
+        <button
+          className="mt-5 flex h-11 w-full items-center justify-center rounded-lg bg-secondary-container px-4 text-sm font-black text-white shadow-soft transition hover:-translate-y-0.5 hover:opacity-90 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-60"
+          disabled={loading}
+          onClick={handleRegister}
+          type="button"
+        >
+          {loading ? "Creating account..." : "Create account"}
+        </button>
+
+        <div className="my-5 flex items-center gap-3">
+          <div className="h-px flex-1 bg-surface-variant" />
+          <span className="text-xs font-bold uppercase tracking-[0.18em] text-app-muted">
+            or
+          </span>
+          <div className="h-px flex-1 bg-surface-variant" />
+        </div>
+
+        <div>
+          <div className="flex justify-center" ref={googleButtonRef} />
+          {googleLoading && (
+            <p className="mt-2 text-center text-xs font-semibold text-app-muted">
+              Signing in with Google...
+            </p>
           )}
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Username
-              </label>
-              <input
-                className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                placeholder="e.g. khoa123"
-                onChange={(e) => setUsername(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Email
-              </label>
-              <input
-                type="email"
-                className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                placeholder="you@u.nus.edu"
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Password
-              </label>
-              <input
-                type="password"
-                className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                placeholder="••••••••"
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleRegister()}
-              />
-            </div>
-          </div>
-
-          <button
-            onClick={handleRegister}
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium mt-6 hover:bg-blue-700 transition-colors disabled:opacity-50"
-          >
-            {loading ? "Creating account..." : "Create Account"}
-          </button>
-
-          <p className="text-center text-sm text-gray-500 mt-5">
-            Already have an account?{" "}
-            <Link
-              to="/login"
-              className="text-blue-600 font-medium hover:underline"
-            >
-              Log in
-            </Link>
-          </p>
         </div>
 
-        <p className="text-center text-xs text-gray-400 mt-6">
-          For NUS students only
-        </p>
+        <div className="mt-4 rounded-lg bg-surface-low px-4 py-3 text-center text-sm font-semibold text-app-muted">
+          Already have an account?{" "}
+          <Link className="font-black text-primary hover:underline" to="/login">
+            Log in
+          </Link>
+        </div>
       </div>
-    </div>
+    </AuthLayout>
   );
 }

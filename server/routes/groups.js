@@ -1,11 +1,28 @@
 const express = require("express");
 const router = express.Router();
 const { Pool } = require("pg");
+const jwt = require("jsonwebtoken");
 const authenticate = require("../middleware/authenticate");
+const { saveRecentActivity } = require("../utils/recentActivity");
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
+
+function getOptionalUserId(req) {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (!token) {
+    return null;
+  }
+
+  try {
+    return jwt.verify(token, process.env.JWT_SECRET).id;
+  } catch (err) {
+    return null;
+  }
+}
 
 // get all study groups
 router.get("/", async (req, res) => {
@@ -43,6 +60,7 @@ router.get("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = getOptionalUserId(req);
 
     // get group info
     const groupResult = await pool.query(
@@ -66,6 +84,8 @@ router.get("/:id", async (req, res) => {
             ORDER BY gm.joined_at ASC`,
       [id],
     );
+
+    await saveRecentActivity(userId, "group", id); // save for the recent activities part
 
     res.json({
       group: groupResult.rows[0],
