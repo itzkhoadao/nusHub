@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "../Icon";
 
@@ -12,6 +12,7 @@ export default function Topbar({
 }) {
   const [searchApplied, setSearchApplied] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const accountMenuRef = useRef(null);
   const hasSearch = typeof onSearchChange === "function";
   const navigate = useNavigate();
 
@@ -20,6 +21,32 @@ export default function Topbar({
       setSearchApplied(false);
     }
   }, [searchValue]);
+
+  useEffect(() => {
+    if (!accountOpen) {
+      return;
+    }
+
+    const closeAccountMenu = (event) => {
+      if (!accountMenuRef.current?.contains(event.target)) {
+        setAccountOpen(false);
+      }
+    };
+
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") {
+        setAccountOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", closeAccountMenu);
+    document.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", closeAccountMenu);
+      document.removeEventListener("keydown", closeOnEscape);
+    }; // avoid duplication
+  }, [accountOpen]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -92,7 +119,7 @@ export default function Topbar({
           <Icon name="bell" />
         </button>
 
-        <div className="relative">
+        <div className="relative" ref={accountMenuRef}>
           <button
             aria-expanded={accountOpen}
             aria-label="Open account menu"
