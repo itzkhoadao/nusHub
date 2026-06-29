@@ -135,7 +135,7 @@ export default function HomePage() {
           <AiAssistantCard />
 
           {/* Right sidebar remembers posts/groups the user opened recently */}
-          <section className="app-card p-5">
+          <section className="app-section-card">
             <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-app-muted">
               Recent
             </h2>
@@ -143,7 +143,7 @@ export default function HomePage() {
               <div className="space-y-3 text-sm font-semibold text-app-text">
                 {recentItems.map((item) => (
                   <Link
-                    className="block rounded-lg border border-surface-variant bg-white p-3 transition-colors hover:border-primary hover:text-primary"
+                    className="group block rounded-lg border border-slate-200 bg-white p-3 shadow-sm ring-1 ring-slate-900/5 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:bg-primary-fixed/30 hover:text-primary"
                     key={`${item.type}-${item.id}`}
                     to={item.path}
                   >
@@ -166,7 +166,7 @@ export default function HomePage() {
     >
       <div className="space-y-6">
         {/* Hero summary: tells the user what this feed is for */}
-        <section className="rounded-2xl bg-primary px-6 py-7 text-white shadow-soft">
+        <section className="app-hero">
           <p className="text-sm font-semibold uppercase tracking-wide text-primary-fixed-dim">
             NUSHub Community
           </p>
@@ -187,7 +187,7 @@ export default function HomePage() {
         </section>
 
         {/* Sort and topic filters. Search lives in the topbar now. */}
-        <section className="app-card p-4">
+        <section className="app-section-card">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h2 className="text-sm font-bold uppercase tracking-wide text-app-muted">
@@ -198,13 +198,13 @@ export default function HomePage() {
               </p>
             </div>
 
-            <div className="flex w-fit rounded-lg border border-surface-variant bg-surface-low p-1">
+            <div className="flex w-fit rounded-lg border border-slate-200 bg-surface-low p-1 shadow-inner">
               {["recent", "popular"].map((option) => (
                 <button
                   className={`rounded-md px-4 py-2 text-sm font-bold capitalize transition-colors ${
                     sort === option
-                      ? "bg-primary text-white"
-                      : "text-app-muted hover:text-primary"
+                    ? "bg-primary text-white shadow-sm"
+                    : "text-app-muted hover:bg-white hover:text-primary"
                   }`}
                   key={option}
                   onClick={() => setSort(option)}
@@ -221,8 +221,8 @@ export default function HomePage() {
               <button
                 className={`rounded-full border px-4 py-1.5 text-sm font-bold transition-colors ${
                   topic === item
-                    ? "border-primary bg-primary text-white"
-                    : "border-surface-variant bg-white text-app-muted hover:border-primary hover:text-primary"
+                    ? "border-primary bg-primary text-white shadow-sm"
+                    : "border-slate-200 bg-white text-app-muted shadow-sm hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary-fixed/30 hover:text-primary"
                 }`}
                 key={item}
                 onClick={() => setTopic(item)}
@@ -246,7 +246,7 @@ export default function HomePage() {
             ))}
           </div>
         ) : posts.length === 0 ? (
-          <section className="app-card p-10 text-center">
+          <section className="app-empty-state">
             <h2 className="text-xl font-bold text-app-text">No posts yet</h2>
             <p className="mt-2 text-sm text-app-muted">
               Be the first to start a discussion.

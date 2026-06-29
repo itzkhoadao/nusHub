@@ -8,7 +8,7 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
-// get the user's profile when logging in
+// get the user's profile
 router.get("/me", authenticate, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -44,10 +44,27 @@ router.get("/me", authenticate, async (req, res) => {
       [userId],
     );
 
+    // Get study groups the user has joined
+    const groupsResult = await pool.query(
+      `SELECT g.id, g.name, g.module_code, g.description,
+              gm.joined_at,
+              u.username as creator_name,
+              COUNT(all_members.user_id) as member_count
+       FROM group_members gm
+       JOIN study_groups g ON g.id = gm.group_id
+       LEFT JOIN users u ON u.id = g.creator_id
+       LEFT JOIN group_members all_members ON all_members.group_id = g.id
+       WHERE gm.user_id = $1
+       GROUP BY g.id, gm.joined_at, u.username
+       ORDER BY gm.joined_at DESC`,
+      [userId],
+    );
+
     res.json({
       user: userResult.rows[0],
       posts: postsResult.rows,
       comments: commentsResult.rows,
+      groups: groupsResult.rows,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -90,10 +107,27 @@ router.get("/:id", async (req, res) => {
       [id],
     );
 
+    // Get study groups this user has joined
+    const groupsResult = await pool.query(
+      `SELECT g.id, g.name, g.module_code, g.description,
+              gm.joined_at,
+              u.username as creator_name,
+              COUNT(all_members.user_id) as member_count
+       FROM group_members gm
+       JOIN study_groups g ON g.id = gm.group_id
+       LEFT JOIN users u ON u.id = g.creator_id
+       LEFT JOIN group_members all_members ON all_members.group_id = g.id
+       WHERE gm.user_id = $1
+       GROUP BY g.id, gm.joined_at, u.username
+       ORDER BY gm.joined_at DESC`,
+      [id],
+    );
+
     res.json({
       user: userResult.rows[0],
       posts: postsResult.rows,
       comments: commentsResult.rows,
+      groups: groupsResult.rows,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

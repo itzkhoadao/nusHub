@@ -8,6 +8,13 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
+async function ensureCommentRepliesColumn() {
+  await pool.query(`
+    ALTER TABLE comments
+    ADD COLUMN IF NOT EXISTS parent_comment_id UUID REFERENCES comments(id) ON DELETE CASCADE
+  `);
+}
+
 function getOptionalUserId(req) {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
@@ -26,6 +33,8 @@ function getOptionalUserId(req) {
 // GET /api/posts/:postId/comments — get all comments, display ones with the most upvotes first
 router.get("/", async (req, res) => {
   try {
+    await ensureCommentRepliesColumn();
+
     const { postId } = req.params;
     const userId = getOptionalUserId(req);
     const params = [postId];
@@ -49,7 +58,9 @@ router.get("/", async (req, res) => {
        FROM comments c
        LEFT JOIN users u ON c.user_id = u.id
        WHERE c.post_id = $1
-       ORDER BY c.upvotes DESC, c.created_at ASC`,
+       ORDER BY
+        CASE WHEN c.parent_comment_id IS NULL THEN c.upvotes ELSE 0 END DESC,
+        c.created_at ASC`,
       params,
     );
 
@@ -62,18 +73,31 @@ router.get("/", async (req, res) => {
 // POST /api/posts/:postId/comments — post a comment to the post
 router.post("/", authenticate, async (req, res) => {
   try {
+    await ensureCommentRepliesColumn();
+
     const { postId } = req.params;
-    const { content, is_anonymous } = req.body;
+    const { content, is_anonymous, parent_comment_id } = req.body;
 
     if (!content || !content.trim()) {
       return res.status(400).json({ error: "Comment cannot be empty" });
     }
 
+    if (parent_comment_id) {
+      const parentResult = await pool.query(
+        `SELECT 1 FROM comments WHERE id = $1 AND post_id = $2`,
+        [parent_comment_id, postId],
+      );
+
+      if (parentResult.rows.length === 0) {
+        return res.status(400).json({ error: "Reply target is invalid" });
+      }
+    }
+
     const result = await pool.query(
-      `INSERT INTO comments (post_id, user_id, content, is_anonymous)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO comments (post_id, user_id, content, is_anonymous, parent_comment_id)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [postId, req.user.id, content, is_anonymous || false],
+      [postId, req.user.id, content, is_anonymous || false, parent_comment_id || null],
     );
 
     res.json(result.rows[0]);

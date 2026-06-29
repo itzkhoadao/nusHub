@@ -39,7 +39,7 @@ export default function LoginPage() {
 
   return (
     <AuthLayout>
-      <div className="rounded-2xl border border-surface-variant bg-white/90 p-7 shadow-raised backdrop-blur sm:p-8">
+      <div className="rounded-lg border border-slate-200 bg-white/90 p-7 shadow-[0_24px_70px_rgba(15,23,42,0.14)] ring-1 ring-slate-900/5 backdrop-blur sm:p-8">
         <div>
           <p className="text-sm font-bold uppercase tracking-[0.18em] text-secondary-container">
             Welcome back
@@ -64,7 +64,7 @@ export default function LoginPage() {
               Email
             </span>
             <input
-              className="h-12 w-full rounded-lg border border-outline-variant bg-white px-4 text-sm font-semibold text-app-text outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
+              className="app-input h-12 text-sm font-semibold"
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@u.nus.edu"
               type="email"
@@ -77,7 +77,7 @@ export default function LoginPage() {
               Password
             </span>
             <input
-              className="h-12 w-full rounded-lg border border-outline-variant bg-white px-4 text-sm font-semibold text-app-text outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
+              className="app-input h-12 text-sm font-semibold"
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleLogin()}
               placeholder="Enter your password"
@@ -88,7 +88,7 @@ export default function LoginPage() {
         </div>
 
         <button
-          className="mt-7 flex h-12 w-full items-center justify-center rounded-lg bg-primary px-4 text-sm font-black text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-primary-container disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-60"
+          className="app-button-primary mt-7 h-12 w-full text-sm font-black"
           disabled={loading}
           onClick={handleLogin}
           type="button"
@@ -96,7 +96,7 @@ export default function LoginPage() {
           {loading ? "Logging in..." : "Log in"}
         </button>
 
-        <div className="mt-6 rounded-lg bg-surface-low px-4 py-3 text-center text-sm font-semibold text-app-muted">
+        <div className="mt-6 rounded-lg border border-slate-200 bg-surface-low px-4 py-3 text-center text-sm font-semibold text-app-muted shadow-sm">
           New to NUSHub?{" "}
           <Link className="font-black text-primary hover:underline" to="/register">
             Create an account

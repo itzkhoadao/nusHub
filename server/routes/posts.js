@@ -47,6 +47,10 @@ router.get("/", async (req, res) => {
           WHEN p.user_id IS NULL THEN '[Deleted user]'
           ELSE u.username
         END as username,
+        CASE
+          WHEN p.is_anonymous = true THEN NULL
+          ELSE u.avatar_url
+        END as avatar_url,
         COUNT(c.id) as comment_count,
         ${upvotedSelect} as upvoted
       FROM posts p
@@ -65,7 +69,7 @@ router.get("/", async (req, res) => {
       query += ` AND (p.title ILIKE $${params.length} OR p.content ILIKE $${params.length})`;
     }
 
-    query += ` GROUP BY p.id, u.username`;
+    query += ` GROUP BY p.id, u.username, u.avatar_url`;
     query +=
       sort === "popular"
         ? " ORDER BY p.upvotes DESC"

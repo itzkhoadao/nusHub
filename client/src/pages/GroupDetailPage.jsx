@@ -94,12 +94,12 @@ export default function GroupDetailPage() {
             title="Group Study Assistant"
           />
 
-          <section className="app-card p-5">
+          <section className="app-section-card">
             <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-app-muted">
               Group Snapshot
             </h2>
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl bg-surface-low p-4 text-center">
+              <div className="app-stat-card text-center">
                 <div className="text-2xl font-bold text-primary">
                   {members.length}
                 </div>
@@ -107,7 +107,7 @@ export default function GroupDetailPage() {
                   Members
                 </div>
               </div>
-              <div className="rounded-xl bg-surface-low p-4 text-center">
+              <div className="app-stat-card text-center">
                 <div className="text-2xl font-bold text-primary">
                   {group.module_code || "-"}
                 </div>
@@ -130,7 +130,7 @@ export default function GroupDetailPage() {
         </Link>
 
         {/* Group info card */}
-        <section className="rounded-2xl bg-primary px-6 py-7 text-white shadow-soft">
+        <section className="app-hero">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
               {group.module_code && (
@@ -147,14 +147,14 @@ export default function GroupDetailPage() {
                 </p>
               )}
               <p className="mt-4 text-xs font-semibold text-primary-fixed-dim">
-                Created by {group.creator_name || "Anonymous"} ·{" "}
+                Created by {group.creator_name || "Anonymous"} -{" "}
                 {members.length} member{members.length !== 1 ? "s" : ""}
               </p>
             </div>
 
             {/* Join/Leave button */}
             <button
-              className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-bold transition-colors disabled:opacity-50 ${
+              className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-bold shadow-sm transition-all hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-50 ${
                 isMember
                   ? "bg-white text-app-danger hover:bg-red-50"
                   : "bg-secondary-container text-white hover:opacity-90"
@@ -178,15 +178,28 @@ export default function GroupDetailPage() {
           </div>
 
           <div className="divide-y divide-surface-variant">
-            {members.map((member) => (
-              <div className="flex items-center gap-3 p-4" key={member.id}>
-                {/* Avatar circle */}
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-fixed text-sm font-bold text-primary">
-                  {member.username.charAt(0).toUpperCase()}
-                </div>
+            {members.map((member) => {
+              const profilePath =
+                member.id === user.id ? "/profile" : `/users/${member.id}`;
+
+              return (
+                <div className="flex items-center gap-3 p-4 transition-colors hover:bg-primary-fixed/20" key={member.id}>
+                  {/* Avatar circle */}
+                  <Link
+                    aria-label={`View ${member.username}'s profile`}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-fixed text-sm font-bold text-primary shadow-sm ring-2 ring-white transition-all hover:-translate-y-0.5 hover:bg-primary hover:text-white"
+                    to={profilePath}
+                  >
+                    {member.username.charAt(0).toUpperCase()}
+                  </Link>
                 <div className="min-w-0 flex-1">
                   <p className="flex flex-wrap items-center gap-2 text-sm font-bold text-app-text">
-                    {member.username}
+                    <Link
+                      className="hover:text-primary hover:underline"
+                      to={profilePath}
+                    >
+                      {member.username}
+                    </Link>
                     {member.id === group.creator_id && (
                       <span className="app-badge bg-amber-50 text-amber-700">
                         Creator
@@ -202,8 +215,9 @@ export default function GroupDetailPage() {
                     Joined {new Date(member.joined_at).toLocaleDateString()}
                   </p>
                 </div>
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         </section>
       </div>

@@ -6,7 +6,7 @@ import TopicBadge from "../components/ui/TopicBadge";
 
 function StatTile({ label, value, helper }) {
   return (
-    <div className="rounded-2xl border border-surface-variant bg-white p-4 shadow-soft">
+    <div className="app-stat-card">
       <div className="text-3xl font-bold tracking-tight text-primary">
         {value}
       </div>
@@ -34,7 +34,7 @@ function BadgePill({ label, tone = "blue" }) {
 
 function EmptyState({ title, body, action }) {
   return (
-    <section className="rounded-3xl border border-dashed border-outline-variant bg-white/70 p-10 text-center">
+    <section className="app-empty-state">
       <h2 className="text-xl font-bold text-app-text">{title}</h2>
       <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-app-muted">
         {body}
@@ -98,7 +98,12 @@ export default function ProfilePage() {
     );
   }
 
-  const { user: profileUser, posts, comments } = profileData;
+  const {
+    user: profileUser,
+    posts,
+    comments,
+    groups = [],
+  } = profileData;
   const upvotesReceived = posts.reduce(
     (sum, post) => sum + Number(post.upvotes || 0),
     0,
@@ -116,15 +121,15 @@ export default function ProfilePage() {
   const tabs = [
     { id: "posts", label: "Posts", count: posts.length },
     { id: "comments", label: "Comments", count: comments.length },
-    { id: "groups", label: "Groups", count: 0 },
+    { id: "groups", label: "Groups", count: groups.length },
     { id: "topics", label: "Topics", count: 0 },
   ];
 
   return (
     <AppShell user={user}>
       <div className="mx-auto max-w-6xl space-y-8">
-        <section className="rounded-[2rem] border border-surface-variant bg-white shadow-soft">
-          <div className="relative h-44 overflow-hidden rounded-t-[2rem] bg-primary">
+        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_20px_50px_rgba(15,23,42,0.08)] ring-1 ring-slate-900/5">
+          <div className="relative h-44 overflow-hidden bg-primary">
             <div className="absolute inset-0 bg-[linear-gradient(135deg,_#002754_0%,_#003d7c_45%,_#fd8614_140%)]" />
             <div className="absolute left-8 top-8 rounded-full bg-white/15 px-4 py-2 text-xs font-bold uppercase tracking-widest text-white">
               NUSHub Profile
@@ -164,7 +169,7 @@ export default function ProfilePage() {
               <div className="flex shrink-0 flex-wrap gap-3">
                 {isOwnProfile && (
                   <button
-                    className="rounded-2xl bg-primary px-5 py-3 text-sm font-bold text-white shadow-soft transition-transform hover:-translate-y-0.5"
+                    className="app-button-primary px-5 py-3"
                     type="button"
                   >
                     Edit Profile
@@ -172,7 +177,7 @@ export default function ProfilePage() {
                 )}
                 <button
                   aria-label="Share profile"
-                  className="flex h-11 w-11 items-center justify-center rounded-2xl border border-surface-variant bg-white text-primary shadow-soft transition-colors hover:bg-primary hover:text-white"
+                  className="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 bg-white text-primary shadow-sm ring-1 ring-slate-900/5 transition-all hover:-translate-y-0.5 hover:bg-primary hover:text-white"
                   type="button"
                 >
                   <Icon name="share" className="h-5 w-5" />
@@ -207,14 +212,14 @@ export default function ProfilePage() {
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <div className="space-y-6">
-            <section className="rounded-2xl border border-surface-variant bg-white p-1.5 shadow-soft">
+            <section className="rounded-lg border border-slate-200 bg-white p-1.5 shadow-sm ring-1 ring-slate-900/5">
               <div className="grid gap-1 sm:grid-cols-4">
                 {tabs.map((tab) => (
                   <button
                     className={`rounded-xl px-4 py-3 text-sm font-bold transition-colors ${
                       activeTab === tab.id
-                        ? "bg-primary text-white"
-                        : "text-app-muted hover:bg-surface-low hover:text-primary"
+                        ? "bg-primary text-white shadow-sm"
+                        : "text-app-muted hover:bg-primary-fixed/40 hover:text-primary"
                     }`}
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
@@ -241,7 +246,7 @@ export default function ProfilePage() {
                 <div className="space-y-4">
                   {posts.map((post) => (
                     <Link
-                      className="group block rounded-3xl border border-surface-variant bg-white p-5 shadow-soft transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-raised"
+                      className="group block rounded-lg border border-slate-200 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.06)] ring-1 ring-slate-900/5 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-[0_18px_44px_rgba(0,39,84,0.10)]"
                       key={post.id}
                       to={`/posts/${post.id}`}
                     >
@@ -279,7 +284,7 @@ export default function ProfilePage() {
                 <div className="space-y-4">
                   {comments.map((comment) => (
                     <Link
-                      className="group block rounded-3xl border border-surface-variant bg-white p-5 shadow-soft transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-raised"
+                      className="group block rounded-lg border border-slate-200 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.06)] ring-1 ring-slate-900/5 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-[0_18px_44px_rgba(0,39,84,0.10)]"
                       key={comment.id}
                       to={`/posts/${comment.post_id}`}
                     >
@@ -301,17 +306,60 @@ export default function ProfilePage() {
                 </div>
               ))}
 
-            {activeTab === "groups" && (
-              <EmptyState
-                action={
-                  <Link className="app-button-primary mt-5" to="/groups">
-                    Browse Study Groups
-                  </Link>
-                }
-                body="The backend currently returns posts and comments for profiles. We can add joined groups after extending the profile API."
-                title="Joined groups are coming soon"
-              />
-            )}
+            {activeTab === "groups" &&
+              (groups.length === 0 ? (
+                <EmptyState
+                  action={
+                    <Link className="app-button-primary mt-5" to="/groups">
+                      Browse Study Groups
+                    </Link>
+                  }
+                  body={
+                    isOwnProfile
+                      ? "Study groups you join will appear here."
+                      : "This user has not joined any study groups yet."
+                  }
+                  title="No joined groups yet"
+                />
+              ) : (
+                <div className="space-y-4">
+                  {groups.map((group) => (
+                    <Link
+                      className="group block rounded-lg border border-slate-200 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.06)] ring-1 ring-slate-900/5 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-[0_18px_44px_rgba(0,39,84,0.10)]"
+                      key={group.id}
+                      to={`/groups/${group.id}`}
+                    >
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {group.module_code && (
+                              <span className="app-badge bg-emerald-50 text-emerald-700">
+                                {group.module_code}
+                              </span>
+                            )}
+                            <span className="text-xs font-semibold text-app-muted">
+                              Joined {new Date(group.joined_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <h2 className="mt-3 text-xl font-bold leading-snug text-app-text group-hover:text-primary">
+                            {group.name}
+                          </h2>
+                          {group.description && (
+                            <p className="mt-2 line-clamp-2 text-sm leading-6 text-app-muted">
+                              {group.description}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2 rounded-2xl bg-primary-fixed px-3 py-2 text-sm font-bold text-primary">
+                          <Icon name="groups" className="h-4 w-4" />
+                          {group.member_count} member
+                          {Number(group.member_count) !== 1 ? "s" : ""}
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              ))}
 
             {activeTab === "topics" && (
               <EmptyState
@@ -322,7 +370,7 @@ export default function ProfilePage() {
           </div>
 
           <aside className="space-y-4">
-            <section className="rounded-3xl border border-surface-variant bg-white p-5 shadow-soft">
+            <section className="app-section-card">
               <h2 className="text-sm font-bold uppercase tracking-wide text-app-muted">
                 Community Badges
               </h2>
@@ -333,7 +381,7 @@ export default function ProfilePage() {
               </div>
             </section>
 
-            <section className="rounded-3xl border border-surface-variant bg-white p-5 shadow-soft">
+            <section className="app-section-card">
               <h2 className="text-sm font-bold uppercase tracking-wide text-app-muted">
                 Activity Mix
               </h2>
