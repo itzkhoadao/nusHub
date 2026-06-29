@@ -109,14 +109,14 @@ export default function GroupsPage() {
             title="AI Study Assistant"
           />
 
-          <section className="app-card p-5">
+          <section className="app-section-card">
             <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-app-muted">
               Active Study Areas
             </h2>
             <div className="space-y-3 text-sm">
               {["CS2040S", "CS2103T", "MA1521"].map((moduleCode) => (
                 <div
-                  className="flex items-center justify-between rounded-lg bg-surface-low p-3"
+                  className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-3 shadow-sm ring-1 ring-slate-900/5"
                   key={moduleCode}
                 >
                   <span className="font-bold text-app-text">{moduleCode}</span>
@@ -132,7 +132,7 @@ export default function GroupsPage() {
       user={user}
     >
       <div className="space-y-6">
-        <section className="rounded-2xl bg-primary px-6 py-7 text-white shadow-soft">
+        <section className="app-hero">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="text-sm font-semibold uppercase tracking-wide text-primary-fixed-dim">
@@ -159,7 +159,7 @@ export default function GroupsPage() {
 
         {/* Create group form */}
         {showCreateForm && (
-          <section className="app-card p-5">
+          <section className="app-section-card">
             <h2 className="mb-4 text-lg font-bold text-app-text">
               Create a Study Group
             </h2>
@@ -237,7 +237,7 @@ export default function GroupsPage() {
             ))}
           </div>
         ) : groups.length === 0 ? (
-          <section className="app-card p-10 text-center">
+          <section className="app-empty-state">
             <h2 className="text-xl font-bold text-app-text">No groups yet</h2>
             <p className="mt-2 text-sm text-app-muted">
               Create the first one and invite your classmates.
@@ -254,7 +254,7 @@ export default function GroupsPage() {
           <div className="grid gap-4 lg:grid-cols-2">
             {groups.map((group) => (
               <Link
-                className="app-card app-card-hover block p-5"
+                className="group relative block overflow-hidden rounded-lg border border-slate-200 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.06)] ring-1 ring-slate-900/5 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-[0_18px_44px_rgba(0,39,84,0.10)]"
                 key={group.id}
                 to={`/groups/${group.id}`}
               >
@@ -265,7 +265,7 @@ export default function GroupsPage() {
                         {group.module_code}
                       </span>
                     )}
-                    <h2 className="mt-3 text-lg font-bold leading-snug text-app-text">
+                    <h2 className="mt-3 text-lg font-bold leading-snug text-app-text group-hover:text-primary">
                       {group.name}
                     </h2>
                     {group.description && (
@@ -278,7 +278,7 @@ export default function GroupsPage() {
                     </p>
                   </div>
 
-                  <div className="rounded-xl bg-surface-low px-4 py-3 text-center">
+                  <div className="rounded-lg border border-primary/10 bg-primary-fixed/60 px-4 py-3 text-center shadow-sm">
                     <div className="text-2xl font-bold text-primary">
                       {group.member_count}
                     </div>

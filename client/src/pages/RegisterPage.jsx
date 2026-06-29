@@ -132,7 +132,7 @@ export default function RegisterPage() {
 
   return (
     <AuthLayout>
-      <div className="rounded-2xl border border-surface-variant bg-white/90 p-5 shadow-raised backdrop-blur sm:p-6">
+      <div className="rounded-lg border border-slate-200 bg-white/90 p-5 shadow-[0_24px_70px_rgba(15,23,42,0.14)] ring-1 ring-slate-900/5 backdrop-blur sm:p-6">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-secondary-container">
             Join the community
@@ -157,7 +157,7 @@ export default function RegisterPage() {
               Username
             </span>
             <input
-              className="h-11 w-full rounded-lg border border-outline-variant bg-white px-4 text-sm font-semibold text-app-text outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
+              className="app-input h-11 text-sm font-semibold"
               onChange={(e) => setUsername(e.target.value)}
               placeholder="e.g. khoa123"
               value={username}
@@ -169,7 +169,7 @@ export default function RegisterPage() {
               Email
             </span>
             <input
-              className="h-11 w-full rounded-lg border border-outline-variant bg-white px-4 text-sm font-semibold text-app-text outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
+              className="app-input h-11 text-sm font-semibold"
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@u.nus.edu"
               type="email"
@@ -182,7 +182,7 @@ export default function RegisterPage() {
               Password
             </span>
             <input
-              className="h-11 w-full rounded-lg border border-outline-variant bg-white px-4 text-sm font-semibold text-app-text outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
+              className="app-input h-11 text-sm font-semibold"
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleRegister()}
               placeholder="Create a password"
@@ -193,7 +193,7 @@ export default function RegisterPage() {
         </div>
 
         <button
-          className="mt-5 flex h-11 w-full items-center justify-center rounded-lg bg-secondary-container px-4 text-sm font-black text-white shadow-soft transition hover:-translate-y-0.5 hover:opacity-90 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-60"
+          className="app-button-secondary mt-5 h-11 w-full text-sm font-black"
           disabled={loading}
           onClick={handleRegister}
           type="button"
@@ -218,7 +218,7 @@ export default function RegisterPage() {
           )}
         </div>
 
-        <div className="mt-4 rounded-lg bg-surface-low px-4 py-3 text-center text-sm font-semibold text-app-muted">
+        <div className="mt-4 rounded-lg border border-slate-200 bg-surface-low px-4 py-3 text-center text-sm font-semibold text-app-muted shadow-sm">
           Already have an account?{" "}
           <Link className="font-black text-primary hover:underline" to="/login">
             Log in

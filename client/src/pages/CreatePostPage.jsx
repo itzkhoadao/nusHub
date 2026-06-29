@@ -113,7 +113,7 @@ export default function CreatePostPage() {
 
   const sidebar = (
     <div className="space-y-5">
-      <section className="app-card p-5 shadow-soft">
+      <section className="app-section-card">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary-fixed text-secondary">
             <Icon name="post" className="h-5 w-5" />
@@ -127,19 +127,19 @@ export default function CreatePostPage() {
         </div>
 
         <div className="mt-5 space-y-3 text-sm text-app-muted">
-          <div className="flex gap-3 rounded-lg bg-surface-low p-3">
+          <div className="flex gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm ring-1 ring-slate-900/5">
             <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
               1
             </span>
             <p>Pick the closest topic so people can scan the forum quickly.</p>
           </div>
-          <div className="flex gap-3 rounded-lg bg-surface-low p-3">
+          <div className="flex gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm ring-1 ring-slate-900/5">
             <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
               2
             </span>
             <p>Add context, module codes, bus stop names, or dates when useful.</p>
           </div>
-          <div className="flex gap-3 rounded-lg bg-surface-low p-3">
+          <div className="flex gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm ring-1 ring-slate-900/5">
             <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
               3
             </span>
@@ -148,7 +148,7 @@ export default function CreatePostPage() {
         </div>
       </section>
 
-      <section className="app-card overflow-hidden shadow-soft">
+      <section className="app-card overflow-hidden">
         <div className="border-b border-surface-variant bg-primary px-5 py-4 text-white">
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary-fixed">
             Current topic
@@ -181,7 +181,7 @@ export default function CreatePostPage() {
   return (
     <AppShell user={user} sidebar={sidebar}>
       <div className="space-y-6">
-        <section className="app-card overflow-hidden shadow-soft">
+        <section className="app-card overflow-hidden">
           <div className="border-b border-surface-variant bg-white px-5 py-4 sm:px-7">
             <div>
               <div>
@@ -222,10 +222,10 @@ export default function CreatePostPage() {
 
                   return (
                     <button
-                      className={`rounded-lg border p-4 text-left transition-all ${
+                      className={`rounded-lg border p-4 text-left shadow-sm ring-1 ring-slate-900/5 transition-all ${
                         selected
-                          ? "border-primary bg-primary text-white shadow-soft"
-                          : "border-outline-variant bg-white hover:-translate-y-0.5 hover:border-primary hover:shadow-soft"
+                          ? "border-primary bg-primary text-white shadow-[0_14px_30px_rgba(0,39,84,0.18)]"
+                          : "border-slate-200 bg-white hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary-fixed/20 hover:shadow-[0_14px_34px_rgba(15,23,42,0.08)]"
                       }`}
                       key={item.name}
                       onClick={() => setTopic(item.name)}
@@ -279,7 +279,7 @@ export default function CreatePostPage() {
                     {content.length}/{MAX_CONTENT_LENGTH}
                   </span>
                 </div>
-                <div className="overflow-hidden rounded-lg border border-outline-variant bg-white focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/15">
+                <div className="overflow-hidden rounded-lg border border-slate-300 bg-white shadow-sm ring-1 ring-transparent transition focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10">
                   <div className="flex items-center gap-2 border-b border-surface-variant bg-surface-low px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] text-app-muted">
                     <span className="h-2 w-2 rounded-full bg-secondary-container" />
                     Compose
