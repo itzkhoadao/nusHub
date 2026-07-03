@@ -1,9 +1,14 @@
 import Icon from "../Icon";
 
+type AiAssistantCardProps = {
+  title?: string;
+  description?: string;
+};
+
 export default function AiAssistantCard({
   title = "Ask AI Assistant",
   description = "Get a quick summary, find related discussions, or ask about campus life.",
-}) {
+}: AiAssistantCardProps) {
   return (
     <section className="app-card p-5">
       <div className="mb-4 flex items-start gap-3">

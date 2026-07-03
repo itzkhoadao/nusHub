@@ -1,6 +1,12 @@
-const jwt = require("jsonwebtoken");
+import type { NextFunction, Request, Response } from "express";
+import jwt from "jsonwebtoken";
+import type { AuthUser } from "../types";
 
-module.exports = function authenticate(req, res, next) {
+export default function authenticate(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1]; // take the token from the request
 
@@ -10,7 +16,7 @@ module.exports = function authenticate(req, res, next) {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "") as AuthUser;
     req.user = decoded;
     next(); // authentication passed, move on to the actual route
   } catch (err) {
@@ -18,4 +24,4 @@ module.exports = function authenticate(req, res, next) {
       .status(401)
       .json({ error: "Invalid token. Please log in again." });
   }
-};
+}

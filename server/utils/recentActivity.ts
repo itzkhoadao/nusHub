@@ -1,10 +1,7 @@
-const { Pool } = require("pg");
+import { pool } from "../db";
+import { getErrorMessage } from "../types";
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
-
-async function ensureRecentActivityTable() {
+export async function ensureRecentActivityTable() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS recent_activity (
       user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -16,7 +13,11 @@ async function ensureRecentActivityTable() {
   `);
 } // creates the recent_activity table if it does not already exist
 
-async function saveRecentActivity(userId, type, id) {
+export async function saveRecentActivity(
+  userId: string | null,
+  type: "post" | "group",
+  id: string,
+) {
   if (!userId || !["post", "group"].includes(type) || !id) {
     return;
   } // only allow items of type post and group
@@ -49,11 +50,11 @@ async function saveRecentActivity(userId, type, id) {
       [userId],
     ); // delete oldest item in db
   } catch (err) {
-    console.error("Failed to save recent activity:", err.message);
+    console.error("Failed to save recent activity:", getErrorMessage(err));
   }
 }
 
-async function getRecentActivity(userId) {
+export async function getRecentActivity(userId: string) {
   if (!userId) {
     return [];
   }
@@ -94,9 +95,3 @@ async function getRecentActivity(userId) {
 
   return result.rows;
 }
-
-module.exports = {
-  ensureRecentActivityTable,
-  getRecentActivity,
-  saveRecentActivity,
-};

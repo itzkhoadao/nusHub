@@ -1,14 +1,10 @@
-const express = require("express");
+import express from "express";
 const router = express.Router();
-const { Pool } = require("pg");
-const jwt = require("jsonwebtoken");
-const authenticate = require("../middleware/authenticate");
-const { saveRecentActivity } = require("../utils/recentActivity");
+import jwt from "jsonwebtoken";
+import authenticate from "../middleware/authenticate";
+import { saveRecentActivity } from "../utils/recentActivity";
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
-
+import { pool } from "../db";
 function getOptionalUserId(req) {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
@@ -18,7 +14,7 @@ function getOptionalUserId(req) {
   }
 
   try {
-    return jwt.verify(token, process.env.JWT_SECRET).id;
+    return (jwt.verify(token, process.env.JWT_SECRET || "") as any).id;
   } catch (err) {
     return null;
   }
@@ -166,4 +162,4 @@ router.post("/:id/join", authenticate, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

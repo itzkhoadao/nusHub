@@ -32,7 +32,7 @@ function BadgePill({ label, tone = "blue" }) {
   );
 }
 
-function EmptyState({ title, body, action }) {
+function EmptyState({ title, body, action = null }) {
   return (
     <section className="app-empty-state">
       <h2 className="text-xl font-bold text-app-text">{title}</h2>
@@ -113,10 +113,10 @@ export default function ProfilePage() {
     posts.reduce((topics, post) => {
       topics[post.topic] = (topics[post.topic] || 0) + 1;
       return topics;
-    }, {});
+    }, {} as Record<string, number>);
   const topTopic =
-    Object.entries(mostUsedTopic).sort((a, b) => b[1] - a[1])[0]?.[0] ||
-    "General";
+    (Object.entries(mostUsedTopic) as [string, number][])
+      .sort((a, b) => b[1] - a[1])[0]?.[0] || "General";
 
   const tabs = [
     { id: "posts", label: "Posts", count: posts.length },
