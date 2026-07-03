@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 const ICON_PATHS = {
   home: (
     <>
@@ -75,9 +77,19 @@ const ICON_PATHS = {
   ),
   chevronUp: <path d="m18 15-6-6-6 6" />,
   chevronDown: <path d="m6 9 6 6 6-6" />,
+} as const satisfies Record<string, ReactNode>;
+
+type IconProps = {
+  name: string;
+  className?: string;
+  title?: string;
 };
 
-export default function Icon({ name, className = "h-5 w-5", title }) {
+export default function Icon({
+  name,
+  className = "h-5 w-5",
+  title,
+}: IconProps) {
   return (
     <svg
       aria-hidden={title ? undefined : true}
@@ -90,7 +102,7 @@ export default function Icon({ name, className = "h-5 w-5", title }) {
       strokeWidth="2"
       viewBox="0 0 24 24"
     >
-      {ICON_PATHS[name]}
+      {ICON_PATHS[name as keyof typeof ICON_PATHS]}
     </svg>
   );
 }

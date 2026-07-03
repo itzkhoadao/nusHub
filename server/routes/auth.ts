@@ -1,14 +1,10 @@
-const express = require("express");
+import express from "express";
 const router = express.Router();
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-const { Pool } = require("pg");
-const { OAuth2Client } = require("google-auth-library");
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import { OAuth2Client } from "google-auth-library";
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
-
+import { pool } from "../db";
 // register with Google Account option
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -21,12 +17,16 @@ async function ensureGoogleAuthColumns() {
   `);
 }
 
-function createToken(userId) {
-  return jwt.sign({ id: userId }, process.env.JWT_SECRET);
+function createToken(userId: string) {
+  return jwt.sign({ id: userId }, process.env.JWT_SECRET || "");
 }
 
 // sign up with Google => not choose a username manually
-async function createUniqueUsername(name, email, googleId) {
+async function createUniqueUsername(
+  name: string | undefined,
+  email: string | undefined,
+  googleId: string,
+) {
   const fallbackName = email?.split("@")[0] || `google_${googleId.slice(0, 8)}`;
   const cleanName = (name || fallbackName)
     .toLowerCase()
@@ -146,9 +146,9 @@ router.post("/google", async (req, res) => {
 
     // extracts Google user information
     const payload = ticket.getPayload();
-    const googleId = payload.sub;
-    const email = payload.email;
-    const avatarUrl = payload.picture || null;
+    const googleId = payload?.sub || "";
+    const email = payload?.email;
+    const avatarUrl = payload?.picture || null;
     let result = await pool.query(
       `SELECT id, username, email FROM users WHERE google_id = $1 OR email = $2`,
       [googleId, email],
@@ -157,7 +157,7 @@ router.post("/google", async (req, res) => {
     if (result.rows.length === 0) {
       // user does not exist, create new Google user
       const username = await createUniqueUsername(
-        payload.name,
+        payload?.name,
         email,
         googleId,
       );
@@ -191,4 +191,4 @@ router.post("/google", async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

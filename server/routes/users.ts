@@ -1,13 +1,9 @@
-const express = require("express");
+import express from "express";
 const router = express.Router();
-const { Pool } = require("pg");
 
-const authenticate = require("../middleware/authenticate");
+import authenticate from "../middleware/authenticate";
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
-
+import { pool } from "../db";
 // get the user's profile
 router.get("/me", authenticate, async (req, res) => {
   try {
@@ -134,4 +130,4 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

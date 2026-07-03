@@ -1,18 +1,18 @@
-const express = require("express");
-const cors = require("cors");
-const { Pool } = require("pg");
-require("dotenv").config();
+import cors from "cors";
+import "dotenv/config";
+import express from "express";
+import { pool } from "./db";
+
+import authRoutes from "./routes/auth";
+import commentRoutes from "./routes/comments";
+import groupRoutes from "./routes/groups";
+import postRoutes from "./routes/posts";
+import recentRoutes from "./routes/recent";
+import userRoutes from "./routes/users";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-
-const authRoutes = require("./routes/auth"); // imports the router from auth.js
-const postRoutes = require("./routes/posts");
-const commentRoutes = require("./routes/comments");
-const userRoutes = require("./routes/users");
-const groupRoutes = require("./routes/groups");
-const recentRoutes = require("./routes/recent");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/posts", postRoutes);
@@ -20,11 +20,6 @@ app.use("/api/posts/:postId/comments", commentRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/groups", groupRoutes);
 app.use("/api/recent", recentRoutes);
-
-const pool = new Pool({
-  // creates a PostgreSQL connection pool
-  connectionString: process.env.DATABASE_URL,
-});
 
 pool.query("SELECT NOW()", (err, res) => {
   // check if can connect to database

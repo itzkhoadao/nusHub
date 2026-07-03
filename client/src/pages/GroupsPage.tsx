@@ -84,7 +84,7 @@ export default function GroupsPage() {
       // redirect to the new group's page
       navigate(`/groups/${data.id}`);
     } catch (err) {
-      setError("Something went wrong:", err);
+      setError("Something went wrong. Please try again.");
     } finally {
       setCreating(false);
     }

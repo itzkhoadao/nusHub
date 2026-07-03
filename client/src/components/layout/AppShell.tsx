@@ -1,18 +1,30 @@
+import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import MobileNav from "./MobileNav";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 
+type AppShellProps = {
+  children: ReactNode;
+  contextualPlaceholder?: string;
+  onSearchChange?: (value: string) => void;
+  onSearchClear?: () => void;
+  onSearchSubmit?: (value: string) => void;
+  searchValue?: string;
+  user?: unknown;
+  sidebar?: ReactNode;
+};
+
 export default function AppShell({
   children,
-  contextualPlaceholder,
+  contextualPlaceholder = "Search NUSHub",
   onSearchChange,
   onSearchClear,
   onSearchSubmit,
-  searchValue,
+  searchValue = "",
   user,
   sidebar,
-}) {
+}: AppShellProps) {
   const navigate = useNavigate();
 
   return (

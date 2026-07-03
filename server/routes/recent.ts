@@ -1,16 +1,9 @@
-const express = require("express");
+import express from "express";
 const router = express.Router();
-const { Pool } = require("pg");
-const authenticate = require("../middleware/authenticate");
-const {
-  getRecentActivity,
-  saveRecentActivity,
-} = require("../utils/recentActivity"); // import backend utility functions
+import authenticate from "../middleware/authenticate";
+import { getRecentActivity, saveRecentActivity } from "../utils/recentActivity"; // import backend utility functions
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
-
+import { pool } from "../db";
 async function itemExists(type, id) {
   const table = type === "post" ? "posts" : "study_groups"; // choose which table to search in
   const result = await pool.query(`SELECT 1 FROM ${table} WHERE id = $1`, [id]);
@@ -50,4 +43,4 @@ router.post("/", authenticate, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

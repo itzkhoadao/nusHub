@@ -1,13 +1,9 @@
-const express = require("express");
+import express from "express";
 const router = express.Router({ mergeParams: true });
-const { Pool } = require("pg");
-const jwt = require("jsonwebtoken");
-const authenticate = require("../middleware/authenticate");
+import jwt from "jsonwebtoken";
+import authenticate from "../middleware/authenticate";
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
-
+import { pool } from "../db";
 async function ensureCommentRepliesColumn() {
   await pool.query(`
     ALTER TABLE comments
@@ -24,7 +20,7 @@ function getOptionalUserId(req) {
   }
 
   try {
-    return jwt.verify(token, process.env.JWT_SECRET).id;
+    return (jwt.verify(token, process.env.JWT_SECRET || "") as any).id;
   } catch (err) {
     return null;
   }
@@ -35,7 +31,7 @@ router.get("/", async (req, res) => {
   try {
     await ensureCommentRepliesColumn();
 
-    const { postId } = req.params;
+    const postId = (req.params as any).postId as string;
     const userId = getOptionalUserId(req);
     const params = [postId];
 
@@ -75,7 +71,7 @@ router.post("/", authenticate, async (req, res) => {
   try {
     await ensureCommentRepliesColumn();
 
-    const { postId } = req.params;
+    const postId = (req.params as any).postId as string;
     const { content, is_anonymous, parent_comment_id } = req.body;
 
     if (!content || !content.trim()) {
@@ -145,4 +141,4 @@ router.post("/:commentId/upvote", authenticate, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;
