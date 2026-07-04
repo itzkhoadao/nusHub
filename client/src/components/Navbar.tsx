@@ -1,4 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
+import Logo from './Logo'
 
 export default function Navbar() {
     const navigate = useNavigate()
@@ -15,10 +16,11 @@ export default function Navbar() {
         <nav className="bg-white border-b border-gray-200 px-6 py-3 flex justify-between items-center sticky top-0 z-50">
             {/* Logo */}
             <Link to="/" className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">N</span>
-                </div>
-                <span className="text-lg font-bold text-gray-800">NUSHub</span>
+                <Logo
+                    className="flex items-center gap-2"
+                    iconClassName="h-8 w-8"
+                    textClassName="text-lg font-black text-gray-800"
+                />
             </Link>
 
             {/* Nav links */}

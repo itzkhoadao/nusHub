@@ -1,6 +1,7 @@
 import type { Request } from "express";
 import type { JwtPayload } from "jsonwebtoken";
 
+// meaning: AuthUser is a JWT payload, plus it must also have an id field
 export type AuthUser = JwtPayload & {
   id: string;
 };

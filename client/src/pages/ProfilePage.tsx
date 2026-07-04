@@ -98,25 +98,28 @@ export default function ProfilePage() {
     );
   }
 
-  const {
-    user: profileUser,
-    posts,
-    comments,
-    groups = [],
-  } = profileData;
+  const { user: profileUser, posts, comments, groups = [] } = profileData;
   const upvotesReceived = posts.reduce(
     (sum, post) => sum + Number(post.upvotes || 0),
     0,
   );
   const contributions = posts.length + comments.length;
-  const mostUsedTopic =
-    posts.reduce((topics, post) => {
+
+  // Record<string, number>: An object where every key is a string, and every value is a number
+  // Example, Housing: 6
+  const mostUsedTopic = posts.reduce(
+    (topics, post) => {
       topics[post.topic] = (topics[post.topic] || 0) + 1;
       return topics;
-    }, {} as Record<string, number>);
+    },
+    {} as Record<string, number>,
+  );
+
+  // If there's a top topic, return it, otherwise just return General
   const topTopic =
-    (Object.entries(mostUsedTopic) as [string, number][])
-      .sort((a, b) => b[1] - a[1])[0]?.[0] || "General";
+    (Object.entries(mostUsedTopic) as [string, number][]).sort(
+      (a, b) => b[1] - a[1],
+    )[0]?.[0] || "General";
 
   const tabs = [
     { id: "posts", label: "Posts", count: posts.length },
@@ -161,7 +164,8 @@ export default function ProfilePage() {
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-app-muted">
                     Active NUSHub contributor since{" "}
                     {new Date(profileUser.created_at).toLocaleDateString()}.
-                    Most active around <span className="font-bold">{topTopic}</span>.
+                    Most active around{" "}
+                    <span className="font-bold">{topTopic}</span>.
                   </p>
                 </div>
               </div>
@@ -266,7 +270,9 @@ export default function ProfilePage() {
                         </div>
                         <div className="flex shrink-0 flex-col items-center rounded-2xl bg-primary-fixed px-3 py-2 text-primary">
                           <Icon name="chevronUp" className="h-4 w-4" />
-                          <span className="text-sm font-bold">{post.upvotes}</span>
+                          <span className="text-sm font-bold">
+                            {post.upvotes}
+                          </span>
                         </div>
                       </div>
                     </Link>
@@ -295,7 +301,9 @@ export default function ProfilePage() {
                       </p>
                       <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-app-muted">
                         <span>on: {comment.post_title}</span>
-                        <span>{new Date(comment.created_at).toLocaleDateString()}</span>
+                        <span>
+                          {new Date(comment.created_at).toLocaleDateString()}
+                        </span>
                         <span className="flex items-center gap-1 text-primary">
                           <Icon name="chevronUp" className="h-4 w-4" />
                           {comment.upvotes}
@@ -338,7 +346,8 @@ export default function ProfilePage() {
                               </span>
                             )}
                             <span className="text-xs font-semibold text-app-muted">
-                              Joined {new Date(group.joined_at).toLocaleDateString()}
+                              Joined{" "}
+                              {new Date(group.joined_at).toLocaleDateString()}
                             </span>
                           </div>
                           <h2 className="mt-3 text-xl font-bold leading-snug text-app-text group-hover:text-primary">
