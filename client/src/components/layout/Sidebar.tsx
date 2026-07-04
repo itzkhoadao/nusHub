@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import Icon from "../Icon";
+import Logo from "../Logo";
 
 const NAV_ITEMS = [
   { label: "Forum", to: "/", icon: "home" },
@@ -11,11 +12,8 @@ export default function Sidebar({ onCreatePost }) {
 
   return (
     <aside className="hidden w-72 shrink-0 border-r border-surface-variant bg-white px-5 py-6 lg:block">
-      <Link to="/" className="mb-8 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-lg font-bold text-white">
-          N
-        </div>
-        <span className="text-xl font-bold text-primary">NUSHub</span>
+      <Link to="/" className="mb-8 block">
+        <Logo />
       </Link>
 
       <nav className="space-y-1">

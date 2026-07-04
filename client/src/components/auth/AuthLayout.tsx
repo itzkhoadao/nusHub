@@ -5,6 +5,7 @@ import nusSignage from "../../assets/auth/nus-signage.jpg";
 import rvrcExterior from "../../assets/auth/rvrc-exterior.webp";
 import utownResidence from "../../assets/auth/utown-residence.jpg";
 import ventus from "../../assets/auth/ventus.webp";
+import Logo from "../Logo";
 
 const SLIDES = [
   {
@@ -75,17 +76,12 @@ export default function AuthLayout({ children }) {
         <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 to-transparent" />
 
         <div className="relative z-10 flex h-screen flex-col justify-between p-10 xl:p-12">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white text-xl font-black text-primary shadow-raised">
-              N
-            </div>
-            <div>
-              <p className="text-xl font-black text-white">NUSHub</p>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">
-                Student community
-              </p>
-            </div>
-          </div>
+          <Logo
+            iconClassName="h-12 w-12 drop-shadow"
+            showTagline
+            taglineClassName="text-xs font-semibold uppercase tracking-[0.2em] text-white/70"
+            variant="inverse"
+          />
 
           <div className="max-w-xl">
             <p className="mb-4 inline-flex rounded-full bg-white/15 px-4 py-2 text-sm font-bold text-white backdrop-blur">
@@ -117,17 +113,11 @@ export default function AuthLayout({ children }) {
 
       <section className="flex min-h-screen items-center justify-center px-5 py-8 sm:px-8 lg:h-screen lg:min-h-0 lg:px-10 lg:py-4">
         <div className="w-full max-w-md">
-          <div className="mb-8 flex items-center gap-3 lg:hidden">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-lg font-black text-white">
-              N
-            </div>
-            <div>
-              <p className="text-xl font-black text-primary">NUSHub</p>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-app-muted">
-                Student community
-              </p>
-            </div>
-          </div>
+          <Logo
+            className="mb-8 flex items-center gap-3 lg:hidden"
+            iconClassName="h-11 w-11"
+            showTagline
+          />
 
           {children}
         </div>
