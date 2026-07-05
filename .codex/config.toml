@@ -1,0 +1,3 @@
+[logging]
+level = "error"
+log_responses = false
