@@ -5,6 +5,7 @@ import { pool } from "./db";
 
 import authRoutes from "./routes/auth";
 import commentRoutes from "./routes/comments";
+import conversationRoutes from "./routes/conversations";
 import groupRoutes from "./routes/groups";
 import postRoutes from "./routes/posts";
 import recentRoutes from "./routes/recent";
@@ -17,6 +18,7 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/posts/:postId/comments", commentRoutes);
+app.use("/api/conversations", conversationRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/groups", groupRoutes);
 app.use("/api/recent", recentRoutes);
