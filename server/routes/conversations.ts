@@ -2,6 +2,7 @@ import express from "express";
 import type { PoolClient } from "pg";
 import { pool } from "../db";
 import authenticate from "../middleware/authenticate";
+import { getSocketServer } from "../socket";
 import { getErrorMessage } from "../types";
 import { ensureChatSchema } from "../utils/chatSchema";
 
@@ -269,13 +270,26 @@ router.post("/:id/messages", authenticate, async (req, res) => {
        RETURNING id, conversation_id, sender_id, body, created_at, edited_at, deleted_at`,
       [id, req.user.id, body],
     );
+    const message = result.rows[0]; // the message being sent
 
     await pool.query(
       "UPDATE conversations SET updated_at = NOW() WHERE id = $1",
       [id],
     );
 
-    res.status(201).json(result.rows[0]);
+    const participants = await pool.query(
+      `SELECT user_id
+       FROM conversation_participants
+       WHERE conversation_id = $1`,
+      [id],
+    );
+
+    const io = getSocketServer(); // get current socket server
+    participants.rows.forEach((participant) => {
+      io?.to(`user:${participant.user_id}`).emit("message:new", message);
+    }); // send a message:new event to this user's active socket connections
+
+    res.status(201).json(message);
   } catch (err) {
     res.status(500).json({ error: getErrorMessage(err) });
   }

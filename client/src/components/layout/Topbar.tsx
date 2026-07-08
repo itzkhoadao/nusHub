@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import Icon from "../Icon";
+import { disconnectChatSocket } from "../../utils/socket";
 
 export default function Topbar({
   contextualPlaceholder = "Search NUSHub...",
@@ -15,6 +17,7 @@ export default function Topbar({
   const accountMenuRef = useRef(null);
   const hasSearch = typeof onSearchChange === "function";
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (!searchValue) {
@@ -65,6 +68,8 @@ export default function Topbar({
   };
 
   const handleSignOut = () => {
+    disconnectChatSocket();
+    queryClient.clear();
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     setAccountOpen(false);
