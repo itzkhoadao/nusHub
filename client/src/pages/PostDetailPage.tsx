@@ -5,6 +5,7 @@ import Icon from "../components/Icon";
 import AiAssistantCard from "../components/ui/AiAssistantCard";
 import TopicBadge from "../components/ui/TopicBadge";
 import VoteBlock from "../components/ui/VoteBlock";
+import { apiUrl } from "../utils/api";
 
 export default function PostDetailPage() {
   const { id } = useParams(); // gets the post id from the URL
@@ -28,7 +29,7 @@ export default function PostDetailPage() {
   const fetchPost = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://localhost:5000/api/posts/${id}`, {
+      const res = await fetch(apiUrl(`/api/posts/${id}`), {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       const data = await res.json();
@@ -51,7 +52,7 @@ export default function PostDetailPage() {
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(
-        `http://localhost:5000/api/posts/${id}/comments`,
+        apiUrl(`/api/posts/${id}/comments`),
         {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         },
@@ -90,7 +91,7 @@ export default function PostDetailPage() {
       const token = localStorage.getItem("token");
 
       const res = await fetch(
-        `http://localhost:5000/api/posts/${id}/comments`,
+        apiUrl(`/api/posts/${id}/comments`),
         {
           method: "POST",
           headers: {
@@ -136,7 +137,7 @@ export default function PostDetailPage() {
       const token = localStorage.getItem("token"); // only logged in users can reply
 
       const res = await fetch(
-        `http://localhost:5000/api/posts/${id}/comments`,
+        apiUrl(`/api/posts/${id}/comments`),
         {
           method: "POST",
           headers: {
@@ -175,7 +176,7 @@ export default function PostDetailPage() {
     const token = localStorage.getItem("token"); // gets user's authentication token
 
     const res = await fetch(
-      `http://localhost:5000/api/posts/${id}/comments/${commentId}/upvote`,
+      apiUrl(`/api/posts/${id}/comments/${commentId}/upvote`),
       {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
@@ -200,7 +201,7 @@ export default function PostDetailPage() {
   const handlePostUpvote = async () => {
     const token = localStorage.getItem("token");
 
-    const res = await fetch(`http://localhost:5000/api/posts/${id}/upvote`, {
+    const res = await fetch(apiUrl(`/api/posts/${id}/upvote`), {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     }); // go to toggle upvote route

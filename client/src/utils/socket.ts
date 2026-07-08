@@ -1,7 +1,8 @@
 import { io, type Socket } from "socket.io-client";
+import { API_URL } from "./api";
 import type { ChatMessage } from "./chatApi";
 
-const SOCKET_URL = import.meta.env.VITE_API_URL || "http://localhost:5000"; // backend url
+const SOCKET_URL = API_URL; // backend url
 
 type ServerToClientEvents = {
   "message:new": (message: ChatMessage) => void;

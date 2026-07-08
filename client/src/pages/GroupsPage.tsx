@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import AppShell from "../components/layout/AppShell";
 import Icon from "../components/Icon";
 import AiAssistantCard from "../components/ui/AiAssistantCard";
+import { apiUrl } from "../utils/api";
 
 export default function GroupsPage() {
   const [groups, setGroups] = useState([]);
@@ -30,7 +31,7 @@ export default function GroupsPage() {
       setLoading(true);
 
       try {
-        let url = "http://localhost:5000/api/groups";
+        let url = apiUrl("/api/groups");
         if (search) {
           url += `?search=${search}`;
         }
@@ -65,7 +66,7 @@ export default function GroupsPage() {
       const token = localStorage.getItem("token");
 
       // HTTP post request
-      const res = await fetch("http://localhost:5000/api/groups", {
+      const res = await fetch(apiUrl("/api/groups"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
