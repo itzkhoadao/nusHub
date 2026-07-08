@@ -5,6 +5,7 @@ import Logo from "../Logo";
 const NAV_ITEMS = [
   { label: "Forum", to: "/", icon: "home" },
   { label: "Study Groups", to: "/groups", icon: "groups" },
+  { label: "Chat", to: "/chat", icon: "message" },
 ];
 
 export default function Sidebar({ onCreatePost }) {

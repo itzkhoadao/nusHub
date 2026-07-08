@@ -7,6 +7,7 @@ import PostDetailPage from "./pages/PostDetailPage";
 import ProfilePage from "./pages/ProfilePage";
 import GroupsPage from "./pages/GroupsPage";
 import GroupDetailPage from "./pages/GroupDetailPage";
+import ChatPage from "./pages/ChatPage";
 
 function App() {
   return (
@@ -20,6 +21,8 @@ function App() {
       <Route path="/users/:userId" element={<ProfilePage />} />
       <Route path="/groups" element={<GroupsPage />} />
       <Route path="/groups/:id" element={<GroupDetailPage />} />
+      <Route path="/chat" element={<ChatPage />} />
+      <Route path="/chat/:conversationId" element={<ChatPage />} />
     </Routes>
   );
 }

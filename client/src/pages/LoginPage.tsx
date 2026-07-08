@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import AuthLayout from "../components/auth/AuthLayout";
+import { disconnectChatSocket } from "../utils/socket";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -8,6 +10,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const handleLogin = async () => {
     setLoading(true);
@@ -27,6 +30,8 @@ export default function LoginPage() {
         return;
       }
 
+      disconnectChatSocket();
+      queryClient.clear();
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
       navigate("/");

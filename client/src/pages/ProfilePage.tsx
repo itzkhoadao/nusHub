@@ -1,8 +1,15 @@
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import AppShell from "../components/layout/AppShell";
 import Icon from "../components/Icon";
 import TopicBadge from "../components/ui/TopicBadge";
+import {
+  conversationsKey,
+  getCurrentUserId,
+  startDirectConversation,
+  type Conversation,
+} from "../utils/chatApi";
 
 function StatTile({ label, value, helper }) {
   return (
@@ -48,7 +55,10 @@ export default function ProfilePage() {
   const [profileData, setProfileData] = useState(null);
   const [activeTab, setActiveTab] = useState("posts"); // switch between viewing posts and comments
   const [loading, setLoading] = useState(true);
+  const [startingChat, setStartingChat] = useState(false);
+  const [chatError, setChatError] = useState("");
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { userId } = useParams();
 
   const user = JSON.parse(localStorage.getItem("user"));
@@ -128,6 +138,43 @@ export default function ProfilePage() {
     { id: "topics", label: "Topics", count: 0 },
   ];
 
+  // start direct chat with another user
+  const handleStartChat = async () => {
+    if (!profileUser?.id || startingChat) {
+      return;
+    }
+
+    setStartingChat(true);
+    setChatError("");
+
+    try {
+      const conversation = await startDirectConversation(profileUser.id);
+      const currentUserId = getCurrentUserId();
+
+      if (currentUserId) {
+        queryClient.setQueryData<Conversation[]>(
+          conversationsKey(currentUserId),
+          (currentConversations = []) => {
+            // if there's already a conversation between the 2 users, don't change anything
+            if (currentConversations.some((item) => item.id === conversation.id)) {
+              return currentConversations;
+            }
+
+            return [conversation, ...currentConversations]; // chat not exist => add to array
+          },
+        );
+      }
+
+      navigate(`/chat/${conversation.id}`);
+    } catch (err) {
+      setChatError(
+        err instanceof Error ? err.message : "Failed to start chat",
+      );
+    } finally {
+      setStartingChat(false);
+    }
+  };
+
   return (
     <AppShell user={user}>
       <div className="mx-auto max-w-6xl space-y-8">
@@ -179,6 +226,18 @@ export default function ProfilePage() {
                     Edit Profile
                   </button>
                 )}
+                {!isOwnProfile && (
+                  <button
+                    aria-label={`Chat with ${profileUser.username}`}
+                    className="flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-primary shadow-sm ring-1 ring-slate-900/5 transition-all hover:-translate-y-0.5 hover:bg-primary hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={startingChat}
+                    onClick={handleStartChat} // click on button => start chat
+                    type="button"
+                  >
+                    <Icon name="message" className="h-5 w-5" />
+                    <span>{startingChat ? "Opening..." : "Chat"}</span>
+                  </button>
+                )}
                 <button
                   aria-label="Share profile"
                   className="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 bg-white text-primary shadow-sm ring-1 ring-slate-900/5 transition-all hover:-translate-y-0.5 hover:bg-primary hover:text-white"
@@ -188,6 +247,12 @@ export default function ProfilePage() {
                 </button>
               </div>
             </div>
+
+            {chatError && (
+              <div className="mt-5 rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-app-danger">
+                {chatError}
+              </div>
+            )}
 
             <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <StatTile

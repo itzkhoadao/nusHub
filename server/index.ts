@@ -1,7 +1,9 @@
 import cors from "cors";
 import "dotenv/config";
 import express from "express";
+import http from "http";
 import { pool } from "./db";
+import { configureSocketServer } from "./socket";
 
 import authRoutes from "./routes/auth";
 import commentRoutes from "./routes/comments";
@@ -12,6 +14,9 @@ import recentRoutes from "./routes/recent";
 import userRoutes from "./routes/users";
 
 const app = express();
+const server = http.createServer(app);
+configureSocketServer(server);
+
 app.use(cors());
 app.use(express.json());
 
@@ -36,6 +41,6 @@ app.get("/", (req, res) => {
   res.json({ message: "NUSHub API is running!" });
 });
 
-app.listen(process.env.PORT, () => {
+server.listen(process.env.PORT, () => {
   console.log("Server running on port", process.env.PORT);
 });
