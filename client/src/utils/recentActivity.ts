@@ -1,6 +1,7 @@
 // FRONTEND API HELPER
+import { apiUrl } from "./api";
 
-const RECENT_ACTIVITY_URL = "http://localhost:5000/api/recent";
+const RECENT_ACTIVITY_URL = apiUrl("/api/recent");
 
 // get logged-in user's jwt token
 function getAuthHeaders() {

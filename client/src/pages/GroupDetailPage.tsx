@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import AppShell from "../components/layout/AppShell";
 import Icon from "../components/Icon";
 import AiAssistantCard from "../components/ui/AiAssistantCard";
+import { apiUrl } from "../utils/api";
 
 export default function GroupDetailPage() {
   const { id } = useParams();
@@ -23,7 +24,7 @@ export default function GroupDetailPage() {
     const fetchGroup = async () => {
       try {
         const token = localStorage.getItem("token");
-        const res = await fetch(`http://localhost:5000/api/groups/${id}`, {
+        const res = await fetch(apiUrl(`/api/groups/${id}`), {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         }); // request
         const data = await res.json(); // get response
@@ -54,7 +55,7 @@ export default function GroupDetailPage() {
 
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://localhost:5000/api/groups/${id}/join`, {
+      const res = await fetch(apiUrl(`/api/groups/${id}/join`), {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -62,7 +63,7 @@ export default function GroupDetailPage() {
       setIsMember(data.joined);
 
       // get the group we just handled
-      const groupRes = await fetch(`http://localhost:5000/api/groups/${id}`);
+      const groupRes = await fetch(apiUrl(`/api/groups/${id}`));
       const groupData = await groupRes.json();
       setGroupData(groupData);
     } catch (err) {

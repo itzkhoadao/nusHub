@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AuthLayout from "../components/auth/AuthLayout";
+import { apiUrl } from "../utils/api";
 
 export default function RegisterPage() {
   // useState stores the values the user types into the form
@@ -21,7 +22,7 @@ export default function RegisterPage() {
 
     try {
       // Send the form data to your backend
-      const res = await fetch("http://localhost:5000/api/auth/register", {
+      const res = await fetch(apiUrl("/api/auth/register"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, email, password }),
@@ -53,7 +54,7 @@ export default function RegisterPage() {
     setError("");
 
     try { // send Google credentials data to backend
-      const res = await fetch("http://localhost:5000/api/auth/google", {
+      const res = await fetch(apiUrl("/api/auth/google"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ credential: response.credential }),

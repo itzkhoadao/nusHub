@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
 import AppShell from "../components/layout/AppShell";
+import { apiUrl } from "../utils/api";
 
 const TOPICS = [
   {
@@ -82,7 +83,7 @@ export default function CreatePostPage() {
     try {
       const token = localStorage.getItem("token");
 
-      const res = await fetch("http://localhost:5000/api/posts", {
+      const res = await fetch(apiUrl("/api/posts"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

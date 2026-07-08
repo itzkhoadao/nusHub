@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import AppShell from "../components/layout/AppShell";
 import Icon from "../components/Icon";
 import TopicBadge from "../components/ui/TopicBadge";
+import { apiUrl } from "../utils/api";
 import {
   conversationsKey,
   getCurrentUserId,
@@ -75,8 +76,8 @@ export default function ProfilePage() {
       try {
         const token = localStorage.getItem("token");
         const url = isOwnProfile
-          ? "http://localhost:5000/api/users/me"
-          : `http://localhost:5000/api/users/${userId}`;
+          ? apiUrl("/api/users/me")
+          : apiUrl(`/api/users/${userId}`);
 
         const res = await fetch(url, {
           headers: isOwnProfile ? { Authorization: `Bearer ${token}` } : {},

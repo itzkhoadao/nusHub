@@ -7,6 +7,7 @@ import { Link, useNavigate } from "react-router-dom";
 import AppShell from "../components/layout/AppShell";
 import AiAssistantCard from "../components/ui/AiAssistantCard";
 import DiscussionCard from "../components/ui/DiscussionCard";
+import { apiUrl } from "../utils/api";
 import { getRecentActivity } from "../utils/recentActivity";
 
 const TOPICS = [
@@ -47,7 +48,7 @@ export default function HomePage() {
       }
 
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://localhost:5000/api/posts?${params}`, {
+      const res = await fetch(apiUrl(`/api/posts?${params}`), {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       }); // send a request to backend URL
       const data = await res.json(); // take the response
@@ -104,7 +105,7 @@ export default function HomePage() {
   // refreshes posts so upvote count is shown
   const handleUpvote = async (postId) => {
     const token = localStorage.getItem("token");
-    const res = await fetch(`http://localhost:5000/api/posts/${postId}/upvote`, {
+    const res = await fetch(apiUrl(`/api/posts/${postId}/upvote`), {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
