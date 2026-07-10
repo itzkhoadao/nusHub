@@ -5,8 +5,8 @@ CREATE TABLE IF NOT EXISTS conversations (
   type VARCHAR(20) NOT NULL DEFAULT 'direct',
   direct_key TEXT UNIQUE,
   study_group_id UUID REFERENCES study_groups(id) ON DELETE CASCADE,
-  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT conversations_type_check CHECK (type IN ('direct', 'group')),
   CONSTRAINT conversations_direct_key_check CHECK (
     (type = 'direct' AND direct_key IS NOT NULL AND study_group_id IS NULL)
@@ -18,8 +18,8 @@ CREATE TABLE IF NOT EXISTS conversations (
 CREATE TABLE IF NOT EXISTS conversation_participants (
   conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  joined_at TIMESTAMP NOT NULL DEFAULT NOW(),
-  last_read_at TIMESTAMP,
+  joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_read_at TIMESTAMPTZ,
   PRIMARY KEY (conversation_id, user_id)
 );
 
@@ -27,12 +27,51 @@ CREATE TABLE IF NOT EXISTS messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
   sender_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  reply_to_message_id UUID REFERENCES messages(id) ON DELETE SET NULL,
   body TEXT NOT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-  edited_at TIMESTAMP,
-  deleted_at TIMESTAMP,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  edited_at TIMESTAMPTZ,
+  deleted_at TIMESTAMPTZ,
   CONSTRAINT messages_body_check CHECK (length(trim(body)) > 0)
 );
+
+-- allow for timezone difference, migrate from TIMESTAMP (no timezone) to TIMESTAMPTZ (timezone)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'conversations'
+      AND column_name = 'created_at'
+      AND data_type = 'timestamp without time zone'
+  ) THEN
+    ALTER TABLE conversations
+      ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC',
+      ALTER COLUMN updated_at TYPE TIMESTAMPTZ USING updated_at AT TIME ZONE 'UTC';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'conversation_participants'
+      AND column_name = 'joined_at'
+      AND data_type = 'timestamp without time zone'
+  ) THEN
+    ALTER TABLE conversation_participants
+      ALTER COLUMN joined_at TYPE TIMESTAMPTZ USING joined_at AT TIME ZONE 'UTC',
+      ALTER COLUMN last_read_at TYPE TIMESTAMPTZ USING last_read_at AT TIME ZONE 'UTC';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'messages'
+      AND column_name = 'created_at'
+      AND data_type = 'timestamp without time zone'
+  ) THEN
+    ALTER TABLE messages
+      ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC',
+      ALTER COLUMN edited_at TYPE TIMESTAMPTZ USING edited_at AT TIME ZONE 'UTC',
+      ALTER COLUMN deleted_at TYPE TIMESTAMPTZ USING deleted_at AT TIME ZONE 'UTC';
+  END IF;
+END $$;
 
 -- create index: creates a shortcut so the database does not need to search every row manually
 CREATE INDEX IF NOT EXISTS idx_conversation_participants_user_id
@@ -43,3 +82,6 @@ CREATE INDEX IF NOT EXISTS idx_messages_conversation_created_at
 
 CREATE INDEX IF NOT EXISTS idx_messages_sender_id
   ON messages(sender_id);
+
+CREATE INDEX IF NOT EXISTS idx_messages_reply_to_message_id
+  ON messages(reply_to_message_id);

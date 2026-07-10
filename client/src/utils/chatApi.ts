@@ -20,6 +20,7 @@ export type Conversation = {
   last_message_created_at: string | null;
   last_sender_id: string | null;
   last_sender_username: string | null;
+  unread_count: number;
 };
 
 export type ChatMessage = {
@@ -28,6 +29,10 @@ export type ChatMessage = {
   sender_id: string | null;
   sender_username?: string | null;
   sender_avatar_url?: string | null;
+  reply_to_message_id: string | null;
+  reply_to_body: string | null;
+  reply_to_sender_id: string | null;
+  reply_to_sender_username: string | null;
   body: string;
   created_at: string;
   edited_at: string | null;
@@ -114,14 +119,21 @@ export async function getMessages(conversationId: string) {
 }
 
 // send a new message to the conversation
-export async function sendMessage(conversationId: string, body: string) {
+export async function sendMessage(
+  conversationId: string,
+  body: string,
+  replyToMessageId?: string | null,
+) {
   const response = await fetch(`${CONVERSATIONS_URL}/${conversationId}/messages`, {
     method: "POST",
     headers: {
       ...getAuthHeaders(),
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ body }),
+    body: JSON.stringify({
+      body,
+      reply_to_message_id: replyToMessageId || null,
+    }),
   });
 
   return readJsonResponse<ChatMessage>(response);

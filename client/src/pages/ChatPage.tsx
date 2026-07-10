@@ -29,6 +29,16 @@ import { getChatSocket } from "../utils/socket";
 
 const emptyConversations: Conversation[] = [];
 const emptyMessages: ChatMessage[] = [];
+const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+function getLocalDateKey(value: string | Date) {
+  return new Date(value).toLocaleDateString("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: userTimeZone,
+    year: "numeric",
+  });
+}
 
 // converts db time into readable time
 function formatTime(value: string | null) {
@@ -39,7 +49,44 @@ function formatTime(value: string | null) {
   return new Date(value).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: userTimeZone,
   }); // for ex, 06:50
+}
+
+function formatDateLabel(value: string | null) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  if (getLocalDateKey(date) === getLocalDateKey(today)) {
+    return "Today";
+  }
+
+  if (getLocalDateKey(date) === getLocalDateKey(yesterday)) {
+    return "Yesterday";
+  }
+
+  return date.toLocaleDateString([], {
+    day: "numeric",
+    month: "numeric",
+    timeZone: userTimeZone,
+  });
+}
+
+// formats the preview shown above the input
+function formatReplyPreview(message: ChatMessage) {
+  const singleLine = message.body.replace(/\s+/g, " ").trim();
+
+  if (singleLine.length <= 80) {
+    return singleLine;
+  }
+
+  return `${singleLine.slice(0, 77)}...`;
 }
 
 // adds a message to the message list, avoids duplicates
@@ -86,24 +133,35 @@ function applyReadReceipt(
 function updateConversationPreview(
   conversations: Conversation[] | undefined,
   message: ChatMessage,
+  currentUserId: string,
+  activeConversationId?: string,
 ) {
   const currentConversations = conversations || [];
 
   return currentConversations
-    .map((conversation) =>
-      conversation.id === message.conversation_id
-        ? {
-            ...conversation,
-            last_message_id: message.id,
-            last_message_body: message.body,
-            last_message_created_at: message.created_at,
-            last_sender_id: message.sender_id,
-            last_sender_username:
-              message.sender_username || conversation.last_sender_username,
-            updated_at: message.created_at,
-          }
-        : conversation,
-    )
+    .map((conversation) => {
+      if (conversation.id !== message.conversation_id) {
+        return conversation;
+      }
+
+      const shouldIncreaseUnread =
+        message.sender_id !== currentUserId &&
+        message.conversation_id !== activeConversationId;
+
+      return {
+        ...conversation,
+        last_message_id: message.id,
+        last_message_body: message.body,
+        last_message_created_at: message.created_at,
+        last_sender_id: message.sender_id,
+        last_sender_username:
+          message.sender_username || conversation.last_sender_username,
+        unread_count: shouldIncreaseUnread
+          ? (conversation.unread_count || 0) + 1
+          : conversation.unread_count || 0,
+        updated_at: message.created_at,
+      };
+    })
     .sort((first, second) => {
       const firstTime = new Date(
         first.last_message_created_at || first.updated_at,
@@ -116,6 +174,19 @@ function updateConversationPreview(
     });
 }
 
+function applyConversationReadReceipt(
+  conversations: Conversation[] | undefined,
+  receipt: MessageReadReceipt,
+) {
+  const currentConversations = conversations || [];
+
+  return currentConversations.map((conversation) =>
+    conversation.id === receipt.conversation_id
+      ? { ...conversation, unread_count: 0 }
+      : conversation,
+  );
+}
+
 export default function ChatPage() {
   const { conversationId } = useParams();
   const navigate = useNavigate();
@@ -125,6 +196,7 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
+  const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
 
   // replace loadConversations()
   const conversationsQuery = useQuery({
@@ -191,7 +263,12 @@ export default function ChatPage() {
       queryClient.setQueryData<Conversation[]>(
         conversationsKey(userId), // update cache
         (currentConversations) =>
-          updateConversationPreview(currentConversations, message),
+          updateConversationPreview(
+            currentConversations,
+            message,
+            userId,
+            conversationId,
+          ),
       );
     };
 
@@ -217,15 +294,23 @@ export default function ChatPage() {
       socket.off("message:new", handleNewMessage);
       socket.off("message:read", handleReadReceipt);
     }; // cleanup, remove listener
-  }, [queryClient, userId]);
+  }, [conversationId, queryClient, userId]);
 
   // replace sending, setSending state
   const sendMessageMutation = useMutation({
-    mutationFn: ({ id, body }: { id: string; body: string }) =>
-      sendMessage(id, body),
+    mutationFn: ({
+      id,
+      body,
+      replyToMessageId,
+    }: {
+      id: string;
+      body: string;
+      replyToMessageId: string | null;
+    }) => sendMessage(id, body, replyToMessageId),
     onSuccess: (message) => {
       setDraft("");
       setError("");
+      setReplyingTo(null); // reset state
 
       // update cache on sending
       if (!userId) {
@@ -240,7 +325,12 @@ export default function ChatPage() {
       queryClient.setQueryData<Conversation[]>(
         conversationsKey(userId),
         (currentConversations) =>
-          updateConversationPreview(currentConversations, message),
+          updateConversationPreview(
+            currentConversations,
+            message,
+            userId,
+            conversationId,
+          ),
       );
     },
     onError: (err) => {
@@ -258,7 +348,11 @@ export default function ChatPage() {
     }
 
     setError("");
-    sendMessageMutation.mutate({ id: conversationId, body }); // let React Query func handle
+    sendMessageMutation.mutate({
+      id: conversationId,
+      body,
+      replyToMessageId: replyingTo?.id || null,
+    }); // let React Query func handle
   };
 
   const handleDraftKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -281,6 +375,11 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [conversationId, messages.length]);
 
+  useEffect(() => {
+    setReplyingTo(null);
+    setDraft("");
+  }, [conversationId]); // reset these when conversation changes
+
   // read receipt effect runs when the selected conversation changes or num of messages changes
   useEffect(() => {
     if (!conversationId || messages.length === 0) {
@@ -296,6 +395,12 @@ export default function ChatPage() {
         queryClient.setQueryData<ChatMessage[]>(
           messagesKey(userId, receipt.conversation_id),
           (currentMessages) => applyReadReceipt(currentMessages, receipt),
+        );
+
+        queryClient.setQueryData<Conversation[]>(
+          conversationsKey(userId),
+          (currentConversations) =>
+            applyConversationReadReceipt(currentConversations, receipt),
         );
       })
       .catch(() => {
@@ -331,12 +436,16 @@ export default function ChatPage() {
                   const displayName =
                     conversation.other_username || "NUSHub user";
                   const initial = displayName.charAt(0).toUpperCase();
+                  const unreadCount = conversation.unread_count || 0;
+                  const hasUnread = unreadCount > 0;
 
                   return (
                     <Link
                       className={`flex gap-3 rounded-lg border p-3 transition-colors ${
                         isActive
                           ? "border-primary/25 bg-primary-fixed text-primary"
+                          : hasUnread
+                            ? "border-secondary-container/25 bg-white text-app-text shadow-sm"
                           : "border-transparent bg-white text-app-text hover:border-surface-variant hover:bg-surface-low"
                       }`}
                       key={conversation.id}
@@ -347,14 +456,41 @@ export default function ChatPage() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-3">
-                          <p className="truncate text-sm font-bold">
+                          <p
+                            className={`truncate text-sm ${
+                              hasUnread
+                                ? "font-extrabold text-app-text"
+                                : isActive
+                                  ? "font-bold text-primary"
+                                  : "font-semibold text-app-muted"
+                            }`}
+                          >
                             {displayName}
                           </p>
-                          <span className="shrink-0 text-xs font-semibold text-app-muted">
-                            {formatTime(conversation.last_message_created_at)}
-                          </span>
+                          <div className="flex shrink-0 items-center gap-2">
+                            {hasUnread && (
+                              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-secondary-container px-1.5 text-[11px] font-bold text-white">
+                                {unreadCount > 9 ? "9+" : unreadCount}
+                              </span>
+                            )}
+                            <span
+                              className={`text-xs ${
+                                hasUnread
+                                  ? "font-bold text-app-text"
+                                  : "font-semibold text-app-muted"
+                              }`}
+                            >
+                              {formatTime(conversation.last_message_created_at)}
+                            </span>
+                          </div>
                         </div>
-                        <p className="mt-1 truncate text-sm text-app-muted">
+                        <p
+                          className={`mt-1 truncate text-sm ${
+                            hasUnread
+                              ? "font-semibold text-app-text"
+                              : "text-app-muted"
+                          }`}
+                        >
                           {conversation.last_message_body || "No messages yet"}
                         </p>
                       </div>
@@ -406,36 +542,83 @@ export default function ChatPage() {
                     </p>
                   </div>
                 ) : (
-                  messages.map((message) => {
+                  messages.map((message, index) => {
                     const isMine = message.sender_id === user?.id;
+                    const previousMessage = messages[index - 1];
+                    const showDate =
+                      !previousMessage ||
+                      formatDateLabel(previousMessage.created_at) !==
+                        formatDateLabel(message.created_at);
+                    const replyAuthor =
+                      message.reply_to_sender_id === user?.id
+                        ? "You"
+                        : message.reply_to_sender_username || "Message";
 
                     return (
-                      <div
-                        className={`flex ${isMine ? "justify-end" : "justify-start"}`}
-                        key={message.id}
-                      >
+                      <div className="space-y-3" key={message.id}>
+                        {showDate && (
+                          <div className="flex justify-center">
+                            <span className="rounded-full border border-surface-variant bg-white px-3 py-1 text-xs font-bold text-app-muted shadow-sm">
+                              {formatDateLabel(message.created_at)}
+                            </span>
+                          </div>
+                        )}
                         <div
-                          className={`max-w-[min(34rem,80%)] rounded-2xl px-4 py-3 shadow-sm ${
-                            isMine
-                              ? "rounded-br-md bg-primary text-white"
-                              : "rounded-bl-md bg-white text-app-text"
+                          className={`flex ${
+                            isMine ? "justify-end" : "justify-start"
                           }`}
                         >
-                          <p className="whitespace-pre-wrap text-sm leading-6">
-                            {message.body}
-                          </p>
-                          <p
-                            className={`mt-2 text-[11px] font-semibold ${
-                              isMine ? "text-white/70" : "text-app-muted"
+                          <div
+                            className={`max-w-[min(34rem,80%)] rounded-2xl px-4 py-3 shadow-sm ${
+                              isMine
+                                ? "rounded-br-md bg-primary text-white"
+                                : "rounded-bl-md bg-white text-app-text"
                             }`}
                           >
-                            {formatTime(message.created_at)}
-                            {isMine && (
-                              <span className="ml-2">
-                                {message.status === "seen" ? "Seen" : "Sent"}
-                              </span>
+                            {message.reply_to_message_id && (
+                              <div
+                                className={`mb-2 rounded-lg border-l-4 px-3 py-2 text-xs ${
+                                  isMine
+                                    ? "border-white/60 bg-white/10 text-white/80"
+                                    : "border-primary/40 bg-primary-fixed/40 text-app-muted"
+                                }`}
+                              >
+                                <p className="font-bold">{replyAuthor}</p>
+                                <p className="mt-1 line-clamp-2">
+                                  {message.reply_to_body ||
+                                    "Original message unavailable"}
+                                </p>
+                              </div>
                             )}
-                          </p>
+                            <p className="whitespace-pre-wrap text-sm leading-6">
+                              {message.body}
+                            </p>
+                            <div className="mt-2 flex items-center justify-between gap-3">
+                              <p
+                                className={`text-[11px] font-semibold ${
+                                  isMine ? "text-white/70" : "text-app-muted"
+                                }`}
+                              >
+                                {formatTime(message.created_at)}
+                                {isMine && (
+                                  <span className="ml-2">
+                                    {message.status === "seen" ? "Seen" : "Sent"}
+                                  </span>
+                                )}
+                              </p>
+                              <button
+                                className={`text-[11px] font-bold transition-colors ${
+                                  isMine
+                                    ? "text-white/70 hover:text-white"
+                                    : "text-primary hover:text-primary-container"
+                                }`}
+                                onClick={() => setReplyingTo(message)}
+                                type="button"
+                              >
+                                Reply
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     );
@@ -445,24 +628,52 @@ export default function ChatPage() {
               </div>
 
               <form
-                className="flex items-end gap-3 border-t border-surface-variant bg-white p-4"
+                className="border-t border-surface-variant bg-white p-4"
                 onSubmit={handleSendMessage}
               >
-                <textarea
-                  className="app-input min-h-12 flex-1 resize-none"
-                  onChange={(event) => setDraft(event.target.value)}
-                  onKeyDown={handleDraftKeyDown}
-                  placeholder="Write a message..."
-                  rows={1}
-                  value={draft}
-                />
-                <button
-                  className="app-button-primary h-12 px-5"
-                  disabled={sendMessageMutation.isPending || !draft.trim()}
-                  type="submit"
-                >
-                  Send
-                </button>
+                {replyingTo && (
+                  <div className="mb-3 flex items-start justify-between gap-3 rounded-lg border border-primary/20 bg-primary-fixed/30 px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold uppercase tracking-wide text-primary">
+                        Replying to{" "}
+                        {replyingTo.sender_id === user?.id
+                          ? "yourself"
+                          : replyingTo.sender_username || "message"}
+                      </p>
+                      <p className="mt-1 truncate text-sm text-app-muted">
+                        {formatReplyPreview(replyingTo)}
+                      </p>
+                    </div>
+                    <button
+                      aria-label="Cancel reply"
+                      className="shrink-0 rounded-md px-2 py-1 text-sm font-bold text-primary transition-colors hover:bg-white"
+                      onClick={() => setReplyingTo(null)}
+                      type="button"
+                    >
+                      x
+                    </button>
+                  </div>
+                )}
+                <div className="flex items-end gap-3">
+                  <textarea
+                    className="app-input min-h-12 flex-1 resize-none"
+                    onChange={(event) => setDraft(event.target.value)}
+                    onKeyDown={handleDraftKeyDown}
+                    placeholder={
+                      replyingTo ? "Write your reply..." : "Write a message..."
+                    }
+                    rows={1}
+                    value={draft}
+                  />
+                  <button
+                    className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full bg-gradient-to-r from-primary to-secondary-container px-4 text-sm font-bold text-white shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-lg disabled:translate-y-0 disabled:cursor-not-allowed disabled:from-outline disabled:to-outline disabled:opacity-70"
+                    disabled={sendMessageMutation.isPending || !draft.trim()}
+                    type="submit"
+                  >
+                    Send
+                    <Icon name="send" className="h-4 w-4 shrink-0" />
+                  </button>
+                </div>
               </form>
             </>
           ) : (
