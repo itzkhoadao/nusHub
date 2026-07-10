@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AuthLayout from "../components/auth/AuthLayout";
 import { apiUrl } from "../utils/api";
+import { setAuthSession } from "../utils/authStorage";
 
 export default function RegisterPage() {
   // useState stores the values the user types into the form
@@ -37,8 +38,7 @@ export default function RegisterPage() {
       }
 
       // user is logged in
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
+      setAuthSession(data.token, data.user);
 
       // Redirect to home page
       navigate("/");
@@ -68,8 +68,7 @@ export default function RegisterPage() {
       }
 
       // save user info got from backend to local storage
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
+      setAuthSession(data.token, data.user);
       navigate("/");
     } catch (err) {
       setError("Google sign-in failed. Is your server running?");

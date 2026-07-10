@@ -1,11 +1,12 @@
 // FRONTEND API HELPER
 import { apiUrl } from "./api";
+import { getAuthToken } from "./authStorage";
 
 const RECENT_ACTIVITY_URL = apiUrl("/api/recent");
 
 // get logged-in user's jwt token
 function getAuthHeaders() {
-  const token = localStorage.getItem("token");
+  const token = getAuthToken();
 
   if (!token) {
     return null;

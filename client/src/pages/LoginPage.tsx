@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import AuthLayout from "../components/auth/AuthLayout";
 import { apiUrl } from "../utils/api";
+import { setAuthSession } from "../utils/authStorage";
 import { disconnectChatSocket } from "../utils/socket";
 
 export default function LoginPage() {
@@ -33,8 +34,7 @@ export default function LoginPage() {
 
       disconnectChatSocket();
       queryClient.clear();
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
+      setAuthSession(data.token, data.user);
       navigate("/");
     } catch (err) {
       setError("Something went wrong. Is your server running?");

@@ -10,16 +10,19 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import AppShell from "../components/layout/AppShell";
 import Icon from "../components/Icon";
+import { getStoredUser } from "../utils/authStorage";
 
 // import HTTP API functions
 import {
   getConversations,
   getCurrentUserId,
   getMessages,
+  markConversationRead,
   conversationsKey,
   messagesKey,
   sendMessage,
   type ChatMessage,
+  type MessageReadReceipt,
   type Conversation,
 } from "../utils/chatApi";
 import { getChatSocket } from "../utils/socket";
@@ -39,20 +42,44 @@ function formatTime(value: string | null) {
   }); // for ex, 06:50
 }
 
-function getCurrentUser() {
-  const storedUser = localStorage.getItem("user");
-  return storedUser ? JSON.parse(storedUser) : null;
-}
-
 // adds a message to the message list, avoids duplicates
 function appendMessage(messages: ChatMessage[] | undefined, message: ChatMessage) {
   const currentMessages = messages || [];
 
   if (currentMessages.some((item) => item.id === message.id)) {
-    return currentMessages;
+    return currentMessages.map((item) =>
+      item.id === message.id ? { ...item, ...message } : item,
+    );
   }
 
   return [...currentMessages, message];
+}
+
+// update cache messages (logically) after someone reads a conversation
+function applyReadReceipt(
+  messages: ChatMessage[] | undefined,
+  receipt: MessageReadReceipt,
+) {
+  const currentMessages = messages || [];
+  const readAt = new Date(receipt.last_read_at).getTime();
+
+  return currentMessages.map((message) => {
+    if (
+      message.conversation_id !== receipt.conversation_id ||
+      message.sender_id === receipt.user_id ||
+      new Date(message.created_at).getTime() > readAt
+    ) {
+      return message; // not mark as read
+    }
+
+    // mark as read
+    return {
+      ...message,
+      last_seen_at: receipt.last_read_at,
+      seen_by_count: Math.max(message.seen_by_count || 0, 1),
+      status: "seen" as const,
+    };
+  });
 }
 
 // updates left sidebar list after a new message arrives
@@ -93,7 +120,7 @@ export default function ChatPage() {
   const { conversationId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const user = useMemo(() => getCurrentUser(), []);
+  const user = useMemo(() => getStoredUser(), []);
   const userId = useMemo(() => getCurrentUserId(), []);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [draft, setDraft] = useState("");
@@ -168,10 +195,27 @@ export default function ChatPage() {
       );
     };
 
+    const handleReadReceipt = (receipt: MessageReadReceipt) => {
+      if (!userId) {
+        return;
+      }
+
+      queryClient.setQueryData<ChatMessage[]>(
+        messagesKey(userId, receipt.conversation_id),
+        (currentMessages) => applyReadReceipt(currentMessages, receipt),
+      ); // apply read receipt to the list of messages in cache
+
+      // refreshes conversation list
+      queryClient.invalidateQueries({ queryKey: conversationsKey(userId) });
+    };
+
+    // when backend emits "message:read" or "message:new" events, these functions run
     socket.on("message:new", handleNewMessage);
+    socket.on("message:read", handleReadReceipt); 
 
     return () => {
       socket.off("message:new", handleNewMessage);
+      socket.off("message:read", handleReadReceipt);
     }; // cleanup, remove listener
   }, [queryClient, userId]);
 
@@ -236,6 +280,28 @@ export default function ChatPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [conversationId, messages.length]);
+
+  // read receipt effect runs when the selected conversation changes or num of messages changes
+  useEffect(() => {
+    if (!conversationId || messages.length === 0) {
+      return;
+    }
+
+    markConversationRead(conversationId)
+      .then((receipt) => {
+        if (!userId) {
+          return;
+        }
+
+        queryClient.setQueryData<ChatMessage[]>(
+          messagesKey(userId, receipt.conversation_id),
+          (currentMessages) => applyReadReceipt(currentMessages, receipt),
+        );
+      })
+      .catch(() => {
+        // Read receipts should never block the chat view
+      });
+  }, [conversationId, messages.length, queryClient, userId]);
 
   return (
     <AppShell contextualPlaceholder="Search chats..." user={user}>
@@ -364,6 +430,11 @@ export default function ChatPage() {
                             }`}
                           >
                             {formatTime(message.created_at)}
+                            {isMine && (
+                              <span className="ml-2">
+                                {message.status === "seen" ? "Seen" : "Sent"}
+                              </span>
+                            )}
                           </p>
                         </div>
                       </div>

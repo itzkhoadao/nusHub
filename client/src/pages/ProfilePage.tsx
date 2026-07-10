@@ -5,6 +5,7 @@ import AppShell from "../components/layout/AppShell";
 import Icon from "../components/Icon";
 import TopicBadge from "../components/ui/TopicBadge";
 import { apiUrl } from "../utils/api";
+import { getAuthToken, getStoredUser } from "../utils/authStorage";
 import {
   conversationsKey,
   getCurrentUserId,
@@ -62,7 +63,7 @@ export default function ProfilePage() {
   const queryClient = useQueryClient();
   const { userId } = useParams();
 
-  const user = JSON.parse(localStorage.getItem("user"));
+  const user = getStoredUser();
   const isOwnProfile = !userId || String(user?.id) === String(userId);
 
   // tell user to log in if they have not, if logged in, show their profile page
@@ -74,7 +75,7 @@ export default function ProfilePage() {
 
     const fetchProfile = async () => {
       try {
-        const token = localStorage.getItem("token");
+        const token = getAuthToken();
         const url = isOwnProfile
           ? apiUrl("/api/users/me")
           : apiUrl(`/api/users/${userId}`);

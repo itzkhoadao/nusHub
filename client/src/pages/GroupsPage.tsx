@@ -4,6 +4,7 @@ import AppShell from "../components/layout/AppShell";
 import Icon from "../components/Icon";
 import AiAssistantCard from "../components/ui/AiAssistantCard";
 import { apiUrl } from "../utils/api";
+import { getAuthToken, getStoredUser } from "../utils/authStorage";
 
 export default function GroupsPage() {
   const [groups, setGroups] = useState([]);
@@ -19,7 +20,7 @@ export default function GroupsPage() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  const user = JSON.parse(localStorage.getItem("user"));
+  const user = getStoredUser();
 
   useEffect(() => {
     if (!user) {
@@ -63,7 +64,7 @@ export default function GroupsPage() {
     setError("");
 
     try {
-      const token = localStorage.getItem("token");
+      const token = getAuthToken();
 
       // HTTP post request
       const res = await fetch(apiUrl("/api/groups"), {

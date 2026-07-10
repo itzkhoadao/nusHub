@@ -8,6 +8,7 @@ import AppShell from "../components/layout/AppShell";
 import AiAssistantCard from "../components/ui/AiAssistantCard";
 import DiscussionCard from "../components/ui/DiscussionCard";
 import { apiUrl } from "../utils/api";
+import { getAuthToken, getStoredUser } from "../utils/authStorage";
 import { getRecentActivity } from "../utils/recentActivity";
 
 const TOPICS = [
@@ -29,7 +30,7 @@ export default function HomePage() {
   const [recentItems, setRecentItems] = useState([]);
   const navigate = useNavigate();
 
-  const user = JSON.parse(localStorage.getItem("user"));
+  const user = getStoredUser();
 
   // asks the backend for posts
   // URLSearchParams safely builds query strings
@@ -47,7 +48,7 @@ export default function HomePage() {
         params.set("search", searchText.trim());
       }
 
-      const token = localStorage.getItem("token");
+      const token = getAuthToken();
       const res = await fetch(apiUrl(`/api/posts?${params}`), {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       }); // send a request to backend URL
@@ -104,7 +105,7 @@ export default function HomePage() {
   // toggle an upvote for the current user
   // refreshes posts so upvote count is shown
   const handleUpvote = async (postId) => {
-    const token = localStorage.getItem("token");
+    const token = getAuthToken();
     const res = await fetch(apiUrl(`/api/posts/${postId}/upvote`), {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },

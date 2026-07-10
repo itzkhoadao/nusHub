@@ -1,11 +1,13 @@
 import { io, type Socket } from "socket.io-client";
 import { API_URL } from "./api";
-import type { ChatMessage } from "./chatApi";
+import { getAuthToken } from "./authStorage";
+import type { ChatMessage, MessageReadReceipt } from "./chatApi";
 
 const SOCKET_URL = API_URL; // backend url
 
 type ServerToClientEvents = {
   "message:new": (message: ChatMessage) => void;
+  "message:read": (receipt: MessageReadReceipt) => void;
 };
 
 type ClientToServerEvents = Record<string, never>;
@@ -14,7 +16,7 @@ type ClientToServerEvents = Record<string, never>;
 let socket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null;
 
 function getToken() {
-  return localStorage.getItem("token");
+  return getAuthToken();
 }
 
 export function getChatSocket() {
