@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import Icon from "../Icon";
+import { clearAuthSession } from "../../utils/authStorage";
 import { disconnectChatSocket } from "../../utils/socket";
 
 export default function Topbar({
@@ -70,8 +71,7 @@ export default function Topbar({
   const handleSignOut = () => {
     disconnectChatSocket();
     queryClient.clear();
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    clearAuthSession();
     setAccountOpen(false);
     navigate("/login");
   };

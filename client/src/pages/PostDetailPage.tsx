@@ -6,6 +6,7 @@ import AiAssistantCard from "../components/ui/AiAssistantCard";
 import TopicBadge from "../components/ui/TopicBadge";
 import VoteBlock from "../components/ui/VoteBlock";
 import { apiUrl } from "../utils/api";
+import { getAuthToken, getStoredUser } from "../utils/authStorage";
 
 export default function PostDetailPage() {
   const { id } = useParams(); // gets the post id from the URL
@@ -23,12 +24,12 @@ export default function PostDetailPage() {
   const postActionClass =
     "flex h-10 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 text-sm font-bold text-app-muted shadow-sm ring-1 ring-slate-900/5 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:bg-primary-fixed/40 hover:text-primary";
 
-  const user = JSON.parse(localStorage.getItem("user")); // gets the saved user from the browser
+  const user = getStoredUser(); // gets the saved user from the browser
 
   // asks the backend for one post using id
   const fetchPost = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = getAuthToken();
       const res = await fetch(apiUrl(`/api/posts/${id}`), {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -50,7 +51,7 @@ export default function PostDetailPage() {
   // asks the backend for all comments belonging to this post
   const fetchComments = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = getAuthToken();
       const res = await fetch(
         apiUrl(`/api/posts/${id}/comments`),
         {
@@ -88,7 +89,7 @@ export default function PostDetailPage() {
 
     try {
       // token is needed because adding a comment requires authentication
-      const token = localStorage.getItem("token");
+      const token = getAuthToken();
 
       const res = await fetch(
         apiUrl(`/api/posts/${id}/comments`),
@@ -134,7 +135,7 @@ export default function PostDetailPage() {
     setError("");
 
     try {
-      const token = localStorage.getItem("token"); // only logged in users can reply
+      const token = getAuthToken(); // only logged in users can reply
 
       const res = await fetch(
         apiUrl(`/api/posts/${id}/comments`),
@@ -173,7 +174,7 @@ export default function PostDetailPage() {
 
   // toggle upvote, reload comments
   const handleCommentUpvote = async (commentId) => {
-    const token = localStorage.getItem("token"); // gets user's authentication token
+    const token = getAuthToken(); // gets user's authentication token
 
     const res = await fetch(
       apiUrl(`/api/posts/${id}/comments/${commentId}/upvote`),
@@ -199,7 +200,7 @@ export default function PostDetailPage() {
 
   // toggle upvote then reload the post
   const handlePostUpvote = async () => {
-    const token = localStorage.getItem("token");
+    const token = getAuthToken();
 
     const res = await fetch(apiUrl(`/api/posts/${id}/upvote`), {
       method: "POST",

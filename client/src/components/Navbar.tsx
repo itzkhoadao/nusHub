@@ -1,14 +1,14 @@
 import { Link, useNavigate } from 'react-router-dom'
 import Logo from './Logo'
+import { clearAuthSession, getStoredUser } from '../utils/authStorage'
 
 export default function Navbar() {
     const navigate = useNavigate()
-    const user = JSON.parse(localStorage.getItem('user'))
+    const user = getStoredUser()
 
     const handleLogout = () => {
-        // Clear everything from localStorage
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
+        // Clear this tab's auth session.
+        clearAuthSession()
         navigate('/login')
     }
 

@@ -97,6 +97,54 @@ async function getConversationSummary(conversationId: string, userId: string) {
   return result.rows[0];
 }
 
+async function getMessageById(messageId: string) {
+  const result = await pool.query(
+    `SELECT
+       m.id,
+       m.conversation_id,
+       m.sender_id,
+       u.username AS sender_username,
+       u.avatar_url AS sender_avatar_url,
+       m.body,
+       m.created_at,
+       m.edited_at,
+       m.deleted_at,
+       COALESCE(read_state.seen_by_count, 0)::int AS seen_by_count,
+       COALESCE(read_state.recipient_count, 0)::int AS recipient_count,
+       read_state.last_seen_at,
+       CASE
+         WHEN COALESCE(read_state.recipient_count, 0) > 0
+          AND COALESCE(read_state.seen_by_count, 0) >= read_state.recipient_count
+         THEN 'seen'
+         ELSE 'sent'
+       END AS status
+     FROM messages m
+     LEFT JOIN users u ON u.id = m.sender_id
+     LEFT JOIN LATERAL (
+       SELECT
+         COUNT(*) FILTER (
+           WHERE cp.user_id IS DISTINCT FROM m.sender_id
+             AND cp.last_read_at IS NOT NULL
+             AND cp.last_read_at >= m.created_at
+         ) AS seen_by_count,
+         COUNT(*) FILTER (
+           WHERE cp.user_id IS DISTINCT FROM m.sender_id
+         ) AS recipient_count,
+         MAX(cp.last_read_at) FILTER (
+           WHERE cp.user_id IS DISTINCT FROM m.sender_id
+             AND cp.last_read_at IS NOT NULL
+             AND cp.last_read_at >= m.created_at
+         ) AS last_seen_at
+       FROM conversation_participants cp
+       WHERE cp.conversation_id = m.conversation_id
+     ) read_state ON true
+     WHERE m.id = $1`,
+    [messageId],
+  );
+
+  return result.rows[0];
+}
+
 // POST /api/conversations/direct/:userId
 // finds or creates the one-to-one conversation between the logged-in user and another user.
 router.post("/direct/:userId", authenticate, async (req, res) => {
@@ -230,9 +278,36 @@ router.get("/:id/messages", authenticate, async (req, res) => {
          m.body,
          m.created_at,
          m.edited_at,
-         m.deleted_at
+         m.deleted_at,
+         COALESCE(read_state.seen_by_count, 0)::int AS seen_by_count,
+         COALESCE(read_state.recipient_count, 0)::int AS recipient_count,
+         read_state.last_seen_at,
+         CASE
+           WHEN COALESCE(read_state.recipient_count, 0) > 0
+            AND COALESCE(read_state.seen_by_count, 0) >= read_state.recipient_count
+           THEN 'seen'
+           ELSE 'sent'
+         END AS status
        FROM messages m
        LEFT JOIN users u ON u.id = m.sender_id
+       LEFT JOIN LATERAL (
+         SELECT
+           COUNT(*) FILTER (
+             WHERE cp.user_id IS DISTINCT FROM m.sender_id
+               AND cp.last_read_at IS NOT NULL
+               AND cp.last_read_at >= m.created_at
+           ) AS seen_by_count,
+           COUNT(*) FILTER (
+             WHERE cp.user_id IS DISTINCT FROM m.sender_id
+           ) AS recipient_count,
+           MAX(cp.last_read_at) FILTER (
+             WHERE cp.user_id IS DISTINCT FROM m.sender_id
+               AND cp.last_read_at IS NOT NULL
+               AND cp.last_read_at >= m.created_at
+           ) AS last_seen_at
+         FROM conversation_participants cp
+         WHERE cp.conversation_id = m.conversation_id
+       ) read_state ON true
        WHERE m.conversation_id = $1
        ORDER BY m.created_at ASC
        LIMIT 100`,
@@ -240,6 +315,48 @@ router.get("/:id/messages", authenticate, async (req, res) => {
     );
 
     res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: getErrorMessage(err) });
+  }
+});
+
+// POST /api/conversations/:id/read
+// Marks the current user's read position in a conversation and notifies other participants
+router.post("/:id/read", authenticate, async (req, res) => {
+  try {
+    await ensureChatSchemaOnce(); // ensure chat tables exist
+
+    const id = req.params.id as string; // get conversation id
+    const isParticipant = await ensureConversationParticipant(id, req.user.id);
+
+    if (!isParticipant) {
+      return res.status(404).json({ error: "Conversation not found" });
+    }
+
+    const result = await pool.query(
+      `UPDATE conversation_participants
+       SET last_read_at = NOW()
+       WHERE conversation_id = $1 AND user_id = $2
+       RETURNING conversation_id, user_id, last_read_at`,
+      [id, req.user.id],
+    ); // update conversation's last_read_at
+
+    // frontend receives this as MessageReadReceipt
+    const readReceipt = result.rows[0];
+
+    const participants = await pool.query(
+      `SELECT user_id
+       FROM conversation_participants
+       WHERE conversation_id = $1 AND user_id <> $2`,
+      [id, req.user.id],
+    ); // elects everyone in the conversation except current user
+
+    const io = getSocketServer();
+    participants.rows.forEach((participant) => {
+      io?.to(`user:${participant.user_id}`).emit("message:read", readReceipt);
+    }); // emits "message:read" event to every other users
+
+    res.json(readReceipt);
   } catch (err) {
     res.status(500).json({ error: getErrorMessage(err) });
   }
@@ -267,15 +384,24 @@ router.post("/:id/messages", authenticate, async (req, res) => {
     const result = await pool.query(
       `INSERT INTO messages (conversation_id, sender_id, body)
        VALUES ($1, $2, $3)
-       RETURNING id, conversation_id, sender_id, body, created_at, edited_at, deleted_at`,
+       RETURNING id`,
       [id, req.user.id, body],
     );
-    const message = result.rows[0]; // the message being sent
+    const messageId = result.rows[0].id;
 
     await pool.query(
       "UPDATE conversations SET updated_at = NOW() WHERE id = $1",
       [id],
     );
+
+    await pool.query(
+      `UPDATE conversation_participants
+       SET last_read_at = NOW()
+       WHERE conversation_id = $1 AND user_id = $2`,
+      [id, req.user.id],
+    );
+
+    const message = await getMessageById(messageId); // the message being sent
 
     const participants = await pool.query(
       `SELECT user_id

@@ -1,5 +1,6 @@
 // THIS FILE CONTAINS HTTPS API FUNCTIONS FOR CHAT
 import { API_URL } from "./api";
+import { getAuthToken, getStoredUser } from "./authStorage";
 
 // base URLs
 const CONVERSATIONS_URL = `${API_URL}/api/conversations`;
@@ -31,6 +32,16 @@ export type ChatMessage = {
   created_at: string;
   edited_at: string | null;
   deleted_at: string | null;
+  seen_by_count: number;
+  recipient_count: number;
+  last_seen_at: string | null;
+  status: "sent" | "seen";
+};
+
+export type MessageReadReceipt = {
+  conversation_id: string;
+  user_id: string;
+  last_read_at: string;
 };
 
 type DirectConversationResponse = {
@@ -38,8 +49,7 @@ type DirectConversationResponse = {
 };
 
 export function getCurrentUserId() {
-  const storedUser = localStorage.getItem("user");
-  const user = storedUser ? JSON.parse(storedUser) : null;
+  const user = getStoredUser();
   return user?.id as string | undefined;
 }
 
@@ -53,7 +63,7 @@ export function messagesKey(userId: string, conversationId: string) {
 
 // generate login header (because backend routes use authenticate)
 function getAuthHeaders() {
-  const token = localStorage.getItem("token");
+  const token = getAuthToken();
 
   if (!token) {
     throw new Error("You must be logged in to use chat");
@@ -115,4 +125,13 @@ export async function sendMessage(conversationId: string, body: string) {
   });
 
   return readJsonResponse<ChatMessage>(response);
+}
+
+export async function markConversationRead(conversationId: string) {
+  const response = await fetch(`${CONVERSATIONS_URL}/${conversationId}/read`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+  });
+
+  return readJsonResponse<MessageReadReceipt>(response);
 }

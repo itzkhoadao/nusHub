@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
 import AppShell from "../components/layout/AppShell";
 import { apiUrl } from "../utils/api";
+import { getAuthToken, getStoredUser } from "../utils/authStorage";
 
 const TOPICS = [
   {
@@ -46,14 +47,6 @@ const TOPICS = [
 const MAX_TITLE_LENGTH = 120;
 const MAX_CONTENT_LENGTH = 2200;
 
-function getStoredUser() {
-  try {
-    return JSON.parse(localStorage.getItem("user"));
-  } catch {
-    return null;
-  }
-}
-
 export default function CreatePostPage() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -81,7 +74,7 @@ export default function CreatePostPage() {
     setError("");
 
     try {
-      const token = localStorage.getItem("token");
+      const token = getAuthToken();
 
       const res = await fetch(apiUrl("/api/posts"), {
         method: "POST",

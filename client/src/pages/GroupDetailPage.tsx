@@ -4,6 +4,7 @@ import AppShell from "../components/layout/AppShell";
 import Icon from "../components/Icon";
 import AiAssistantCard from "../components/ui/AiAssistantCard";
 import { apiUrl } from "../utils/api";
+import { getAuthToken, getStoredUser } from "../utils/authStorage";
 
 export default function GroupDetailPage() {
   const { id } = useParams();
@@ -13,7 +14,7 @@ export default function GroupDetailPage() {
   const [isMember, setIsMember] = useState(false);
   const [joining, setJoining] = useState(false);
 
-  const user = JSON.parse(localStorage.getItem("user"));
+  const user = getStoredUser();
 
   useEffect(() => {
     if (!user) {
@@ -23,7 +24,7 @@ export default function GroupDetailPage() {
 
     const fetchGroup = async () => {
       try {
-        const token = localStorage.getItem("token");
+        const token = getAuthToken();
         const res = await fetch(apiUrl(`/api/groups/${id}`), {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         }); // request
@@ -54,7 +55,7 @@ export default function GroupDetailPage() {
     setJoining(true);
 
     try {
-      const token = localStorage.getItem("token");
+      const token = getAuthToken();
       const res = await fetch(apiUrl(`/api/groups/${id}/join`), {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
