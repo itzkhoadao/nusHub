@@ -60,6 +60,12 @@ const ICON_PATHS = {
       <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z" />
     </>
   ),
+  send: (
+    <>
+      <path d="m22 2-7 20-4-9-9-4Z" />
+      <path d="M22 2 11 13" />
+    </>
+  ),
   share: (
     <>
       <circle cx="18" cy="5" r="3" />

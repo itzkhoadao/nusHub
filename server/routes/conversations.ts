@@ -71,7 +71,8 @@ async function getConversationSummary(conversationId: string, userId: string) {
        last_message.body AS last_message_body,
        last_message.created_at AS last_message_created_at,
        last_sender.id AS last_sender_id,
-       last_sender.username AS last_sender_username
+       last_sender.username AS last_sender_username,
+       COALESCE(unread_state.unread_count, 0)::int AS unread_count
      FROM conversations c
      JOIN conversation_participants current_participant
        ON current_participant.conversation_id = c.id
@@ -90,6 +91,17 @@ async function getConversationSummary(conversationId: string, userId: string) {
      ) last_message ON true
      LEFT JOIN users last_sender
        ON last_sender.id = last_message.sender_id
+     LEFT JOIN LATERAL (
+       SELECT COUNT(*) AS unread_count
+       FROM messages unread_message
+       WHERE unread_message.conversation_id = c.id
+         AND unread_message.deleted_at IS NULL
+         AND unread_message.sender_id IS DISTINCT FROM $2
+         AND (
+           current_participant.last_read_at IS NULL
+           OR unread_message.created_at > current_participant.last_read_at
+         )
+     ) unread_state ON true
      WHERE c.id = $1`,
     [conversationId, userId],
   );
@@ -105,6 +117,10 @@ async function getMessageById(messageId: string) {
        m.sender_id,
        u.username AS sender_username,
        u.avatar_url AS sender_avatar_url,
+       m.reply_to_message_id,
+       reply_message.body AS reply_to_body,
+       reply_message.sender_id AS reply_to_sender_id,
+       reply_sender.username AS reply_to_sender_username,
        m.body,
        m.created_at,
        m.edited_at,
@@ -120,6 +136,11 @@ async function getMessageById(messageId: string) {
        END AS status
      FROM messages m
      LEFT JOIN users u ON u.id = m.sender_id
+     LEFT JOIN messages reply_message
+       ON reply_message.id = m.reply_to_message_id
+      AND reply_message.deleted_at IS NULL
+     LEFT JOIN users reply_sender
+       ON reply_sender.id = reply_message.sender_id
      LEFT JOIN LATERAL (
        SELECT
          COUNT(*) FILTER (
@@ -226,7 +247,8 @@ router.get("/", authenticate, async (req, res) => {
          last_message.body AS last_message_body,
          last_message.created_at AS last_message_created_at,
          last_sender.id AS last_sender_id,
-         last_sender.username AS last_sender_username
+         last_sender.username AS last_sender_username,
+         COALESCE(unread_state.unread_count, 0)::int AS unread_count
        FROM conversations c
        JOIN conversation_participants current_participant
          ON current_participant.conversation_id = c.id
@@ -245,6 +267,17 @@ router.get("/", authenticate, async (req, res) => {
        ) last_message ON true
        LEFT JOIN users last_sender
          ON last_sender.id = last_message.sender_id
+       LEFT JOIN LATERAL (
+         SELECT COUNT(*) AS unread_count
+         FROM messages unread_message
+         WHERE unread_message.conversation_id = c.id
+           AND unread_message.deleted_at IS NULL
+           AND unread_message.sender_id IS DISTINCT FROM $1
+           AND (
+             current_participant.last_read_at IS NULL
+             OR unread_message.created_at > current_participant.last_read_at
+           )
+       ) unread_state ON true
        ORDER BY COALESCE(last_message.created_at, c.updated_at) DESC`,
       [req.user.id],
     );
@@ -275,6 +308,10 @@ router.get("/:id/messages", authenticate, async (req, res) => {
          m.sender_id,
          u.username AS sender_username,
          u.avatar_url AS sender_avatar_url,
+         m.reply_to_message_id,
+         reply_message.body AS reply_to_body,
+         reply_message.sender_id AS reply_to_sender_id,
+         reply_sender.username AS reply_to_sender_username,
          m.body,
          m.created_at,
          m.edited_at,
@@ -290,6 +327,11 @@ router.get("/:id/messages", authenticate, async (req, res) => {
          END AS status
        FROM messages m
        LEFT JOIN users u ON u.id = m.sender_id
+       LEFT JOIN messages reply_message
+         ON reply_message.id = m.reply_to_message_id
+        AND reply_message.deleted_at IS NULL
+       LEFT JOIN users reply_sender
+         ON reply_sender.id = reply_message.sender_id
        LEFT JOIN LATERAL (
          SELECT
            COUNT(*) FILTER (
@@ -371,6 +413,9 @@ router.post("/:id/messages", authenticate, async (req, res) => {
     const id = req.params.id as string;
     const body = req.body.body?.trim();
 
+    // the message that this message is replying to
+    const replyToMessageId = req.body.reply_to_message_id || null;
+
     if (!body) {
       return res.status(400).json({ error: "Message cannot be empty" });
     }
@@ -381,11 +426,26 @@ router.post("/:id/messages", authenticate, async (req, res) => {
       return res.status(404).json({ error: "Conversation not found" });
     }
 
+    if (replyToMessageId) {
+      const replyTarget = await pool.query(
+        `SELECT 1
+         FROM messages
+         WHERE id = $1
+           AND conversation_id = $2
+           AND deleted_at IS NULL`,
+        [replyToMessageId, id],
+      ); // find the message that this message is replying to
+
+      if (replyTarget.rows.length === 0) { // if not found, return error right here
+        return res.status(400).json({ error: "Reply target is invalid" });
+      }
+    }
+
     const result = await pool.query(
-      `INSERT INTO messages (conversation_id, sender_id, body)
-       VALUES ($1, $2, $3)
+      `INSERT INTO messages (conversation_id, sender_id, body, reply_to_message_id)
+       VALUES ($1, $2, $3, $4)
        RETURNING id`,
-      [id, req.user.id, body],
+      [id, req.user.id, body, replyToMessageId],
     );
     const messageId = result.rows[0].id;
 
