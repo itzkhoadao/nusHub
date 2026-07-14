@@ -32,15 +32,44 @@ export async function ensureChatSchema() {
       conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
       sender_id UUID REFERENCES users(id) ON DELETE SET NULL,
       reply_to_message_id UUID REFERENCES messages(id) ON DELETE SET NULL,
-      body TEXT NOT NULL,
+      body TEXT NOT NULL DEFAULT '',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       edited_at TIMESTAMPTZ,
-      deleted_at TIMESTAMPTZ,
-      CONSTRAINT messages_body_check CHECK (length(trim(body)) > 0)
+      deleted_at TIMESTAMPTZ
+    );
+
+    CREATE TABLE IF NOT EXISTS message_attachments (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      message_id UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+      original_name TEXT NOT NULL,
+      stored_name TEXT NOT NULL,
+      storage_provider TEXT NOT NULL DEFAULT 'r2',
+      storage_key TEXT,
+      mime_type TEXT NOT NULL,
+      file_size INTEGER NOT NULL,
+      file_url TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
     ALTER TABLE messages
       ADD COLUMN IF NOT EXISTS reply_to_message_id UUID REFERENCES messages(id) ON DELETE SET NULL;
+
+    ALTER TABLE messages
+      ALTER COLUMN body SET DEFAULT '';
+
+    ALTER TABLE messages
+      DROP CONSTRAINT IF EXISTS messages_body_check;
+
+    ALTER TABLE message_attachments
+      ADD COLUMN IF NOT EXISTS storage_provider TEXT NOT NULL DEFAULT 'r2',
+      ADD COLUMN IF NOT EXISTS storage_key TEXT;
+
+    UPDATE message_attachments
+    SET storage_key = stored_name
+    WHERE storage_key IS NULL;
+
+    ALTER TABLE message_attachments
+      ALTER COLUMN storage_key SET NOT NULL;
 
     DO $$
     BEGIN
@@ -90,5 +119,8 @@ export async function ensureChatSchema() {
 
     CREATE INDEX IF NOT EXISTS idx_messages_reply_to_message_id
       ON messages(reply_to_message_id);
+
+    CREATE INDEX IF NOT EXISTS idx_message_attachments_message_id
+      ON message_attachments(message_id);
   `);
 }
