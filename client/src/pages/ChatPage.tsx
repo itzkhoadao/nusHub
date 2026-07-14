@@ -1,4 +1,6 @@
 import {
+  Suspense,
+  lazy,
   useEffect,
   useMemo,
   useRef,
@@ -6,10 +8,12 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from "react";
+import type { EmojiClickData } from "emoji-picker-react"; // object returned when user clicks an emoji
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import AppShell from "../components/layout/AppShell";
 import Icon from "../components/Icon";
+import { API_URL } from "../utils/api";
 import { getStoredUser } from "../utils/authStorage";
 
 // import HTTP API functions
@@ -29,7 +33,10 @@ import { getChatSocket } from "../utils/socket";
 
 const emptyConversations: Conversation[] = [];
 const emptyMessages: ChatMessage[] = [];
+const EmojiPicker = lazy(() => import("emoji-picker-react")); // loads only if user opens picker
 const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+const MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024;
+const MAX_ATTACHMENTS_PER_MESSAGE = 5;
 
 function getLocalDateKey(value: string | Date) {
   return new Date(value).toLocaleDateString("en-CA", {
@@ -76,6 +83,34 @@ function formatDateLabel(value: string | null) {
     month: "numeric",
     timeZone: userTimeZone,
   });
+}
+
+function formatFileSize(size: number) {
+  if (size < 1024 * 1024) {
+    return `${Math.max(1, Math.round(size / 1024))} KB`;
+  }
+
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function isImageAttachment(mimeType: string) {
+  return mimeType.startsWith("image/");
+}
+
+function getAttachmentUrl(fileUrl: string) {
+  if (fileUrl.startsWith("http")) {
+    return fileUrl;
+  }
+
+  return `${API_URL}${fileUrl}`;
+}
+
+function getAttachmentPreviewText(count: number) {
+  if (count <= 0) {
+    return "";
+  }
+
+  return count === 1 ? "Attachment" : `${count} attachments`;
 }
 
 // formats the preview shown above the input
@@ -153,6 +188,7 @@ function updateConversationPreview(
         last_message_id: message.id,
         last_message_body: message.body,
         last_message_created_at: message.created_at,
+        last_attachment_count: message.attachments?.length || 0,
         last_sender_id: message.sender_id,
         last_sender_username:
           message.sender_username || conversation.last_sender_username,
@@ -194,9 +230,15 @@ export default function ChatPage() {
   const user = useMemo(() => getStoredUser(), []);
   const userId = useMemo(() => getCurrentUserId(), []);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const emojiPickerRef = useRef<HTMLDivElement | null>(null); // div that contains picker
+  const emojiButtonRef = useRef<HTMLButtonElement | null>(null); // smile-button that opens the picker
+  const draftInputRef = useRef<HTMLTextAreaElement | null>(null); // message textarea
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
   const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   // replace loadConversations()
   const conversationsQuery = useQuery({
@@ -288,7 +330,7 @@ export default function ChatPage() {
 
     // when backend emits "message:read" or "message:new" events, these functions run
     socket.on("message:new", handleNewMessage);
-    socket.on("message:read", handleReadReceipt); 
+    socket.on("message:read", handleReadReceipt);
 
     return () => {
       socket.off("message:new", handleNewMessage);
@@ -302,15 +344,21 @@ export default function ChatPage() {
       id,
       body,
       replyToMessageId,
+      attachments,
     }: {
       id: string;
       body: string;
       replyToMessageId: string | null;
-    }) => sendMessage(id, body, replyToMessageId),
+      attachments: File[];
+    }) => sendMessage(id, body, replyToMessageId, attachments),
     onSuccess: (message) => {
       setDraft("");
       setError("");
       setReplyingTo(null); // reset state
+      setSelectedFiles([]);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
 
       // update cache on sending
       if (!userId) {
@@ -343,7 +391,11 @@ export default function ChatPage() {
     event.preventDefault();
     const body = draft.trim();
 
-    if (!conversationId || !body || sendMessageMutation.isPending) {
+    if (
+      !conversationId ||
+      (!body && selectedFiles.length === 0) ||
+      sendMessageMutation.isPending
+    ) {
       return;
     }
 
@@ -352,7 +404,39 @@ export default function ChatPage() {
       id: conversationId,
       body,
       replyToMessageId: replyingTo?.id || null,
+      attachments: selectedFiles,
     }); // let React Query func handle
+  };
+
+  const handleFileSelect = (files: FileList | null) => {
+    if (!files) {
+      return;
+    }
+
+    const nextFiles = [...selectedFiles, ...Array.from(files)];
+
+    if (nextFiles.length > MAX_ATTACHMENTS_PER_MESSAGE) {
+      setError("You can attach up to 5 files per message");
+      return;
+    }
+
+    const oversizedFile = nextFiles.find(
+      (file) => file.size > MAX_ATTACHMENT_SIZE_BYTES,
+    );
+
+    if (oversizedFile) {
+      setError(`${oversizedFile.name} is bigger than 10 MB`);
+      return;
+    }
+
+    setSelectedFiles(nextFiles);
+    setError("");
+  };
+
+  const removeSelectedFile = (indexToRemove: number) => {
+    setSelectedFiles((currentFiles) =>
+      currentFiles.filter((_file, index) => index !== indexToRemove),
+    );
   };
 
   const handleDraftKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -362,6 +446,32 @@ export default function ChatPage() {
 
     event.preventDefault();
     event.currentTarget.form?.requestSubmit();
+  };
+
+  const handleEmojiClick = (emojiData: EmojiClickData) => {
+    const input = draftInputRef.current; // textarea element
+    const emoji = emojiData.emoji; // get the emoji
+
+    if (!input) {
+      setDraft((currentDraft) => `${currentDraft}${emoji}`);
+      return;
+    }
+
+    // add emoji at cursor position: before cursor + emoji + after cursor
+    // if cursor selects many chars, replace all these chars with emoji
+    const selectionStart = input.selectionStart ?? draft.length;
+    const selectionEnd = input.selectionEnd ?? draft.length;
+    const nextDraft = `${draft.slice(0, selectionStart)}${emoji}${draft.slice(
+      selectionEnd,
+    )}`;
+    const nextCursorPosition = selectionStart + emoji.length;
+
+    setDraft(nextDraft);
+
+    requestAnimationFrame(() => {
+      input.focus();
+      input.setSelectionRange(nextCursorPosition, nextCursorPosition);
+    }); // restores focus and cursor position
   };
 
   const displayedError =
@@ -378,7 +488,37 @@ export default function ChatPage() {
   useEffect(() => {
     setReplyingTo(null);
     setDraft("");
+    setIsEmojiPickerOpen(false);
+    setSelectedFiles([]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   }, [conversationId]); // reset these when conversation changes
+
+  // listener to close the picker when clicking outside
+  useEffect(() => {
+    if (!isEmojiPickerOpen) {
+      return; // only run this listener when picker is open
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+
+      if (
+        emojiPickerRef.current &&
+        !emojiPickerRef.current.contains(target) &&
+        !emojiButtonRef.current?.contains(target)
+      ) { // clicked outside picker
+        setIsEmojiPickerOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown); // add listener
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+    }; // cleanup
+  }, [isEmojiPickerOpen]);
 
   // read receipt effect runs when the selected conversation changes or num of messages changes
   useEffect(() => {
@@ -438,6 +578,10 @@ export default function ChatPage() {
                   const initial = displayName.charAt(0).toUpperCase();
                   const unreadCount = conversation.unread_count || 0;
                   const hasUnread = unreadCount > 0;
+                  const conversationPreview =
+                    conversation.last_message_body ||
+                    getAttachmentPreviewText(conversation.last_attachment_count) ||
+                    "No messages yet";
 
                   return (
                     <Link
@@ -446,7 +590,7 @@ export default function ChatPage() {
                           ? "border-primary/25 bg-primary-fixed text-primary"
                           : hasUnread
                             ? "border-secondary-container/25 bg-white text-app-text shadow-sm"
-                          : "border-transparent bg-white text-app-text hover:border-surface-variant hover:bg-surface-low"
+                            : "border-transparent bg-white text-app-text hover:border-surface-variant hover:bg-surface-low"
                       }`}
                       key={conversation.id}
                       to={`/chat/${conversation.id}`}
@@ -491,7 +635,7 @@ export default function ChatPage() {
                               : "text-app-muted"
                           }`}
                         >
-                          {conversation.last_message_body || "No messages yet"}
+                          {conversationPreview}
                         </p>
                       </div>
                     </Link>
@@ -590,9 +734,71 @@ export default function ChatPage() {
                                 </p>
                               </div>
                             )}
-                            <p className="whitespace-pre-wrap text-sm leading-6">
-                              {message.body}
-                            </p>
+                            {message.attachments?.length > 0 && (
+                              <div className="mb-3 space-y-2">
+                                {message.attachments.map((attachment) => {
+                                  const attachmentUrl = getAttachmentUrl(
+                                    attachment.file_url,
+                                  );
+
+                                  if (isImageAttachment(attachment.mime_type)) {
+                                    return (
+                                      <a
+                                        className="block overflow-hidden rounded-xl border border-white/20 bg-black/5"
+                                        href={attachmentUrl}
+                                        key={attachment.id}
+                                        rel="noreferrer"
+                                        target="_blank"
+                                      >
+                                        <img
+                                          alt={attachment.original_name}
+                                          className="max-h-64 w-full object-cover"
+                                          src={attachmentUrl}
+                                        />
+                                      </a>
+                                    );
+                                  }
+
+                                  return (
+                                    <a
+                                      className={`flex items-center gap-3 rounded-xl border px-3 py-2 text-sm transition-colors ${
+                                        isMine
+                                          ? "border-white/20 bg-white/10 text-white hover:bg-white/15"
+                                          : "border-surface-variant bg-surface-low text-app-text hover:bg-primary-fixed/40"
+                                      }`}
+                                      href={attachmentUrl}
+                                      key={attachment.id}
+                                      rel="noreferrer"
+                                      target="_blank"
+                                    >
+                                      <Icon
+                                        name="file"
+                                        className="h-5 w-5 shrink-0"
+                                      />
+                                      <span className="min-w-0 flex-1">
+                                        <span className="block truncate font-bold">
+                                          {attachment.original_name}
+                                        </span>
+                                        <span
+                                          className={`block text-xs ${
+                                            isMine
+                                              ? "text-white/70"
+                                              : "text-app-muted"
+                                          }`}
+                                        >
+                                          {formatFileSize(attachment.file_size)}
+                                        </span>
+                                      </span>
+                                    </a>
+                                  );
+                                })}
+                              </div>
+                            )}
+                            {message.body && (
+                              <p className="whitespace-pre-wrap text-sm leading-6">
+                                {message.body}
+                              </p>
+                            )}
                             <div className="mt-2 flex items-center justify-between gap-3">
                               <p
                                 className={`text-[11px] font-semibold ${
@@ -602,7 +808,9 @@ export default function ChatPage() {
                                 {formatTime(message.created_at)}
                                 {isMine && (
                                   <span className="ml-2">
-                                    {message.status === "seen" ? "Seen" : "Sent"}
+                                    {message.status === "seen"
+                                      ? "Seen"
+                                      : "Sent"}
                                   </span>
                                 )}
                               </p>
@@ -654,20 +862,109 @@ export default function ChatPage() {
                     </button>
                   </div>
                 )}
+                {selectedFiles.length > 0 && (
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    {selectedFiles.map((file, index) => (
+                      <div
+                        className="flex max-w-full items-center gap-2 rounded-lg border border-surface-variant bg-surface-low px-3 py-2 text-sm text-app-text"
+                        key={`${file.name}-${file.lastModified}-${index}`}
+                      >
+                        <Icon name="file" className="h-4 w-4 shrink-0" />
+                        <span className="min-w-0">
+                          <span className="block max-w-48 truncate font-bold">
+                            {file.name}
+                          </span>
+                          <span className="block text-xs text-app-muted">
+                            {formatFileSize(file.size)}
+                          </span>
+                        </span>
+                        <button
+                          aria-label={`Remove ${file.name}`}
+                          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-app-muted transition-colors hover:bg-white hover:text-app-danger"
+                          onClick={() => removeSelectedFile(index)}
+                          type="button"
+                        >
+                          <Icon name="x" className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="flex items-end gap-3">
-                  <textarea
-                    className="app-input min-h-12 flex-1 resize-none"
-                    onChange={(event) => setDraft(event.target.value)}
-                    onKeyDown={handleDraftKeyDown}
-                    placeholder={
-                      replyingTo ? "Write your reply..." : "Write a message..."
-                    }
-                    rows={1}
-                    value={draft}
+                  <input
+                    className="hidden"
+                    multiple
+                    onChange={(event) => handleFileSelect(event.target.files)}
+                    ref={fileInputRef}
+                    type="file"
                   />
                   <button
+                    aria-label="Attach files"
+                    className="mb-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-surface-variant bg-white text-primary transition-colors hover:bg-primary-fixed"
+                    onClick={() => fileInputRef.current?.click()}
+                    type="button"
+                  >
+                    <Icon name="paperclip" className="h-5 w-5" />
+                  </button>
+                  <div className="relative flex min-w-0 flex-1 items-end gap-2">
+                    {isEmojiPickerOpen && (
+                      <div
+                        className="absolute bottom-14 right-0 z-20 w-[min(22rem,calc(100vw-3rem))] overflow-hidden rounded-2xl border border-surface-variant bg-white shadow-[0_22px_70px_rgba(15,23,42,0.22)]"
+                        ref={emojiPickerRef}
+                      >
+                        <Suspense
+                          fallback={
+                            <div className="flex h-64 items-center justify-center text-sm font-semibold text-app-muted">
+                              Loading emojis...
+                            </div>
+                          }
+                        >
+                          <EmojiPicker
+                            autoFocusSearch
+                            emojiStyle={"native" as never}
+                            height={420}
+                            lazyLoadEmojis
+                            onEmojiClick={handleEmojiClick}
+                            previewConfig={{ showPreview: false }}
+                            searchPlaceholder="Search emojis"
+                            theme={"light" as never}
+                            width="100%"
+                          />
+                        </Suspense>
+                      </div>
+                    )}
+                    <textarea
+                      className="app-input min-h-12 flex-1 resize-none pr-12"
+                      onChange={(event) => setDraft(event.target.value)}
+                      onKeyDown={handleDraftKeyDown}
+                      placeholder={
+                        replyingTo
+                          ? "Write your reply..."
+                          : "Write a message..."
+                      }
+                      ref={draftInputRef}
+                      rows={1}
+                      value={draft}
+                    />
+                    <button
+                      aria-expanded={isEmojiPickerOpen}
+                      aria-label="Choose emoji"
+                      className="absolute bottom-2.5 right-3 flex h-7 w-7 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary-fixed"
+                      onClick={() =>
+                        setIsEmojiPickerOpen((currentValue) => !currentValue)
+                      }
+                      ref={emojiButtonRef}
+                      type="button"
+                    >
+                      <Icon name="smile" className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <button
                     className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full bg-gradient-to-r from-primary to-secondary-container px-4 text-sm font-bold text-white shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-lg disabled:translate-y-0 disabled:cursor-not-allowed disabled:from-outline disabled:to-outline disabled:opacity-70"
-                    disabled={sendMessageMutation.isPending || !draft.trim()}
+                    disabled={
+                      sendMessageMutation.isPending ||
+                      (!draft.trim() && selectedFiles.length === 0)
+                    }
                     type="submit"
                   >
                     Send

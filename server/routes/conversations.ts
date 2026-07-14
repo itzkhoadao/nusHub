@@ -5,8 +5,23 @@ import authenticate from "../middleware/authenticate";
 import { getSocketServer } from "../socket";
 import { getErrorMessage } from "../types";
 import { ensureChatSchema } from "../utils/chatSchema";
+import {
+  MAX_ATTACHMENTS_PER_MESSAGE,
+  createDownloadUrl,
+  createUploadUrl,
+  validateAttachmentMetadata,
+  verifyUploadedObject,
+} from "../utils/r2Storage";
 
 const router = express.Router();
+
+type PendingAttachment = {
+  file_size: number;
+  file_url?: string;
+  mime_type: string;
+  original_name: string;
+  storage_key: string;
+};
 
 // ensure conversation tables are created only once
 // first request runs ensureChatSchema(), later reuse the same Promise
@@ -15,6 +30,32 @@ let chatSchemaReady: Promise<void> | null = null;
 function ensureChatSchemaOnce() {
   chatSchemaReady ??= ensureChatSchema();
   return chatSchemaReady;
+}
+
+async function addDownloadUrlsToMessage(message: any) {
+  if (!message?.attachments?.length) {
+    return message;
+  }
+
+  // if file_url exists, use it
+  // otherwise create download URL from storage_key
+  const attachments = await Promise.all(
+    message.attachments.map(async (attachment: any) => ({
+      ...attachment,
+      file_url:
+        attachment.file_url ||
+        (await createDownloadUrl(attachment.storage_key || attachment.stored_name)),
+    })),
+  );
+
+  return {
+    ...message,
+    attachments,
+  };
+}
+
+async function addDownloadUrlsToMessages(messages: any[]) {
+  return Promise.all(messages.map((message) => addDownloadUrlsToMessage(message)));
 }
 
 // creates a unique key for a direct chat between 2 users
@@ -70,6 +111,7 @@ async function getConversationSummary(conversationId: string, userId: string) {
        last_message.id AS last_message_id,
        last_message.body AS last_message_body,
        last_message.created_at AS last_message_created_at,
+       COALESCE(last_message.attachment_count, 0)::int AS last_attachment_count,
        last_sender.id AS last_sender_id,
        last_sender.username AS last_sender_username,
        COALESCE(unread_state.unread_count, 0)::int AS unread_count
@@ -83,7 +125,16 @@ async function getConversationSummary(conversationId: string, userId: string) {
      LEFT JOIN users other_user
        ON other_user.id = other_participant.user_id
      LEFT JOIN LATERAL (
-       SELECT id, sender_id, body, created_at
+       SELECT
+         id,
+         sender_id,
+         body,
+         created_at,
+         (
+           SELECT COUNT(*)::int
+           FROM message_attachments
+           WHERE message_id = messages.id
+         ) AS attachment_count
        FROM messages
        WHERE conversation_id = c.id AND deleted_at IS NULL
        ORDER BY created_at DESC
@@ -125,6 +176,7 @@ async function getMessageById(messageId: string) {
        m.created_at,
        m.edited_at,
        m.deleted_at,
+       COALESCE(attachments.items, '[]'::json) AS attachments,
        COALESCE(read_state.seen_by_count, 0)::int AS seen_by_count,
        COALESCE(read_state.recipient_count, 0)::int AS recipient_count,
        read_state.last_seen_at,
@@ -141,6 +193,22 @@ async function getMessageById(messageId: string) {
       AND reply_message.deleted_at IS NULL
      LEFT JOIN users reply_sender
        ON reply_sender.id = reply_message.sender_id
+     LEFT JOIN LATERAL (
+       SELECT json_agg(
+         json_build_object(
+           'id', ma.id,
+           'original_name', ma.original_name,
+           'stored_name', ma.stored_name,
+           'storage_key', ma.storage_key,
+           'mime_type', ma.mime_type,
+           'file_size', ma.file_size,
+           'file_url', ma.file_url
+         )
+         ORDER BY ma.created_at ASC
+       ) AS items
+       FROM message_attachments ma
+       WHERE ma.message_id = m.id
+     ) attachments ON true
      LEFT JOIN LATERAL (
        SELECT
          COUNT(*) FILTER (
@@ -163,7 +231,7 @@ async function getMessageById(messageId: string) {
     [messageId],
   );
 
-  return result.rows[0];
+  return addDownloadUrlsToMessage(result.rows[0]);
 }
 
 // POST /api/conversations/direct/:userId
@@ -246,6 +314,7 @@ router.get("/", authenticate, async (req, res) => {
          last_message.id AS last_message_id,
          last_message.body AS last_message_body,
          last_message.created_at AS last_message_created_at,
+         COALESCE(last_message.attachment_count, 0)::int AS last_attachment_count,
          last_sender.id AS last_sender_id,
          last_sender.username AS last_sender_username,
          COALESCE(unread_state.unread_count, 0)::int AS unread_count
@@ -259,7 +328,16 @@ router.get("/", authenticate, async (req, res) => {
        LEFT JOIN users other_user
          ON other_user.id = other_participant.user_id
        LEFT JOIN LATERAL (
-         SELECT id, sender_id, body, created_at
+         SELECT
+           id,
+           sender_id,
+           body,
+           created_at,
+           (
+             SELECT COUNT(*)::int
+             FROM message_attachments
+             WHERE message_id = messages.id
+           ) AS attachment_count
          FROM messages
          WHERE conversation_id = c.id AND deleted_at IS NULL
          ORDER BY created_at DESC
@@ -316,6 +394,7 @@ router.get("/:id/messages", authenticate, async (req, res) => {
          m.created_at,
          m.edited_at,
          m.deleted_at,
+         COALESCE(attachments.items, '[]'::json) AS attachments,
          COALESCE(read_state.seen_by_count, 0)::int AS seen_by_count,
          COALESCE(read_state.recipient_count, 0)::int AS recipient_count,
          read_state.last_seen_at,
@@ -332,6 +411,22 @@ router.get("/:id/messages", authenticate, async (req, res) => {
         AND reply_message.deleted_at IS NULL
        LEFT JOIN users reply_sender
          ON reply_sender.id = reply_message.sender_id
+       LEFT JOIN LATERAL (
+         SELECT json_agg(
+           json_build_object(
+             'id', ma.id,
+             'original_name', ma.original_name,
+             'stored_name', ma.stored_name,
+             'storage_key', ma.storage_key,
+             'mime_type', ma.mime_type,
+             'file_size', ma.file_size,
+             'file_url', ma.file_url
+           )
+           ORDER BY ma.created_at ASC
+         ) AS items
+         FROM message_attachments ma
+         WHERE ma.message_id = m.id
+       ) attachments ON true
        LEFT JOIN LATERAL (
          SELECT
            COUNT(*) FILTER (
@@ -356,7 +451,7 @@ router.get("/:id/messages", authenticate, async (req, res) => {
       [id],
     );
 
-    res.json(result.rows);
+    res.json(await addDownloadUrlsToMessages(result.rows));
   } catch (err) {
     res.status(500).json({ error: getErrorMessage(err) });
   }
@@ -404,6 +499,63 @@ router.post("/:id/read", authenticate, async (req, res) => {
   }
 });
 
+router.post("/:id/attachments/presign", authenticate, async (req, res) => {
+  try {
+    await ensureChatSchemaOnce();
+
+    // user must belong to the conversation
+    const id = req.params.id as string;
+    const isParticipant = await ensureConversationParticipant(id, req.user.id);
+
+    if (!isParticipant) {
+      return res.status(404).json({ error: "Conversation not found" });
+    }
+
+    const files = Array.isArray(req.body.files) ? req.body.files : [];
+
+    if (files.length === 0) {
+      return res.status(400).json({ error: "No files selected" });
+    }
+
+    if (files.length > MAX_ATTACHMENTS_PER_MESSAGE) {
+      return res.status(400).json({ error: "You can attach up to 5 files" });
+    }
+
+    const uploads = await Promise.all(
+      files.map(
+        async (file: {
+          client_id?: string;
+          file_size: number;
+          mime_type: string;
+          original_name: string;
+        }) => {
+          validateAttachmentMetadata(file);
+
+          const upload = await createUploadUrl({
+            conversationId: id,
+            mimeType: file.mime_type,
+            originalName: file.original_name,
+          });
+
+          return {
+            client_id: file.client_id,
+            file_size: file.file_size,
+            file_url: upload.fileUrl,
+            mime_type: file.mime_type,
+            original_name: file.original_name,
+            storage_key: upload.storageKey,
+            upload_url: upload.uploadUrl,
+          };
+        },
+      ),
+    );
+
+    res.json({ uploads });
+  } catch (err) {
+    res.status(400).json({ error: getErrorMessage(err) });
+  }
+});
+
 // POST /api/conversations/:id/messages
 // Sends a message by saving it to the database.
 router.post("/:id/messages", authenticate, async (req, res) => {
@@ -411,12 +563,33 @@ router.post("/:id/messages", authenticate, async (req, res) => {
     await ensureChatSchemaOnce();
 
     const id = req.params.id as string;
-    const body = req.body.body?.trim();
+    const body =
+      typeof req.body.body === "string" ? req.body.body.trim() : "";
+    const attachments: PendingAttachment[] = Array.isArray(req.body.attachments)
+      ? req.body.attachments
+      : [];
 
     // the message that this message is replying to
     const replyToMessageId = req.body.reply_to_message_id || null;
 
-    if (!body) {
+    if (attachments.length > MAX_ATTACHMENTS_PER_MESSAGE) {
+      return res.status(400).json({ error: "You can attach up to 5 files" });
+    }
+
+    try {
+      // backend validates attachment metadata again
+      attachments.forEach((attachment) => {
+        validateAttachmentMetadata(attachment);
+
+        if (!attachment.storage_key.startsWith(`chat/${id}/`)) {
+          throw new Error("Attachment upload key is invalid");
+        }
+      });
+    } catch (err) {
+      return res.status(400).json({ error: getErrorMessage(err) });
+    }
+
+    if (!body && attachments.length === 0) {
       return res.status(400).json({ error: "Message cannot be empty" });
     }
 
@@ -424,6 +597,21 @@ router.post("/:id/messages", authenticate, async (req, res) => {
 
     if (!isParticipant) {
       return res.status(404).json({ error: "Conversation not found" });
+    }
+
+    try {
+      // verifying uploaded R2 object
+      await Promise.all(
+        attachments.map((attachment) =>
+          verifyUploadedObject({
+            fileSize: attachment.file_size,
+            mimeType: attachment.mime_type,
+            storageKey: attachment.storage_key,
+          }),
+        ),
+      );
+    } catch (err) {
+      return res.status(400).json({ error: getErrorMessage(err) });
     }
 
     if (replyToMessageId) {
@@ -441,25 +629,66 @@ router.post("/:id/messages", authenticate, async (req, res) => {
       }
     }
 
-    const result = await pool.query(
-      `INSERT INTO messages (conversation_id, sender_id, body, reply_to_message_id)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id`,
-      [id, req.user.id, body, replyToMessageId],
-    );
-    const messageId = result.rows[0].id;
+    const client = await pool.connect();
+    let messageId: string;
 
-    await pool.query(
-      "UPDATE conversations SET updated_at = NOW() WHERE id = $1",
-      [id],
-    );
+    try {
+      await client.query("BEGIN");
 
-    await pool.query(
-      `UPDATE conversation_participants
-       SET last_read_at = NOW()
-       WHERE conversation_id = $1 AND user_id = $2`,
-      [id, req.user.id],
-    );
+      const result = await client.query(
+        `INSERT INTO messages (conversation_id, sender_id, body, reply_to_message_id)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id`,
+        [id, req.user.id, body, replyToMessageId],
+      );
+      messageId = result.rows[0].id;
+
+      // insert attachment rows
+      for (const attachment of attachments) {
+        await client.query(
+          `INSERT INTO message_attachments
+             (
+               message_id,
+               original_name,
+               stored_name,
+               storage_provider,
+               storage_key,
+               mime_type,
+               file_size,
+               file_url
+             )
+           VALUES ($1, $2, $3, 'r2', $4, $5, $6, $7)`,
+          [
+            messageId,
+            attachment.original_name,
+            attachment.storage_key,
+            attachment.storage_key,
+            attachment.mime_type,
+            attachment.file_size,
+            attachment.file_url || "",
+          ],
+        );
+      }
+
+      await client.query(
+        "UPDATE conversations SET updated_at = NOW() WHERE id = $1",
+        [id],
+      );
+
+      await client.query(
+        `UPDATE conversation_participants
+         SET last_read_at = NOW()
+         WHERE conversation_id = $1 AND user_id = $2`,
+        [id, req.user.id],
+      );
+
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
 
     const message = await getMessageById(messageId); // the message being sent
 
