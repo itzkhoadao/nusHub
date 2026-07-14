@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type KeyboardEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import AppShell from "../components/layout/AppShell";
 import Icon from "../components/Icon";
@@ -172,6 +172,27 @@ export default function PostDetailPage() {
     }
   };
 
+  const handleCommentKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== "Enter" || event.shiftKey) {
+      return;
+    }
+
+    event.preventDefault();
+    handleSubmitComment();
+  };
+
+  const handleReplyKeyDown = (
+    event: KeyboardEvent<HTMLTextAreaElement>,
+    parentCommentId,
+  ) => {
+    if (event.key !== "Enter" || event.shiftKey) {
+      return;
+    }
+
+    event.preventDefault();
+    handleSubmitReply(parentCommentId);
+  };
+
   // toggle upvote, reload comments
   const handleCommentUpvote = async (commentId) => {
     const token = getAuthToken(); // gets user's authentication token
@@ -336,6 +357,7 @@ export default function PostDetailPage() {
             <textarea
               className="app-input min-h-16 resize-none bg-white py-2 text-sm shadow-inner"
               onChange={(event) => setReplyContent(event.target.value)}
+              onKeyDown={(event) => handleReplyKeyDown(event, comment.id)}
               placeholder={`Reply to ${comment.username}...`}
               value={replyContent}
             />
@@ -438,10 +460,11 @@ export default function PostDetailPage() {
     >
       <div className="space-y-6">
         <Link
-          className="inline-flex items-center text-sm font-semibold text-app-muted hover:text-primary"
+          className="inline-flex w-fit items-center gap-2 rounded-full border border-primary bg-white px-5 py-2.5 text-sm font-bold text-primary shadow-sm transition-all hover:-translate-y-0.5 hover:bg-primary-fixed focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
           to="/"
         >
-          Back to forum
+          <Icon name="arrowLeft" className="h-4 w-4 shrink-0" />
+          <span>Back to forum</span>
         </Link>
 
         {/* Main post card */}
@@ -546,6 +569,7 @@ export default function PostDetailPage() {
           <textarea
             className="app-input min-h-28 resize-none"
             onChange={(e) => setNewComment(e.target.value)}
+            onKeyDown={handleCommentKeyDown}
             placeholder="What are your thoughts?"
             value={newComment}
           />

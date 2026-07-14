@@ -2,6 +2,7 @@ import {
   Suspense,
   lazy,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -230,6 +231,7 @@ export default function ChatPage() {
   const user = useMemo(() => getStoredUser(), []);
   const userId = useMemo(() => getCurrentUserId(), []);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const previousConversationIdRef = useRef<string | undefined>(undefined);
   const emojiPickerRef = useRef<HTMLDivElement | null>(null); // div that contains picker
   const emojiButtonRef = useRef<HTMLButtonElement | null>(null); // smile-button that opens the picker
   const draftInputRef = useRef<HTMLTextAreaElement | null>(null); // message textarea
@@ -481,8 +483,21 @@ export default function ChatPage() {
       : "") ||
     (messagesQuery.error instanceof Error ? messagesQuery.error.message : "");
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  // switching between chats: jump to the newest messages
+  useLayoutEffect(() => {
+    if (messages.length === 0) {
+      return;
+    }
+
+    const conversationChanged =
+      previousConversationIdRef.current !== conversationId;
+
+    messagesEndRef.current?.scrollIntoView({
+      behavior: conversationChanged ? "auto" : "smooth",
+      block: "end",
+    });
+
+    previousConversationIdRef.current = conversationId;
   }, [conversationId, messages.length]);
 
   useEffect(() => {
@@ -508,7 +523,8 @@ export default function ChatPage() {
         emojiPickerRef.current &&
         !emojiPickerRef.current.contains(target) &&
         !emojiButtonRef.current?.contains(target)
-      ) { // clicked outside picker
+      ) {
+        // clicked outside picker
         setIsEmojiPickerOpen(false);
       }
     };
@@ -580,7 +596,9 @@ export default function ChatPage() {
                   const hasUnread = unreadCount > 0;
                   const conversationPreview =
                     conversation.last_message_body ||
-                    getAttachmentPreviewText(conversation.last_attachment_count) ||
+                    getAttachmentPreviewText(
+                      conversation.last_attachment_count,
+                    ) ||
                     "No messages yet";
 
                   return (

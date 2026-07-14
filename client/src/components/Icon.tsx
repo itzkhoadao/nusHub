@@ -51,6 +51,12 @@ const ICON_PATHS = {
       <path d="m6 6 12 12" />
     </>
   ),
+  arrowLeft: (
+    <>
+      <path d="M19 12H5" />
+      <path d="m12 19-7-7 7-7" />
+    </>
+  ),
   search: (
     <>
       <circle cx="11" cy="11" r="7" />
