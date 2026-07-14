@@ -1,198 +1,50 @@
 # NUSHub
 
-**NUSHub** is a dedicated digital community platform for National University of Singapore students. It combines structured discussion forums with social media-style engagement, topic-based information discovery, study group collaboration, AI-assisted answers, and campus feedback reporting.
+NUSHub is a digital community platform built for the National University of Singapore (NUS) community. It provides a single, organized space where students can discuss campus life, share useful information, connect with one another, and form study groups.
 
-> Project status: In development phase for Orbital 26 (CP2106) with level of achievement Apollo 11.
+The project was originally started as a two-person project. It is now maintained and developed primarily as a personal project by [Dao Anh Khoa](https://github.com/itzkhoadao).
 
----
+## What You Can Do
 
-## Overview
-
-University students often rely on scattered channels such as Reddit threads, Telegram groups, informal chats, and word of mouth to find information about modules, professors, housing, canteen food, campus facilities, transport, and student life. These channels are useful, but they are often noisy, uncategorized, difficult to search, or not officially moderated.
-
-NUSHub aims to solve this problem by providing a centralized and organized NUS-focused platform where students can:
-
-- Browse discussions by topic or category
-- Ask and answer questions about campus life
-- Comment on and upvote useful responses
-- Create or join study groups
-- Share study resources
-- Post anonymously when appropriate
-- Report campus issues with photos
-- Use an AI assistant for quick information lookup
-
----
-
-## Motivation
-
-Existing student information channels have several limitations:
-
-1. **Poor discoverability on broad discussion platforms**  
-   Communities such as `/r/nus` contain useful posts, but topics are mixed together and can be difficult to filter by category, module, facility, or student need.
-
-2. **High noise in informal group chats**  
-   Telegram confession-style groups may contain jokes, unrelated messages, or unverified claims, making it hard for students to extract reliable and relevant information.
-
-3. **Lack of a centralized student support platform**  
-   Students need a more structured space for discussion, feedback, study collaboration, and knowledge sharing.
-
-NUSHub is designed as a centralized NUS digital community that supports both casual student interaction and practical information discovery.
-
----
-
-## Key Features
-
-### Core Features
-
-#### 1. User Authentication and Profile
-
-Users can sign up, log in, and manage a personal profile containing:
-
-- Username, avatar, email, and basic information
-- Posts and comments history
-- Joined study groups
-- Followed topics
-- Modules currently taking or previously taken
-- Academic interests
-- Contribution and activity history
-
-#### 2. Topic-Based Discussion Threads
-
-Discussions are organized into clear topic categories, including:
-
-- Modules and professors
-- Campus infrastructure
-- Housing
-- Food and canteens
-- Facilities such as buses, libraries, toilets, and study spaces
-
-This helps students quickly locate relevant posts instead of scrolling through unrelated content.
-
-#### 3. Posting, Commenting, and Upvoting
-
-Students can create posts, reply to discussions, and upvote helpful responses. Highly upvoted answers become more visible, helping the community surface useful information.
-
-#### 4. Search and Filtering
-
-Users can search and filter posts by:
-
-- Topic or category
-- Keywords
-- Post type, such as text, image, video, or advice
-- Popularity
-- Recency
-
----
-
-### Extension Features
-
-#### 5. Study Group System
-
-Students can create or join study groups based on modules, interests, or topics. Group members can share resources such as:
-
-- Lecture notes
-- Past-year papers
-- Study guides
-- Cheatsheets
-
-#### 6. AI-Powered Information Assistant
-
-An AI-powered question box provides quick general answers for common NUS-related queries, such as:
-
-- Department contact details
-- Official websites
-- Admission information
-- Campus resources
-
-#### 7. Campus Feedback and Report System
-
-Students can report campus issues by uploading a photo and writing a description. Reports may be submitted as:
-
-- Public posts visible to other students
-- Private submissions visible only to moderators or relevant staff
-
-Basic moderation mechanisms will help reduce spam and irrelevant submissions.
-
-#### 8. Smart Recommendation System
-
-NUSHub will provide a personalized feed by recommending:
-
-- Posts from frequently viewed topics
-- Trending or highly upvoted discussions
-- Study groups related to the user's modules or interests
-
----
+- Create an account and sign in with email or Google
+- Create, browse, search, and filter community posts
+- Comment on posts and vote on useful content
+- Explore user profiles and recent activity
+- Create and join study groups
+- Chat with other community members in real time
+- Upload images and attachments
 
 ## Tech Stack
 
-### Frontend
+- **Frontend:** React, TypeScript, Vite, Tailwind CSS, React Query
+- **Backend:** Node.js, Express, TypeScript, Socket.IO
+- **Database:** PostgreSQL
+- **Authentication:** JWT, bcrypt, and Google Sign-In
+- **File storage:** Cloudflare R2-compatible object storage
 
-- **React.js** — main web interface
-- **Tailwind CSS** — responsive and consistent styling
-- **Figma** — UI/UX wireframing and prototyping
+## How to Use NUSHub
 
-### Backend
+After starting the application, open `http://localhost:5173` in your browser.
 
-- **Node.js**
-- **Express.js**
-- **RESTful API architecture**
+1. Register for an account or sign in.
+2. Browse the home feed or use search and filters to find discussions.
+3. Open a post to read its comments, vote, or add a response.
+4. Select **Create Post** to start a new discussion.
+5. Visit **Groups** to browse, create, or join a study group.
+6. Visit **Chat** to message other NUSHub users.
+7. Use your profile page to manage your information and review your activity.
 
-### Database and Storage
-
-- **PostgreSQL** — structured data storage for users, posts, comments, upvotes, groups, and reports
-- **Cloudinary** — image and file storage
-
-### Authentication and Security
-
-- **JWT authentication** — secure session management
-- **BCrypt** — password hashing
-
-### AI Integration
-
-- **OpenAI API** — AI-powered answer box for basic NUS-related queries
-
-### Deployment
-
-- **Vercel** — frontend deployment
-- **Render** — backend and database hosting
-
----
-
-## Planned System Architecture
-
-```text
-nusHub/
-├── client/                 # React + Tailwind frontend
-│   ├── src/
-│   ├── public/
-│   └── package.json
-│
-├── server/                 # Node.js + Express backend
-│   ├── routes/
-│   ├── controllers/
-│   ├── middleware/
-│   ├── db/
-│   └── package.json
-│
-└── README.md
-```
-
-The project follows a client-server architecture with clear separation between the frontend, backend, and database layers.
-
----
-
-## Getting Started
+## Run Locally
 
 ### Prerequisites
 
-Make sure you have the following installed:
+Install the following before you begin:
 
-- Node.js
-- npm
-- PostgreSQL
+- [Node.js](https://nodejs.org/) and npm
+- [PostgreSQL](https://www.postgresql.org/)
 - Git
 
----
+Google OAuth credentials and Cloudflare R2-compatible storage credentials are optional and are only needed for Google Sign-In and file uploads respectively.
 
 ### 1. Clone the Repository
 
@@ -201,146 +53,120 @@ git clone https://github.com/itzkhoadao/nusHub.git
 cd nusHub
 ```
 
----
+### 2. Configure the Backend
 
-### 2. Install Frontend Dependencies
-
-```bash
-cd client
-npm install
-```
-
-Create a frontend environment file if needed:
-
-```bash
-cp .env.example .env
-```
-
-Then start the frontend development server:
-
-```bash
-npm run dev
-```
-
-The frontend should run at:
-
-```text
-http://localhost:5173
-```
-
----
-
-### 3. Install Backend Dependencies
-
-Open a new terminal:
+Install the server dependencies:
 
 ```bash
 cd server
 npm install
 ```
 
-Create a backend environment file:
+Copy the provided environment template:
 
 ```bash
 cp .env.example .env
 ```
 
-Example backend environment variables:
+The required backend variables are:
 
 ```env
 PORT=5000
 DATABASE_URL=your_postgresql_connection_string
-JWT_SECRET=your_jwt_secret
-CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
-CLOUDINARY_API_KEY=your_cloudinary_api_key
-CLOUDINARY_API_SECRET=your_cloudinary_api_secret
-OPENAI_API_KEY=your_openai_api_key
+JWT_SECRET=your_secure_jwt_secret
+CLIENT_URL=http://localhost:5173
 ```
 
-Start the backend server:
+Optional: add Google Sign-In support:
+
+```env
+GOOGLE_CLIENT_ID=your_google_oauth_client_id
+```
+
+Optional: add Cloudflare R2 storage for file uploads:
+
+```env
+R2_ACCOUNT_ID=your_r2_account_id
+R2_ACCESS_KEY_ID=your_r2_access_key_id
+R2_SECRET_ACCESS_KEY=your_r2_secret_access_key
+R2_BUCKET_NAME=your_r2_bucket_name
+R2_PUBLIC_BASE_URL=your_r2_public_base_url
+```
+
+If these optional variables are not configured, Google Sign-In and attachment uploads may not work, but the core app can still run.
+
+Start the backend development server:
 
 ```bash
 npm run dev
 ```
 
----
+The API will run at `http://localhost:5000` by default.
 
-## API Overview
+### 3. Configure the Frontend
 
-Planned API modules include:
+Open a second terminal, then install the client dependencies:
 
-```text
-/auth        # User registration, login, authentication
-/users       # User profiles and activity
-/posts       # Create, read, update, delete posts
-/comments    # Comment system
-/upvotes     # Post and comment upvotes
-/groups      # Study group creation and membership
-/files       # File upload and sharing
-/reports     # Campus issue reports
-/ai          # AI-powered information assistant
+```bash
+cd client
+npm install
 ```
 
----
+Copy the provided environment template:
 
-## Development Practices
+```bash
+cp .env.example .env
+```
 
-NUSHub follows software engineering practices designed to keep the project maintainable and scalable:
+The required frontend variable is:
 
-- Modular client-server architecture
-- RESTful API design
-- Feature-based development workflow
-- GitHub version control
-- Feature branches and pull requests
-- Local testing before merging
-- Clear commit messages
-- UI/UX prototyping before implementation
-- Basic bug tracking and milestone-based development
+```env
+VITE_API_URL=http://localhost:5000
+```
 
----
+Optional: add Google Sign-In support:
 
-## Roadmap
+```env
+VITE_GOOGLE_CLIENT_ID=your_google_oauth_client_id
+```
 
-### Milestone 1: Technical Proof of Concept
+Update the copied `.env` files with your own local configuration before starting the app.
 
-- User authentication system
-- Sign up and login
-- Basic profile creation
-- Basic forum system
-- Frontend and backend integration
-- Database connection
-- Initial UI based on Figma wireframes
+Start the frontend development server:
 
-### Milestone 2: Prototype
+```bash
+npm run dev
+```
 
-- Topic-based discussion system
-- Post, comment, and upvote system
-- User profile activity tracking
-- Anonymous posting
-- Search and filtering by category, keyword, recency, and popularity
+Open `http://localhost:5173` in your browser.
 
-### Milestone 3: Extended System
+## Available Commands
 
-- Study group system
-- File sharing within groups
-- AI-powered chatbot integration
-- Campus feedback reporting
-- Smart post recommendation system
-- Testing, bug fixing, UI/UX refinement, and performance improvements
+Run these commands from the relevant `client` or `server` directory.
 
----
+| Directory | Command | Purpose |
+| --- | --- | --- |
+| `client` | `npm run dev` | Start the frontend development server |
+| `client` | `npm run build` | Create a production frontend build |
+| `client` | `npm run lint` | Check frontend code quality |
+| `client` | `npm run preview` | Preview the production frontend build |
+| `server` | `npm run dev` | Start the backend with automatic reloads |
+| `server` | `npm run build` | Compile the backend TypeScript |
+| `server` | `npm start` | Run the compiled backend |
 
-## Team
+## Project Structure
 
-**NUSHub** is developed by:
+```text
+nusHub/
+├── client/       # React frontend
+├── server/       # Express API, real-time chat, and database access
+└── README.md
+```
 
-- Dao Anh Khoa
-- Nguyen Vo Phuc An
+## Project Status
 
-Both team members are Computer Science students at the National University of Singapore.
-
----
+NUSHub is under active development. Features and setup requirements may change as the platform evolves.
 
 ## License
 
-This project is currently developed for educational purposes. A formal license may be added later.
+No formal license has been added yet.
