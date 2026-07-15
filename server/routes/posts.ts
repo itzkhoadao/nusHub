@@ -5,6 +5,7 @@ import authenticate from "../middleware/authenticate";
 import { saveRecentActivity } from "../utils/recentActivity";
 
 import { pool } from "../db";
+import { addResolvedAvatarUrl, addResolvedAvatarUrls } from "../utils/userAvatar";
 function getOptionalUserId(req) {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
@@ -47,6 +48,10 @@ router.get("/", async (req, res) => {
           WHEN p.is_anonymous = true THEN NULL
           ELSE u.avatar_url
         END as avatar_url,
+        CASE
+          WHEN p.is_anonymous = true THEN NULL
+          ELSE u.avatar_storage_key
+        END as avatar_storage_key,
         COUNT(c.id) as comment_count,
         ${upvotedSelect} as upvoted
       FROM posts p
@@ -65,14 +70,14 @@ router.get("/", async (req, res) => {
       query += ` AND (p.title ILIKE $${params.length} OR p.content ILIKE $${params.length})`;
     }
 
-    query += ` GROUP BY p.id, u.username, u.avatar_url`;
+    query += ` GROUP BY p.id, u.username, u.avatar_url, u.avatar_storage_key`;
     query +=
       sort === "popular"
         ? " ORDER BY p.upvotes DESC"
         : " ORDER BY p.created_at DESC";
 
     const result = await pool.query(query, params);
-    res.json(result.rows);
+    res.json(await addResolvedAvatarUrls(result.rows));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -159,6 +164,14 @@ router.get("/:id", async (req, res) => {
           WHEN p.user_id IS NULL THEN '[Deleted user]'
           ELSE u.username
         END as username,
+        CASE
+          WHEN p.is_anonymous = true THEN NULL
+          ELSE u.avatar_url
+        END as avatar_url,
+        CASE
+          WHEN p.is_anonymous = true THEN NULL
+          ELSE u.avatar_storage_key
+        END as avatar_storage_key,
         ${upvotedSelect} as upvoted
        FROM posts p
        LEFT JOIN users u ON p.user_id = u.id
@@ -171,7 +184,7 @@ router.get("/:id", async (req, res) => {
     }
 
     await saveRecentActivity(userId, "post", id); // for the recent activities part
-    res.json(result.rows[0]);
+    res.json(await addResolvedAvatarUrl(result.rows[0]));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -5,6 +5,7 @@ import authenticate from "../middleware/authenticate";
 import { saveRecentActivity } from "../utils/recentActivity";
 
 import { pool } from "../db";
+import { addResolvedAvatarUrls } from "../utils/userAvatar";
 function getOptionalUserId(req) {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
@@ -73,7 +74,7 @@ router.get("/:id", async (req, res) => {
 
     // get members
     const membersResult = await pool.query(
-      `SELECT u.id, u.username, gm.joined_at
+      `SELECT u.id, u.username, u.avatar_url, u.avatar_storage_key, gm.joined_at
             FROM group_members gm
             JOIN users u ON gm.user_id = u.id
             WHERE gm.group_id = $1
@@ -85,7 +86,7 @@ router.get("/:id", async (req, res) => {
 
     res.json({
       group: groupResult.rows[0],
-      members: membersResult.rows,
+      members: await addResolvedAvatarUrls(membersResult.rows),
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

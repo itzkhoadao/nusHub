@@ -4,6 +4,7 @@ import AppShell from "../components/layout/AppShell";
 import Icon from "../components/Icon";
 import AiAssistantCard from "../components/ui/AiAssistantCard";
 import TopicBadge from "../components/ui/TopicBadge";
+import UserAvatar from "../components/ui/UserAvatar";
 import VoteBlock from "../components/ui/VoteBlock";
 import { apiUrl } from "../utils/api";
 import { getAuthToken, getStoredUser } from "../utils/authStorage";
@@ -266,11 +267,11 @@ export default function PostDetailPage() {
     const actionClass =
       "flex h-10 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 text-xs font-bold text-app-muted shadow-sm ring-1 ring-slate-900/5 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:bg-primary-fixed/40 hover:text-primary";
     const avatar = (
-      <span
-        className={`flex ${avatarSize} shrink-0 items-center justify-center rounded-full bg-primary-fixed font-bold text-primary shadow-sm ring-2 ring-white`}
-      >
-        {comment.username.charAt(0).toUpperCase()}
-      </span>
+      <UserAvatar
+        avatarUrl={comment.avatar_url}
+        className={avatarSize}
+        name={comment.username}
+      />
     );
 
     const toggleReplyBox = () => {
@@ -474,16 +475,22 @@ export default function PostDetailPage() {
             <div className="mb-5 flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
                 {post.is_anonymous || !post.user_id ? (
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-sm font-bold text-primary shadow-sm ring-2 ring-white">
-                    {post.username.charAt(0).toUpperCase()}
-                  </span>
+                  <UserAvatar
+                    avatarUrl={post.avatar_url}
+                    className="h-11 w-11 text-sm"
+                    name={post.username}
+                  />
                 ) : (
                   <Link
                     aria-label={`View ${post.username}'s profile`}
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-sm font-bold text-primary shadow-sm ring-2 ring-white transition-all hover:-translate-y-0.5 hover:bg-primary hover:text-white"
+                    className="transition-all hover:-translate-y-0.5"
                     to={`/users/${post.user_id}`}
                   >
-                    {post.username.charAt(0).toUpperCase()}
+                    <UserAvatar
+                      avatarUrl={post.avatar_url}
+                      className="h-11 w-11 text-sm"
+                      name={post.username}
+                    />
                   </Link>
                 )}
                 <div className="min-w-0">

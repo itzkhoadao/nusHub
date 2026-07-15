@@ -1,26 +1,16 @@
 import { Link } from "react-router-dom";
 import Icon from "../Icon";
 import TopicBadge from "./TopicBadge";
+import UserAvatar from "./UserAvatar";
 import VoteBlock from "./VoteBlock";
 
 export default function DiscussionCard({ post, onUpvote }) {
   const canOpenProfile = !post.is_anonymous && post.user_id;
   const profilePath = canOpenProfile ? `/users/${post.user_id}` : null;
-  const authorInitial = (post.username || "A").charAt(0).toUpperCase();
   const actionClass =
     "flex h-10 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 text-xs font-bold text-app-muted shadow-sm ring-1 ring-slate-900/5 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:bg-primary-fixed/40 hover:text-primary";
   const authorAvatar = (
-    <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-fixed text-sm font-bold text-primary shadow-sm ring-2 ring-white">
-      {post.avatar_url ? (
-        <img
-          alt=""
-          className="h-full w-full object-cover"
-          src={post.avatar_url}
-        />
-      ) : (
-        authorInitial
-      )}
-    </span>
+    <UserAvatar avatarUrl={post.avatar_url} name={post.username || "Anonymous"} />
   );
 
   return (

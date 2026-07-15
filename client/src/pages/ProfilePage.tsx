@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import AppShell from "../components/layout/AppShell";
 import Icon from "../components/Icon";
 import TopicBadge from "../components/ui/TopicBadge";
+import UserAvatar from "../components/ui/UserAvatar";
 import { apiUrl } from "../utils/api";
 import {
   getAuthToken,
@@ -63,22 +64,13 @@ function EmptyState({ title, body, action = null }) {
 }
 
 function ProfileAvatar({ user, className = "h-24 w-24 text-4xl" }) {
-  if (user.avatar_url) {
-    return (
-      <img
-        alt={`${user.username}'s avatar`}
-        className={`${className} rounded-3xl object-cover shadow-raised ring-4 ring-white`}
-        src={user.avatar_url}
-      />
-    );
-  }
-
   return (
-    <div
-      className={`${className} flex items-center justify-center rounded-3xl bg-primary font-bold text-white shadow-raised ring-4 ring-white`}
-    >
-      {user.username.charAt(0).toUpperCase()}
-    </div>
+    <UserAvatar
+      avatarUrl={user.avatar_url}
+      className={`${className} shadow-raised ring-4`}
+      name={user.username}
+      rounded="3xl"
+    />
   );
 }
 
@@ -126,6 +118,9 @@ export default function ProfilePage() {
           return;
         }
         setProfileData(data);
+        if (isOwnProfile) {
+          updateStoredUser(data.user);
+        }
       } catch (err) {
         console.error("Failed to fetch profile:", err);
       } finally {
@@ -155,6 +150,7 @@ export default function ProfilePage() {
   }
 
   const { user: profileUser, posts, comments, groups = [] } = profileData;
+  const shellUser = isOwnProfile ? profileUser : user;
   const upvotesReceived = posts.reduce(
     (sum, post) => sum + Number(post.upvotes || 0),
     0,
@@ -311,7 +307,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <AppShell user={user}>
+    <AppShell user={shellUser}>
       <div className="mx-auto max-w-6xl space-y-8">
         <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_20px_50px_rgba(15,23,42,0.08)] ring-1 ring-slate-900/5">
           <div className="relative h-44 overflow-hidden bg-primary">

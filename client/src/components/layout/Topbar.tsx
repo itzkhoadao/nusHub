@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import Icon from "../Icon";
+import UserAvatar from "../ui/UserAvatar";
 import { clearAuthSession } from "../../utils/authStorage";
 import { disconnectChatSocket } from "../../utils/socket";
 
@@ -128,11 +129,15 @@ export default function Topbar({
           <button
             aria-expanded={accountOpen}
             aria-label="Open account menu"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-bold text-white transition-opacity hover:opacity-90"
+            className="rounded-full transition-opacity hover:opacity-90"
             onClick={() => setAccountOpen(!accountOpen)}
             type="button"
           >
-            {user?.username?.charAt(0).toUpperCase() || "N"}
+            <UserAvatar
+              avatarUrl={user?.avatar_url}
+              className="h-9 w-9 text-sm"
+              name={user?.username || "NUSHub user"}
+            />
           </button>
 
           {accountOpen && (

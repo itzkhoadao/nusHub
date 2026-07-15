@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import authenticate from "../middleware/authenticate";
 
 import { pool } from "../db";
+import { addResolvedAvatarUrls } from "../utils/userAvatar";
 async function ensureCommentRepliesColumn() {
   await pool.query(`
     ALTER TABLE comments
@@ -50,6 +51,14 @@ router.get("/", async (req, res) => {
           WHEN c.user_id IS NULL THEN '[Deleted user]'
           ELSE u.username
         END as username,
+        CASE
+          WHEN c.is_anonymous = true THEN NULL
+          ELSE u.avatar_url
+        END as avatar_url,
+        CASE
+          WHEN c.is_anonymous = true THEN NULL
+          ELSE u.avatar_storage_key
+        END as avatar_storage_key,
         ${upvotedSelect} as upvoted
        FROM comments c
        LEFT JOIN users u ON c.user_id = u.id
@@ -60,7 +69,7 @@ router.get("/", async (req, res) => {
       params,
     );
 
-    res.json(result.rows);
+    res.json(await addResolvedAvatarUrls(result.rows));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

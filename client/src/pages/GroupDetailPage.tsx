@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import AppShell from "../components/layout/AppShell";
 import Icon from "../components/Icon";
 import AiAssistantCard from "../components/ui/AiAssistantCard";
+import UserAvatar from "../components/ui/UserAvatar";
 import { apiUrl } from "../utils/api";
 import { getAuthToken, getStoredUser } from "../utils/authStorage";
 
@@ -189,10 +190,15 @@ export default function GroupDetailPage() {
                   {/* Avatar circle */}
                   <Link
                     aria-label={`View ${member.username}'s profile`}
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-fixed text-sm font-bold text-primary shadow-sm ring-2 ring-white transition-all hover:-translate-y-0.5 hover:bg-primary hover:text-white"
+                    className="transition-all hover:-translate-y-0.5"
                     to={profilePath}
                   >
-                    {member.username.charAt(0).toUpperCase()}
+                    <UserAvatar
+                      avatarUrl={member.avatar_url}
+                      className="h-10 w-10 text-sm"
+                      name={member.username}
+                      rounded="lg"
+                    />
                   </Link>
                 <div className="min-w-0 flex-1">
                   <p className="flex flex-wrap items-center gap-2 text-sm font-bold text-app-text">
