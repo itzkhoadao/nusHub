@@ -3,6 +3,7 @@ import path from "path";
 import {
   GetObjectCommand,
   HeadObjectCommand,
+  DeleteObjectCommand,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -10,6 +11,8 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 export const MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024;
 export const MAX_ATTACHMENTS_PER_MESSAGE = 5;
+export const MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024;
+export const AVATAR_CACHE_CONTROL = "public, max-age=31536000, immutable";
 
 export const ALLOWED_ATTACHMENT_TYPES = new Set([
   "image/jpeg",
@@ -27,10 +30,22 @@ export const ALLOWED_ATTACHMENT_TYPES = new Set([
   "application/zip",
 ]);
 
+export const ALLOWED_AVATAR_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
+
 type UploadInput = {
   conversationId: string;
   originalName: string;
   mimeType: string;
+};
+
+type AvatarUploadInput = {
+  originalName: string;
+  mimeType: string;
+  userId: string;
 };
 
 let r2Client: S3Client | null = null;
@@ -88,12 +103,40 @@ export function validateAttachmentMetadata(file: {
   }
 }
 
+// checks the metadata supplied by frontend
+// performed twice: before generating upload URL and after upload, before confirming
+export function validateAvatarMetadata(file: {
+  file_size: number;
+  mime_type: string;
+  original_name: string;
+}) {
+  if (!file.original_name.trim()) {
+    throw new Error("File name is required");
+  }
+
+  if (file.file_size > MAX_AVATAR_SIZE_BYTES) {
+    throw new Error("Avatar must be 5 MB or smaller");
+  }
+
+  if (!ALLOWED_AVATAR_TYPES.has(file.mime_type)) {
+    throw new Error("Avatar must be a JPEG, PNG, or WEBP image");
+  }
+}
+
 export function createStorageKey({
   conversationId,
   originalName,
 }: UploadInput) {
   const extension = path.extname(originalName).toLowerCase();
   return `chat/${conversationId}/${randomUUID()}${extension}`; // prevents filename collisions
+}
+
+export function createAvatarStorageKey({
+  originalName,
+  userId,
+}: AvatarUploadInput) {
+  const extension = path.extname(originalName).toLowerCase();
+  return `avatars/${userId}/${randomUUID()}${extension}`; // randomUUID: prevents filename collisions
 }
 
 export function getPublicFileUrl(storageKey: string) {
@@ -126,6 +169,35 @@ export async function createUploadUrl({
     }),
     { expiresIn: 10 * 60 },
   ); // main signing operation, creates a URL with temporary authorization
+
+  return {
+    fileUrl: getPublicFileUrl(storageKey),
+    storageKey,
+    uploadUrl,
+  };
+}
+
+export async function createAvatarUploadUrl({
+  mimeType,
+  originalName,
+  userId,
+}: AvatarUploadInput) {
+  const storageKey = createAvatarStorageKey({
+    mimeType,
+    originalName,
+    userId,
+  }); // create key first (permanent identifier inside R2)
+
+  const uploadUrl = await getSignedUrl(
+    getR2Client(),
+    new PutObjectCommand({
+      Bucket: getR2BucketName(),
+      CacheControl: AVATAR_CACHE_CONTROL,
+      ContentType: mimeType,
+      Key: storageKey,
+    }),
+    { expiresIn: 10 * 60 },
+  ); // creates presigned R2 PUT URL (used once to upload the file)
 
   return {
     fileUrl: getPublicFileUrl(storageKey),
@@ -177,4 +249,14 @@ export async function verifyUploadedObject({
   if (object.ContentType && object.ContentType !== mimeType) {
     throw new Error("Uploaded file type does not match");
   }
+}
+
+// used for deleting avatars
+export async function deleteStoredObject(storageKey: string) {
+  await getR2Client().send(
+    new DeleteObjectCommand({
+      Bucket: getR2BucketName(),
+      Key: storageKey,
+    }),
+  );
 }
