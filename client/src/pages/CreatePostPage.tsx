@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
 import AppShell from "../components/layout/AppShell";
+import UserAvatar from "../components/ui/UserAvatar";
 import { apiUrl } from "../utils/api";
 import { getAuthToken, getStoredUser } from "../utils/authStorage";
 
@@ -154,9 +155,12 @@ export default function CreatePostPage() {
           <div className="mt-4 rounded-lg border border-dashed border-outline-variant bg-surface-low p-4">
             <p className="text-sm font-semibold text-primary">Preview identity</p>
             <div className="mt-3 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary text-lg font-black text-white">
-                {isAnonymous ? "?" : user?.username?.charAt(0)?.toUpperCase() || "N"}
-              </div>
+              <UserAvatar
+                avatarUrl={isAnonymous ? null : user?.avatar_url}
+                className="h-11 w-11 text-lg"
+                name={isAnonymous ? "?" : user?.username || "NUSHub user"}
+                rounded="lg"
+              />
               <div>
                 <p className="font-bold text-app-text">
                   {isAnonymous ? "Anonymous" : user?.username || "NUSHub user"}

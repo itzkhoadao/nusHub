@@ -9,6 +9,7 @@ import {
   MAX_ATTACHMENTS_PER_MESSAGE,
   createDownloadUrl,
   createUploadUrl,
+  getPublicFileUrl,
   validateAttachmentMetadata,
   verifyUploadedObject,
 } from "../utils/r2Storage";
@@ -32,15 +33,62 @@ function ensureChatSchemaOnce() {
   return chatSchemaReady;
 }
 
-async function addDownloadUrlsToMessage(message: any) {
-  if (!message?.attachments?.length) {
+async function resolveStoredAvatarUrl(
+  avatarUrl?: string | null,
+  storageKey?: string | null,
+) {
+  if (!storageKey) {
+    return avatarUrl || null;
+  }
+
+  const publicAvatarUrl = getPublicFileUrl(storageKey);
+
+  if (publicAvatarUrl) {
+    return publicAvatarUrl;
+  }
+
+  return createDownloadUrl(storageKey);
+}
+
+async function addResolvedConversationAvatar(conversation: any) {
+  if (!conversation) {
+    return conversation;
+  }
+
+  return {
+    ...conversation,
+    other_avatar_url: await resolveStoredAvatarUrl(
+      conversation.other_avatar_url,
+      conversation.other_avatar_storage_key,
+    ),
+  };
+}
+
+async function addResolvedMessageAvatar(message: any) {
+  if (!message) {
     return message;
+  }
+
+  return {
+    ...message,
+    sender_avatar_url: await resolveStoredAvatarUrl(
+      message.sender_avatar_url,
+      message.sender_avatar_storage_key,
+    ),
+  };
+}
+
+async function addDownloadUrlsToMessage(message: any) {
+  const messageWithAvatar = await addResolvedMessageAvatar(message);
+
+  if (!messageWithAvatar?.attachments?.length) {
+    return messageWithAvatar;
   }
 
   // if file_url exists, use it
   // otherwise create download URL from storage_key
   const attachments = await Promise.all(
-    message.attachments.map(async (attachment: any) => ({
+    messageWithAvatar.attachments.map(async (attachment: any) => ({
       ...attachment,
       file_url:
         attachment.file_url ||
@@ -49,7 +97,7 @@ async function addDownloadUrlsToMessage(message: any) {
   );
 
   return {
-    ...message,
+    ...messageWithAvatar,
     attachments,
   };
 }
@@ -108,6 +156,7 @@ async function getConversationSummary(conversationId: string, userId: string) {
        other_user.username AS other_username,
        other_user.email AS other_email,
        other_user.avatar_url AS other_avatar_url,
+       other_user.avatar_storage_key AS other_avatar_storage_key,
        last_message.id AS last_message_id,
        last_message.body AS last_message_body,
        last_message.created_at AS last_message_created_at,
@@ -157,7 +206,7 @@ async function getConversationSummary(conversationId: string, userId: string) {
     [conversationId, userId],
   );
 
-  return result.rows[0];
+  return addResolvedConversationAvatar(result.rows[0]);
 }
 
 async function getMessageById(messageId: string) {
@@ -168,6 +217,7 @@ async function getMessageById(messageId: string) {
        m.sender_id,
        u.username AS sender_username,
        u.avatar_url AS sender_avatar_url,
+       u.avatar_storage_key AS sender_avatar_storage_key,
        m.reply_to_message_id,
        reply_message.body AS reply_to_body,
        reply_message.sender_id AS reply_to_sender_id,
@@ -311,6 +361,7 @@ router.get("/", authenticate, async (req, res) => {
          other_user.username AS other_username,
          other_user.email AS other_email,
          other_user.avatar_url AS other_avatar_url,
+         other_user.avatar_storage_key AS other_avatar_storage_key,
          last_message.id AS last_message_id,
          last_message.body AS last_message_body,
          last_message.created_at AS last_message_created_at,
@@ -360,7 +411,7 @@ router.get("/", authenticate, async (req, res) => {
       [req.user.id],
     );
 
-    res.json(result.rows);
+    res.json(await Promise.all(result.rows.map(addResolvedConversationAvatar)));
   } catch (err) {
     res.status(500).json({ error: getErrorMessage(err) });
   }
@@ -386,6 +437,7 @@ router.get("/:id/messages", authenticate, async (req, res) => {
          m.sender_id,
          u.username AS sender_username,
          u.avatar_url AS sender_avatar_url,
+         u.avatar_storage_key AS sender_avatar_storage_key,
          m.reply_to_message_id,
          reply_message.body AS reply_to_body,
          reply_message.sender_id AS reply_to_sender_id,

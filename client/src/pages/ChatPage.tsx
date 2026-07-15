@@ -14,6 +14,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import AppShell from "../components/layout/AppShell";
 import Icon from "../components/Icon";
+import UserAvatar from "../components/ui/UserAvatar";
 import { API_URL } from "../utils/api";
 import { getStoredUser } from "../utils/authStorage";
 
@@ -193,6 +194,10 @@ function updateConversationPreview(
         last_sender_id: message.sender_id,
         last_sender_username:
           message.sender_username || conversation.last_sender_username,
+        other_avatar_url:
+          message.sender_id !== currentUserId && message.sender_avatar_url
+            ? message.sender_avatar_url
+            : conversation.other_avatar_url,
         unread_count: shouldIncreaseUnread
           ? (conversation.unread_count || 0) + 1
           : conversation.unread_count || 0,
@@ -278,6 +283,9 @@ export default function ChatPage() {
       ) || null,
     [conversations, conversationId],
   );
+  const activeProfilePath = activeConversation?.other_user_id
+    ? `/users/${activeConversation.other_user_id}`
+    : null; // path to other_user's profile
 
   useEffect(() => {
     if (!user) {
@@ -591,7 +599,6 @@ export default function ChatPage() {
                   const isActive = conversation.id === conversationId;
                   const displayName =
                     conversation.other_username || "NUSHub user";
-                  const initial = displayName.charAt(0).toUpperCase();
                   const unreadCount = conversation.unread_count || 0;
                   const hasUnread = unreadCount > 0;
                   const conversationPreview =
@@ -613,9 +620,11 @@ export default function ChatPage() {
                       key={conversation.id}
                       to={`/chat/${conversation.id}`}
                     >
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">
-                        {initial}
-                      </div>
+                      <UserAvatar
+                        avatarUrl={conversation.other_avatar_url}
+                        className="h-11 w-11 text-sm"
+                        name={displayName}
+                      />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-3">
                           <p
@@ -668,13 +677,43 @@ export default function ChatPage() {
           {activeConversation ? (
             <>
               <header className="flex items-center justify-between border-b border-surface-variant px-5 py-4">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wide text-app-muted">
-                    Conversation with
-                  </p>
-                  <h2 className="text-lg font-bold text-app-text">
-                    {activeConversation.other_username || "NUSHub user"}
-                  </h2>
+                <div className="flex min-w-0 items-center gap-3">
+                  {activeProfilePath ? (
+                    <Link
+                      aria-label={`View ${activeConversation.other_username || "this user"}'s profile`}
+                      className="transition-transform hover:-translate-y-0.5"
+                      to={activeProfilePath}
+                    >
+                      <UserAvatar
+                        avatarUrl={activeConversation.other_avatar_url}
+                        className="h-11 w-11 text-sm"
+                        name={activeConversation.other_username || "NUSHub user"}
+                      />
+                    </Link>
+                  ) : (
+                    <UserAvatar
+                      avatarUrl={activeConversation.other_avatar_url}
+                      className="h-11 w-11 text-sm"
+                      name={activeConversation.other_username || "NUSHub user"}
+                    />
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold uppercase tracking-wide text-app-muted">
+                      Conversation with
+                    </p>
+                    <h2 className="truncate text-lg font-bold text-app-text">
+                      {activeProfilePath ? (
+                        <Link
+                          className="transition-colors hover:text-primary hover:underline"
+                          to={activeProfilePath}
+                        >
+                          {activeConversation.other_username || "NUSHub user"}
+                        </Link>
+                      ) : (
+                        activeConversation.other_username || "NUSHub user"
+                      )}
+                    </h2>
+                  </div>
                 </div>
                 <Icon name="message" className="h-5 w-5 text-primary" />
               </header>
@@ -730,6 +769,19 @@ export default function ChatPage() {
                             isMine ? "justify-end" : "justify-start"
                           }`}
                         >
+                          {!isMine && (
+                            <Link
+                              aria-label={`View ${message.sender_username || "this user"}'s profile`}
+                              className="mr-2 mt-1 transition-transform hover:-translate-y-0.5"
+                              to={`/users/${message.sender_id}`}
+                            >
+                              <UserAvatar
+                                avatarUrl={message.sender_avatar_url}
+                                className="h-8 w-8 text-xs"
+                                name={message.sender_username || "NUSHub user"}
+                              />
+                            </Link>
+                          )}
                           <div
                             className={`max-w-[min(34rem,80%)] rounded-2xl px-4 py-3 shadow-sm ${
                               isMine

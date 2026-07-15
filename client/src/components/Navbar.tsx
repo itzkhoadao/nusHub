@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import Logo from './Logo'
+import UserAvatar from './ui/UserAvatar'
 import { clearAuthSession, getStoredUser } from '../utils/authStorage'
 
 export default function Navbar() {
@@ -48,9 +49,11 @@ export default function Navbar() {
                     + New Post
                 </Link>
                 <Link to="/profile">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-sm font-bold hover:bg-blue-200 transition-colors">
-                        {user?.username?.charAt(0).toUpperCase()}
-                    </div>
+                    <UserAvatar
+                        avatarUrl={user?.avatar_url}
+                        className="h-8 w-8 text-sm transition-colors hover:bg-blue-200"
+                        name={user?.username || 'NUSHub user'}
+                    />
                 </Link>
                 <button
                     onClick={handleLogout}
