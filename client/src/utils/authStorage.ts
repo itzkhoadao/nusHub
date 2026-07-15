@@ -25,6 +25,10 @@ export function setAuthSession(token: string, user: unknown) {
   sessionStorage.setItem(USER_KEY, JSON.stringify(user));
 }
 
+export function updateStoredUser(user: unknown) {
+  sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+}
+
 export function clearAuthSession() {
   sessionStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(USER_KEY);

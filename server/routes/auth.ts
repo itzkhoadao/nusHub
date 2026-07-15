@@ -8,11 +8,14 @@ import { pool } from "../db";
 // register with Google Account option
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
+// ensure db has these
 async function ensureGoogleAuthColumns() {
   await pool.query(`
     ALTER TABLE users
     ADD COLUMN IF NOT EXISTS google_id TEXT UNIQUE,
     ADD COLUMN IF NOT EXISTS avatar_url TEXT,
+    ADD COLUMN IF NOT EXISTS avatar_storage_key TEXT,
+    ADD COLUMN IF NOT EXISTS avatar_updated_at TIMESTAMPTZ,
     ADD COLUMN IF NOT EXISTS auth_provider TEXT DEFAULT 'local'
   `);
 }

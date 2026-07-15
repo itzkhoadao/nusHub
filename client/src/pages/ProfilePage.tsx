@@ -1,11 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import AppShell from "../components/layout/AppShell";
 import Icon from "../components/Icon";
 import TopicBadge from "../components/ui/TopicBadge";
 import { apiUrl } from "../utils/api";
-import { getAuthToken, getStoredUser } from "../utils/authStorage";
+import {
+  getAuthToken,
+  getStoredUser,
+  updateStoredUser,
+} from "../utils/authStorage";
+import {
+  removeProfileAvatar,
+  updateProfileAvatar,
+  validateAvatarFile,
+} from "../utils/profileApi";
 import {
   conversationsKey,
   getCurrentUserId,
@@ -53,12 +62,39 @@ function EmptyState({ title, body, action = null }) {
   );
 }
 
+function ProfileAvatar({ user, className = "h-24 w-24 text-4xl" }) {
+  if (user.avatar_url) {
+    return (
+      <img
+        alt={`${user.username}'s avatar`}
+        className={`${className} rounded-3xl object-cover shadow-raised ring-4 ring-white`}
+        src={user.avatar_url}
+      />
+    );
+  }
+
+  return (
+    <div
+      className={`${className} flex items-center justify-center rounded-3xl bg-primary font-bold text-white shadow-raised ring-4 ring-white`}
+    >
+      {user.username.charAt(0).toUpperCase()}
+    </div>
+  );
+}
+
 export default function ProfilePage() {
   const [profileData, setProfileData] = useState(null);
   const [activeTab, setActiveTab] = useState("posts"); // switch between viewing posts and comments
   const [loading, setLoading] = useState(true);
   const [startingChat, setStartingChat] = useState(false);
   const [chatError, setChatError] = useState("");
+  const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+  const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState("");
+  const [avatarError, setAvatarError] = useState("");
+  const [avatarSaving, setAvatarSaving] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { userId } = useParams();
@@ -100,6 +136,14 @@ export default function ProfilePage() {
     fetchProfile();
   }, [userId]);
 
+  useEffect(() => {
+    return () => {
+      if (avatarPreviewUrl) {
+        URL.revokeObjectURL(avatarPreviewUrl);
+      }
+    };
+  }, [avatarPreviewUrl]);
+
   if (loading) {
     return (
       <AppShell user={user}>
@@ -139,6 +183,95 @@ export default function ProfilePage() {
     { id: "groups", label: "Groups", count: groups.length },
     { id: "topics", label: "Topics", count: 0 },
   ];
+
+  const updateProfileUser = (nextUser) => {
+    setProfileData((currentData) =>
+      currentData ? { ...currentData, user: nextUser } : currentData,
+    );
+
+    if (isOwnProfile) {
+      updateStoredUser(nextUser);
+    }
+  };
+
+  const resetAvatarModal = () => {
+    setIsAvatarModalOpen(false);
+    setSelectedAvatarFile(null);
+    if (avatarPreviewUrl) {
+      URL.revokeObjectURL(avatarPreviewUrl);
+    }
+    setAvatarPreviewUrl("");
+    setAvatarError("");
+
+    if (avatarInputRef.current) {
+      avatarInputRef.current.value = "";
+    }
+  };
+
+  const openAvatarEditor = () => {
+    setIsEditProfileModalOpen(false);
+    setIsAvatarModalOpen(true);
+  };
+
+  const handleAvatarFileChange = (file: File | null) => {
+    if (!file) {
+      return;
+    }
+
+    try {
+      validateAvatarFile(file);
+      if (avatarPreviewUrl) {
+        URL.revokeObjectURL(avatarPreviewUrl);
+      }
+      setSelectedAvatarFile(file);
+      setAvatarPreviewUrl(URL.createObjectURL(file));
+      setAvatarError("");
+    } catch (err) {
+      setAvatarError(err instanceof Error ? err.message : "Invalid avatar");
+    }
+  };
+
+  const handleSaveAvatar = async () => {
+    if (!selectedAvatarFile || avatarSaving) {
+      return;
+    }
+
+    setAvatarSaving(true);
+    setAvatarError("");
+
+    try {
+      const result = await updateProfileAvatar(selectedAvatarFile);
+      updateProfileUser(result.user);
+      resetAvatarModal();
+    } catch (err) {
+      setAvatarError(
+        err instanceof Error ? err.message : "Failed to update avatar",
+      );
+    } finally {
+      setAvatarSaving(false);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (avatarSaving) {
+      return;
+    }
+
+    setAvatarSaving(true);
+    setAvatarError("");
+
+    try {
+      const result = await removeProfileAvatar();
+      updateProfileUser(result.user);
+      resetAvatarModal();
+    } catch (err) {
+      setAvatarError(
+        err instanceof Error ? err.message : "Failed to remove avatar",
+      );
+    } finally {
+      setAvatarSaving(false);
+    }
+  };
 
   // start direct chat with another user
   const handleStartChat = async () => {
@@ -194,9 +327,7 @@ export default function ProfilePage() {
             <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
               <div className="flex min-w-0 flex-col gap-5 md:flex-row md:items-start">
                 <div className="relative shrink-0">
-                  <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-primary text-4xl font-bold text-white shadow-raised">
-                    {profileUser.username.charAt(0).toUpperCase()}
-                  </div>
+                  <ProfileAvatar user={profileUser} />
                   <div className="absolute bottom-2 right-2 h-5 w-5 rounded-full border-4 border-white bg-emerald-500" />
                 </div>
 
@@ -223,6 +354,7 @@ export default function ProfilePage() {
                 {isOwnProfile && (
                   <button
                     className="app-button-primary px-5 py-3"
+                    onClick={() => setIsEditProfileModalOpen(true)}
                     type="button"
                   >
                     Edit Profile
@@ -495,6 +627,198 @@ export default function ProfilePage() {
           </aside>
         </div>
       </div>
+
+      {isEditProfileModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6 backdrop-blur-sm">
+          <section className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-secondary">
+                  Profile settings
+                </p>
+                <h2 className="mt-1 text-2xl font-bold tracking-tight text-primary">
+                  Edit profile
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-app-muted">
+                  Choose what you want to update.
+                </p>
+              </div>
+              <button
+                aria-label="Close profile editor"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 text-app-muted transition-colors hover:bg-slate-50 hover:text-primary"
+                onClick={() => setIsEditProfileModalOpen(false)}
+                type="button"
+              >
+                <Icon name="x" className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-6 space-y-3">
+              <button
+                className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary-fixed/30"
+                onClick={openAvatarEditor}
+                type="button"
+              >
+                <span>
+                  <span className="block text-sm font-bold text-app-text">
+                    Change Avatar
+                  </span>
+                  <span className="mt-1 block text-sm text-app-muted">
+                    Upload or remove your profile photo.
+                  </span>
+                </span>
+                <Icon name="camera" className="h-5 w-5 text-primary" />
+              </button>
+
+              <button
+                className="flex w-full cursor-not-allowed items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-4 text-left opacity-70"
+                disabled
+                type="button"
+              >
+                <span>
+                  <span className="block text-sm font-bold text-app-text">
+                    Change Username
+                  </span>
+                  <span className="mt-1 block text-sm text-app-muted">
+                    Coming soon.
+                  </span>
+                </span>
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-app-muted">
+                  Later
+                </span>
+              </button>
+
+              <button
+                className="flex w-full cursor-not-allowed items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-4 text-left opacity-70"
+                disabled
+                type="button"
+              >
+                <span>
+                  <span className="block text-sm font-bold text-app-text">
+                    Change Bio
+                  </span>
+                  <span className="mt-1 block text-sm text-app-muted">
+                    Coming soon.
+                  </span>
+                </span>
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-app-muted">
+                  Later
+                </span>
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {isAvatarModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6 backdrop-blur-sm">
+          <section className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-secondary">
+                  Profile photo
+                </p>
+                <h2 className="mt-1 text-2xl font-bold tracking-tight text-primary">
+                  Update your avatar
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-app-muted">
+                  Use a JPEG, PNG, or WEBP image up to 5 MB. It will be
+                  optimized before upload.
+                </p>
+              </div>
+              <button
+                aria-label="Close avatar editor"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 text-app-muted transition-colors hover:bg-slate-50 hover:text-primary"
+                disabled={avatarSaving}
+                onClick={resetAvatarModal}
+                type="button"
+              >
+                <Icon name="x" className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-6 flex flex-col items-center gap-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-5">
+              {avatarPreviewUrl ? (
+                <img
+                  alt="Selected avatar preview"
+                  className="h-28 w-28 rounded-3xl object-cover shadow-raised ring-4 ring-white"
+                  src={avatarPreviewUrl}
+                />
+              ) : (
+                <ProfileAvatar
+                  className="h-28 w-28 text-5xl"
+                  user={profileUser}
+                />
+              )}
+
+              <input
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(event) =>
+                  handleAvatarFileChange(event.target.files?.[0] || null)
+                }
+                ref={avatarInputRef}
+                type="file"
+              />
+
+              <button
+                className="inline-flex items-center gap-2 rounded-full border border-primary bg-white px-5 py-2.5 text-sm font-bold text-primary transition-colors hover:bg-primary-fixed"
+                disabled={avatarSaving}
+                onClick={() => avatarInputRef.current?.click()}
+                type="button"
+              >
+                <Icon name="camera" className="h-4 w-4" />
+                Choose image
+              </button>
+
+              {selectedAvatarFile && (
+                <p className="max-w-full truncate text-xs font-semibold text-app-muted">
+                  {selectedAvatarFile.name} ·{" "}
+                  {(selectedAvatarFile.size / 1024 / 1024).toFixed(2)} MB
+                  {" "}original
+                </p>
+              )}
+            </div>
+
+            {avatarError && (
+              <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-app-danger">
+                {avatarError}
+              </div>
+            )}
+
+            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <button
+                className="rounded-full px-4 py-2 text-sm font-bold text-app-muted transition-colors hover:bg-slate-100 hover:text-app-text disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={avatarSaving || !profileUser.avatar_url}
+                onClick={handleRemoveAvatar}
+                type="button"
+              >
+                Remove photo
+              </button>
+
+              <div className="flex gap-3">
+                <button
+                  className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-primary transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={avatarSaving}
+                  onClick={resetAvatarModal}
+                  type="button"
+                >
+                  Cancel
+                </button>
+                <button
+                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-primary to-secondary px-5 py-2 text-sm font-bold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(253,134,20,0.25)] disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={!selectedAvatarFile || avatarSaving}
+                  onClick={handleSaveAvatar}
+                  type="button"
+                >
+                  <span>{avatarSaving ? "Saving..." : "Save photo"}</span>
+                  <Icon name="send" className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
     </AppShell>
   );
 }

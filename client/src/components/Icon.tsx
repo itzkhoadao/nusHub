@@ -45,6 +45,12 @@ const ICON_PATHS = {
       <path d="M14 2v6h6" />
     </>
   ),
+  camera: (
+    <>
+      <path d="M14.5 4h-5L7 7H5a3 3 0 0 0-3 3v7a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-7a3 3 0 0 0-3-3h-2l-2.5-3Z" />
+      <circle cx="12" cy="13" r="3" />
+    </>
+  ),
   x: (
     <>
       <path d="M18 6 6 18" />
