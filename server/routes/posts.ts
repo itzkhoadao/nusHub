@@ -5,7 +5,22 @@ import authenticate from "../middleware/authenticate";
 import { saveRecentActivity } from "../utils/recentActivity";
 
 import { pool } from "../db";
+import { createNotification } from "../utils/notificationSchema";
 import { addResolvedAvatarUrl, addResolvedAvatarUrls } from "../utils/userAvatar";
+
+async function ensurePostPublishedAtColumn() {
+  await pool.query(`
+    ALTER TABLE posts
+    ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ DEFAULT NOW()
+  `);
+
+  await pool.query(`
+    UPDATE posts
+    SET published_at = created_at
+    WHERE published_at IS NULL
+  `);
+}
+
 function getOptionalUserId(req) {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
@@ -25,6 +40,7 @@ function getOptionalUserId(req) {
 router.get("/", async (req, res) => {
   // do not use authenticate => can view posts without logging in
   try {
+    await ensurePostPublishedAtColumn();
     const { topic, sort, search } = req.query;
     const userId = getOptionalUserId(req);
     const params = [];
@@ -39,6 +55,7 @@ router.get("/", async (req, res) => {
     let query = `
       SELECT 
         p.*,
+        COALESCE(p.published_at, p.created_at) as post_date,
         CASE 
           WHEN p.is_anonymous = true THEN 'Anonymous'
           WHEN p.user_id IS NULL THEN '[Deleted user]'
@@ -73,8 +90,8 @@ router.get("/", async (req, res) => {
     query += ` GROUP BY p.id, u.username, u.avatar_url, u.avatar_storage_key`;
     query +=
       sort === "popular"
-        ? " ORDER BY p.upvotes DESC"
-        : " ORDER BY p.created_at DESC";
+        ? " ORDER BY p.upvotes DESC, COALESCE(p.published_at, p.created_at) DESC"
+        : " ORDER BY COALESCE(p.published_at, p.created_at) DESC, p.id DESC";
 
     const result = await pool.query(query, params);
     res.json(await addResolvedAvatarUrls(result.rows));
@@ -87,6 +104,7 @@ router.get("/", async (req, res) => {
 router.post("/", authenticate, async (req, res) => {
   // use authenticate: only logged-in users can create posts
   try {
+    await ensurePostPublishedAtColumn();
     const { title, content, topic, is_anonymous } = req.body;
 
     if (!title || !topic) {
@@ -94,8 +112,8 @@ router.post("/", authenticate, async (req, res) => {
     }
 
     const result = await pool.query(
-      `INSERT INTO posts (user_id, title, content, topic, is_anonymous)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO posts (user_id, title, content, topic, is_anonymous, published_at)
+       VALUES ($1, $2, $3, $4, $5, NOW())
        RETURNING *`,
       [req.user.id, title, content, topic, is_anonymous || false],
     );
@@ -109,7 +127,8 @@ router.post("/", authenticate, async (req, res) => {
 // POST /api/posts/:id/upvote — toggle upvote
 router.post("/:id/upvote", authenticate, async (req, res) => {
   try {
-    const { id } = req.params;
+    await ensurePostPublishedAtColumn();
+    const id = req.params.id as string;
     const userId = req.user.id;
 
     const existing = await pool.query(
@@ -135,6 +154,26 @@ router.post("/:id/upvote", authenticate, async (req, res) => {
       await pool.query("UPDATE posts SET upvotes = upvotes + 1 WHERE id=$1", [
         id,
       ]);
+
+      // send notification to the user whose post is being upvoted
+      const notificationTarget = await pool.query(
+        `SELECT p.user_id, p.title, u.username AS actor_username
+         FROM posts p
+         JOIN users u ON u.id = $1
+         WHERE p.id = $2`,
+        [userId, id],
+      );
+      const target = notificationTarget.rows[0];
+
+      await createNotification({
+        actorId: userId,
+        linkPath: `/posts/${id}`,
+        message: `${target.actor_username} upvoted your post "${target.title}"`,
+        postId: id,
+        recipientId: target.user_id,
+        type: "post_upvote",
+      });
+
       res.json({ upvoted: true });
     }
   } catch (err) {
@@ -159,6 +198,7 @@ router.get("/:id", async (req, res) => {
     const result = await pool.query(
       `SELECT 
         p.*,
+        COALESCE(p.published_at, p.created_at) as post_date,
         CASE
           WHEN p.is_anonymous = true THEN 'Anonymous'
           WHEN p.user_id IS NULL THEN '[Deleted user]'

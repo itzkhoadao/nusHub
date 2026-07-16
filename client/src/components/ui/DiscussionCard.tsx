@@ -7,6 +7,7 @@ import VoteBlock from "./VoteBlock";
 export default function DiscussionCard({ post, onUpvote }) {
   const canOpenProfile = !post.is_anonymous && post.user_id;
   const profilePath = canOpenProfile ? `/users/${post.user_id}` : null;
+  const postDate = post.post_date || post.published_at || post.created_at;
   const actionClass =
     "flex h-10 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 text-xs font-bold text-app-muted shadow-sm ring-1 ring-slate-900/5 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:bg-primary-fixed/40 hover:text-primary";
   const authorAvatar = (
@@ -44,8 +45,8 @@ export default function DiscussionCard({ post, onUpvote }) {
                   <span className="font-bold text-app-text">{post.username}</span>
                 )}
                 <span>-</span>
-                {post.created_at && (
-                  <span>{new Date(post.created_at).toLocaleDateString()}</span>
+                {postDate && (
+                  <span>{new Date(postDate).toLocaleDateString()}</span>
                 )}
               </div>
             </div>

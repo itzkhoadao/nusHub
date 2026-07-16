@@ -9,6 +9,7 @@ import authRoutes from "./routes/auth";
 import commentRoutes from "./routes/comments";
 import conversationRoutes from "./routes/conversations";
 import groupRoutes from "./routes/groups";
+import notificationRoutes from "./routes/notifications";
 import postRoutes from "./routes/posts";
 import recentRoutes from "./routes/recent";
 import userRoutes from "./routes/users";
@@ -28,6 +29,7 @@ app.use("/api/conversations", conversationRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/groups", groupRoutes);
 app.use("/api/recent", recentRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 pool.query("SELECT NOW()", (err, res) => {
   // check if can connect to database
