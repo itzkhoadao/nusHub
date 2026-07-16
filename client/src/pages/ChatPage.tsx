@@ -254,7 +254,7 @@ export default function ChatPage() {
     enabled: Boolean(userId),
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000, // keep unused cached data for 30 mins
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
   });
 
   // replace loadMessages()
@@ -267,7 +267,7 @@ export default function ChatPage() {
     enabled: Boolean(userId && conversationId),
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
   });
 
   // getting data from queries
@@ -292,6 +292,37 @@ export default function ChatPage() {
       navigate("/login");
     }
   }, [navigate, user]);
+
+  useEffect(() => {
+    if (!userId) {
+      return;
+    }
+
+    const refreshChatState = () => {
+      getChatSocket();
+      queryClient.invalidateQueries({ queryKey: conversationsKey(userId) });
+
+      if (conversationId) {
+        queryClient.invalidateQueries({
+          queryKey: messagesKey(userId, conversationId),
+        });
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshChatState();
+      }
+    };
+
+    window.addEventListener("focus", refreshChatState);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", refreshChatState);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [conversationId, queryClient, userId]);
 
   // listen for realtime messages and update TanStack Query cache
   useEffect(() => {

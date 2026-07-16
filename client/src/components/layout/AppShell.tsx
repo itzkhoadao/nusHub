@@ -1,8 +1,14 @@
 import type { ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import MobileNav from "./MobileNav";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
+import {
+  currentUserKey,
+  getCurrentUserProfile,
+} from "../../utils/currentUserApi";
+import { getAuthToken } from "../../utils/authStorage";
 
 type AppShellProps = {
   children: ReactNode;
@@ -26,6 +32,15 @@ export default function AppShell({
   sidebar,
 }: AppShellProps) {
   const navigate = useNavigate();
+  const currentUserQuery = useQuery({
+    queryKey: currentUserKey,
+    queryFn: getCurrentUserProfile,
+    enabled: Boolean(getAuthToken()),
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    staleTime: 30 * 1000,
+  });
+  const shellUser = currentUserQuery.data || user;
 
   return (
     <div className="app-page flex">
@@ -38,7 +53,7 @@ export default function AppShell({
           onSearchClear={onSearchClear}
           onSearchSubmit={onSearchSubmit}
           searchValue={searchValue}
-          user={user}
+          user={shellUser}
         />
         <main className="app-container py-6 lg:py-8">
           {sidebar ? (

@@ -240,6 +240,7 @@ export default function PostDetailPage() {
   const topLevelComments = comments.filter(
     (comment) => !comment.parent_comment_id,
   );
+  const postDate = post?.post_date || post?.published_at || post?.created_at;
   const repliesByParentId = comments.reduce((groups, comment) => {
     if (comment.parent_comment_id) {
       groups[comment.parent_comment_id] =
@@ -509,7 +510,7 @@ export default function PostDetailPage() {
                     )}
                     <span>-</span>
                     <span>
-                      {new Date(post.created_at).toLocaleDateString()}
+                      {new Date(postDate).toLocaleDateString()}
                     </span>
                   </div>
                 </div>

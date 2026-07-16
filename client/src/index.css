@@ -64,6 +64,14 @@ select {
 }
 
 @layer components {
+  .app-notification-badge {
+    @apply flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[11px] font-black leading-none text-white shadow-sm ring-2 ring-white;
+  }
+
+  .app-notification-badge-pulse {
+    animation: notification-badge-pop 900ms ease-out;
+  }
+
   .app-page {
     @apply min-h-screen bg-surface text-app-text;
   }
@@ -132,5 +140,20 @@ select {
   .auth-display {
     font-family: "Poppins", "Inter", "Segoe UI", sans-serif;
     letter-spacing: 0;
+  }
+}
+
+@keyframes notification-badge-pop {
+  0% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.5);
+    transform: scale(1);
+  }
+  35% {
+    box-shadow: 0 0 0 8px rgba(220, 38, 38, 0);
+    transform: scale(1.18);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+    transform: scale(1);
   }
 }

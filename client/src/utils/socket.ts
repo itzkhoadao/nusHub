@@ -2,12 +2,14 @@ import { io, type Socket } from "socket.io-client";
 import { API_URL } from "./api";
 import { getAuthToken } from "./authStorage";
 import type { ChatMessage, MessageReadReceipt } from "./chatApi";
+import type { AppNotification } from "./notificationsApi";
 
 const SOCKET_URL = API_URL; // backend url
 
 type ServerToClientEvents = {
   "message:new": (message: ChatMessage) => void;
   "message:read": (receipt: MessageReadReceipt) => void;
+  "notification:new": (notification: AppNotification) => void;
 };
 
 type ClientToServerEvents = Record<string, never>;
