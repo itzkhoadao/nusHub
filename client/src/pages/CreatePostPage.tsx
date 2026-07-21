@@ -1,10 +1,15 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
 import AppShell from "../components/layout/AppShell";
 import UserAvatar from "../components/ui/UserAvatar";
 import { apiUrl } from "../utils/api";
 import { getAuthToken, getStoredUser } from "../utils/authStorage";
+import {
+  MAX_POST_ATTACHMENTS,
+  uploadPostAttachments,
+  validatePostAttachments,
+} from "../utils/postApi";
 
 const TOPICS = [
   {
@@ -48,6 +53,14 @@ const TOPICS = [
 const MAX_TITLE_LENGTH = 120;
 const MAX_CONTENT_LENGTH = 2200;
 
+function formatFileSize(size: number) {
+  if (size < 1024 * 1024) {
+    return `${Math.max(1, Math.round(size / 1024))} KB`;
+  }
+
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function CreatePostPage() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -55,6 +68,8 @@ export default function CreatePostPage() {
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const navigate = useNavigate();
   const user = getStoredUser();
 
@@ -64,6 +79,33 @@ export default function CreatePostPage() {
   );
 
   const isReadyToPost = title.trim().length > 0 && !loading;
+
+  const handleFileSelect = (files: FileList | null) => {
+    if (!files) {
+      return;
+    }
+
+    // combines newly selected files with previously selected files
+    const nextFiles = [...selectedFiles, ...Array.from(files)];
+
+    try {
+      validatePostAttachments(nextFiles);
+      setSelectedFiles(nextFiles); // if valid, select these files
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Invalid file selection");
+    } finally {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""; // allows user to select the same file again later
+      }
+    }
+  };
+
+  const removeSelectedFile = (indexToRemove: number) => {
+    setSelectedFiles((currentFiles) =>
+      currentFiles.filter((_file, index) => index !== indexToRemove),
+    );
+  };
 
   const handleSubmit = async () => {
     if (!title.trim()) {
@@ -76,6 +118,7 @@ export default function CreatePostPage() {
 
     try {
       const token = getAuthToken();
+      const uploadedAttachments = await uploadPostAttachments(selectedFiles);
 
       const res = await fetch(apiUrl("/api/posts"), {
         method: "POST",
@@ -88,6 +131,7 @@ export default function CreatePostPage() {
           content: content.trim(),
           topic,
           is_anonymous: isAnonymous,
+          attachments: uploadedAttachments,
         }),
       });
 
@@ -294,6 +338,61 @@ export default function CreatePostPage() {
               </div>
             </section>
 
+            <section className="rounded-xl border border-dashed border-slate-300 bg-surface-low p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-sm font-bold text-app-text">Attach files</h2>
+                  <p className="mt-1 text-sm text-app-muted">
+                    Add up to {MAX_POST_ATTACHMENTS} files, 10 MB each.
+                  </p>
+                </div>
+                <input
+                  className="hidden"
+                  multiple
+                  onChange={(event) => handleFileSelect(event.target.files)}
+                  ref={fileInputRef}
+                  type="file"
+                />
+                <button
+                  className="app-button-ghost w-fit"
+                  onClick={() => fileInputRef.current?.click()}
+                  type="button"
+                >
+                  <Icon name="paperclip" className="h-4 w-4" />
+                  Choose files
+                </button>
+              </div>
+
+              {selectedFiles.length > 0 && (
+                <div className="mt-4 grid gap-2">
+                  {selectedFiles.map((file, index) => (
+                    <div
+                      className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm"
+                      key={`${file.name}-${file.lastModified}-${index}`}
+                    >
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-fixed text-primary">
+                        <Icon name="file" className="h-5 w-5" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-bold text-app-text">{file.name}</p>
+                        <p className="text-xs font-semibold text-app-muted">
+                          {formatFileSize(file.size)}
+                        </p>
+                      </div>
+                      <button
+                        aria-label={`Remove ${file.name}`}
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-app-muted transition hover:bg-red-50 hover:text-app-danger"
+                        onClick={() => removeSelectedFile(index)}
+                        type="button"
+                      >
+                        <Icon name="x" className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
             <label className="flex w-fit cursor-pointer select-none items-center gap-3">
               <button
                 aria-label="Toggle anonymous posting"
@@ -328,7 +427,7 @@ export default function CreatePostPage() {
                 type="button"
               >
                 <Icon name="plus" className="h-5 w-5" />
-                {loading ? "Posting..." : "Publish post"}
+                {loading ? "Publishing..." : "Publish post"}
               </button>
             </div>
           </div>

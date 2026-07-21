@@ -42,6 +42,12 @@ type UploadInput = {
   mimeType: string;
 };
 
+type PostAttachmentUploadInput = {
+  originalName: string;
+  mimeType: string;
+  userId: string;
+};
+
 type AvatarUploadInput = {
   originalName: string;
   mimeType: string;
@@ -131,6 +137,14 @@ export function createStorageKey({
   return `chat/${conversationId}/${randomUUID()}${extension}`; // prevents filename collisions
 }
 
+export function createPostAttachmentStorageKey({
+  originalName,
+  userId,
+}: PostAttachmentUploadInput) {
+  const extension = path.extname(originalName).toLowerCase();
+  return `posts/${userId}/${randomUUID()}${extension}`; // prevents filename collisions
+}
+
 export function createAvatarStorageKey({
   originalName,
   userId,
@@ -169,6 +183,34 @@ export async function createUploadUrl({
     }),
     { expiresIn: 10 * 60 },
   ); // main signing operation, creates a URL with temporary authorization
+
+  return {
+    fileUrl: getPublicFileUrl(storageKey),
+    storageKey,
+    uploadUrl,
+  };
+}
+
+export async function createPostAttachmentUploadUrl({
+  mimeType,
+  originalName,
+  userId,
+}: PostAttachmentUploadInput) {
+  const storageKey = createPostAttachmentStorageKey({
+    mimeType,
+    originalName,
+    userId,
+  });
+
+  const uploadUrl = await getSignedUrl(
+    getR2Client(),
+    new PutObjectCommand({
+      Bucket: getR2BucketName(),
+      ContentType: mimeType,
+      Key: storageKey,
+    }),
+    { expiresIn: 10 * 60 },
+  ); // uploadUrl: gives browser temp permission to upload to R2
 
   return {
     fileUrl: getPublicFileUrl(storageKey),
