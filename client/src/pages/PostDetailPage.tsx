@@ -6,8 +6,28 @@ import AiAssistantCard from "../components/ui/AiAssistantCard";
 import TopicBadge from "../components/ui/TopicBadge";
 import UserAvatar from "../components/ui/UserAvatar";
 import VoteBlock from "../components/ui/VoteBlock";
-import { apiUrl } from "../utils/api";
+import { API_URL, apiUrl } from "../utils/api";
 import { getAuthToken, getStoredUser } from "../utils/authStorage";
+
+function formatFileSize(size: number) {
+  if (size < 1024 * 1024) {
+    return `${Math.max(1, Math.round(size / 1024))} KB`;
+  }
+
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function isImageAttachment(mimeType: string) {
+  return mimeType.startsWith("image/");
+}
+
+function resolveAttachmentUrl(fileUrl: string) {
+  if (!fileUrl) {
+    return "";
+  }
+
+  return fileUrl.startsWith("http") ? fileUrl : `${API_URL}${fileUrl}`;
+}
 
 export default function PostDetailPage() {
   const { id } = useParams(); // gets the post id from the URL
@@ -529,6 +549,61 @@ export default function PostDetailPage() {
               <p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-app-muted md:text-base">
                 {post.content}
               </p>
+            )}
+
+            {Array.isArray(post.attachments) && post.attachments.length > 0 && (
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                {post.attachments.map((attachment) => {
+                  const attachmentUrl = resolveAttachmentUrl(attachment.file_url);
+                  const isImage = isImageAttachment(attachment.mime_type || "");
+
+                  return (
+                    <a
+                      className="group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-900/5 transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+                      href={attachmentUrl}
+                      key={attachment.id || attachment.storage_key}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      {isImage ? (
+                        <div className="aspect-video bg-surface-low">
+                          <img
+                            alt={attachment.original_name}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                            src={attachmentUrl}
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex min-h-24 items-center gap-3 px-4 py-3">
+                          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-fixed text-primary">
+                            <Icon name="file" className="h-6 w-6" />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold text-app-text group-hover:text-primary">
+                              {attachment.original_name}
+                            </p>
+                            <p className="mt-1 text-xs font-semibold text-app-muted">
+                              {formatFileSize(attachment.file_size)}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {isImage && (
+                        <div className="flex items-center justify-between gap-3 px-4 py-3">
+                          <p className="truncate text-sm font-bold text-app-text group-hover:text-primary">
+                            {attachment.original_name}
+                          </p>
+                          <span className="shrink-0 text-xs font-semibold text-app-muted">
+                            {formatFileSize(attachment.file_size)}
+                          </span>
+                        </div>
+                      )}
+                    </a>
+                  );
+                })}
+              </div>
             )}
 
             <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-surface-variant pt-4 text-sm font-semibold text-app-muted">
