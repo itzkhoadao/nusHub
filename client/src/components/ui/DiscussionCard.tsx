@@ -3,11 +3,41 @@ import Icon from "../Icon";
 import TopicBadge from "./TopicBadge";
 import UserAvatar from "./UserAvatar";
 import VoteBlock from "./VoteBlock";
+import { API_URL } from "../../utils/api";
+
+function isImageAttachment(mimeType = "") {
+  return mimeType.startsWith("image/");
+}
+
+function isVideoAttachment(mimeType = "") {
+  return mimeType.startsWith("video/");
+}
+
+function resolveAttachmentUrl(fileUrl = "") {
+  if (!fileUrl) {
+    return "";
+  }
+
+  return fileUrl.startsWith("http") ? fileUrl : `${API_URL}${fileUrl}`;
+}
 
 export default function DiscussionCard({ post, onUpvote }) {
   const canOpenProfile = !post.is_anonymous && post.user_id;
   const profilePath = canOpenProfile ? `/users/${post.user_id}` : null;
   const postDate = post.post_date || post.published_at || post.created_at;
+  const attachments = Array.isArray(post.attachments) ? post.attachments : []; // list of files for this post
+  const attachmentCount =
+    attachments.length > 0 ? attachments.length : Number(post.attachment_count || 0);
+  const onlyAttachment = attachmentCount === 1 ? attachments[0] : null;
+  const onlyAttachmentUrl = resolveAttachmentUrl(onlyAttachment?.file_url);
+  
+  // only render visually when only 1 image or 1 video is uploaded
+  const shouldPreviewSingleMedia =
+    Boolean(onlyAttachmentUrl) &&
+    (isImageAttachment(onlyAttachment?.mime_type) ||
+      isVideoAttachment(onlyAttachment?.mime_type));
+  
+  const shouldShowFileSummary = attachmentCount > 0 && !shouldPreviewSingleMedia;
   const actionClass =
     "flex h-10 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 text-xs font-bold text-app-muted shadow-sm ring-1 ring-slate-900/5 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:bg-primary-fixed/40 hover:text-primary";
   const authorAvatar = (
@@ -68,6 +98,53 @@ export default function DiscussionCard({ post, onUpvote }) {
           <p className="mt-2 line-clamp-2 text-sm leading-6 text-app-muted">
             {post.content}
           </p>
+        )}
+
+        {shouldPreviewSingleMedia && (
+          <Link
+            aria-label={`Open ${onlyAttachment.original_name}`}
+            className="mt-4 flex min-h-56 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-950 shadow-sm transition hover:shadow-md"
+            to={`/posts/${post.id}`}
+          >
+            {isVideoAttachment(onlyAttachment.mime_type) ? (
+              <video
+                className="max-h-[420px] w-full object-contain"
+                muted
+                playsInline
+                preload="metadata"
+                src={onlyAttachmentUrl}
+              />
+            ) : (
+              <img
+                alt={onlyAttachment.original_name}
+                className="max-h-[420px] w-full object-contain"
+                loading="lazy"
+                src={onlyAttachmentUrl}
+              />
+            )}
+          </Link>
+        )}
+
+        {shouldShowFileSummary && (
+          <Link
+            aria-label={`${attachmentCount} attached file${
+              attachmentCount === 1 ? "" : "s"
+            }`}
+            className="mt-4 flex items-center gap-4 rounded-xl border border-primary/25 bg-primary-fixed px-5 py-4 text-primary shadow-sm ring-1 ring-primary/10 transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+            to={`/posts/${post.id}`}
+          >
+            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white/80 shadow-sm">
+              <Icon name="paperclip" className="h-7 w-7" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-xl font-black text-primary">
+                {attachmentCount} file{attachmentCount === 1 ? "" : "s"}
+              </span>
+              <span className="mt-1 block text-sm font-semibold text-app-muted">
+                Open post to view attachments
+              </span>
+            </span>
+          </Link>
         )}
 
         <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-surface-variant pt-4 text-xs font-semibold text-app-muted">

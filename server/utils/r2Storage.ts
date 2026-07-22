@@ -12,7 +12,9 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 export const MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024;
 export const MAX_ATTACHMENTS_PER_MESSAGE = 5;
 export const MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024;
+export const MAX_COVER_SIZE_BYTES = 8 * 1024 * 1024;
 export const AVATAR_CACHE_CONTROL = "public, max-age=31536000, immutable";
+export const COVER_CACHE_CONTROL = AVATAR_CACHE_CONTROL;
 
 export const ALLOWED_ATTACHMENT_TYPES = new Set([
   "image/jpeg",
@@ -35,6 +37,7 @@ export const ALLOWED_AVATAR_TYPES = new Set([
   "image/png",
   "image/webp",
 ]);
+export const ALLOWED_COVER_TYPES = ALLOWED_AVATAR_TYPES;
 
 type UploadInput = {
   conversationId: string;
@@ -53,6 +56,8 @@ type AvatarUploadInput = {
   mimeType: string;
   userId: string;
 };
+
+type CoverUploadInput = AvatarUploadInput;
 
 let r2Client: S3Client | null = null;
 
@@ -129,6 +134,24 @@ export function validateAvatarMetadata(file: {
   }
 }
 
+export function validateCoverMetadata(file: {
+  file_size: number;
+  mime_type: string;
+  original_name: string;
+}) {
+  if (!file.original_name.trim()) {
+    throw new Error("File name is required");
+  }
+
+  if (file.file_size > MAX_COVER_SIZE_BYTES) {
+    throw new Error("Cover picture must be 8 MB or smaller");
+  }
+
+  if (!ALLOWED_COVER_TYPES.has(file.mime_type)) {
+    throw new Error("Cover picture must be a JPEG, PNG, or WEBP image");
+  }
+}
+
 export function createStorageKey({
   conversationId,
   originalName,
@@ -151,6 +174,14 @@ export function createAvatarStorageKey({
 }: AvatarUploadInput) {
   const extension = path.extname(originalName).toLowerCase();
   return `avatars/${userId}/${randomUUID()}${extension}`; // randomUUID: prevents filename collisions
+}
+
+export function createCoverStorageKey({
+  originalName,
+  userId,
+}: CoverUploadInput) {
+  const extension = path.extname(originalName).toLowerCase();
+  return `covers/${userId}/${randomUUID()}${extension}`;
 }
 
 export function getPublicFileUrl(storageKey: string) {
@@ -235,6 +266,30 @@ export async function createAvatarUploadUrl({
     new PutObjectCommand({
       Bucket: getR2BucketName(),
       CacheControl: AVATAR_CACHE_CONTROL,
+      ContentType: mimeType,
+      Key: storageKey,
+    }),
+    { expiresIn: 10 * 60 },
+  ); // creates presigned R2 PUT URL (used once to upload the file)
+
+  return {
+    fileUrl: getPublicFileUrl(storageKey),
+    storageKey,
+    uploadUrl,
+  };
+}
+
+export async function createCoverUploadUrl({
+  mimeType,
+  originalName,
+  userId,
+}: CoverUploadInput) {
+  const storageKey = createCoverStorageKey({ originalName, userId, mimeType }); // create key first (permanent identifier inside R2)
+  const uploadUrl = await getSignedUrl(
+    getR2Client(),
+    new PutObjectCommand({
+      Bucket: getR2BucketName(),
+      CacheControl: COVER_CACHE_CONTROL,
       ContentType: mimeType,
       Key: storageKey,
     }),

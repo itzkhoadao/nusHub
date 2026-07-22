@@ -6,10 +6,12 @@ import authenticate from "../middleware/authenticate";
 import { pool } from "../db";
 import {
   createAvatarUploadUrl,
+  createCoverUploadUrl,
   createDownloadUrl,
   deleteStoredObject,
   getPublicFileUrl,
   validateAvatarMetadata,
+  validateCoverMetadata,
   verifyUploadedObject,
 } from "../utils/r2Storage";
 
@@ -19,7 +21,10 @@ async function ensureUserAvatarColumns() {
     ALTER TABLE users
     ADD COLUMN IF NOT EXISTS avatar_url TEXT,
     ADD COLUMN IF NOT EXISTS avatar_storage_key TEXT,
-    ADD COLUMN IF NOT EXISTS avatar_updated_at TIMESTAMPTZ
+    ADD COLUMN IF NOT EXISTS avatar_updated_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS cover_url TEXT,
+    ADD COLUMN IF NOT EXISTS cover_storage_key TEXT,
+    ADD COLUMN IF NOT EXISTS cover_updated_at TIMESTAMPTZ
   `);
 }
 
@@ -50,6 +55,24 @@ async function addAvatarUrlToUser(user: any) {
   return user;
 }
 
+// ensures the returned user has usable media URLs for both avatar and cover picture
+async function addMediaUrlsToUser(user: any) {
+  const userWithAvatar = await addAvatarUrlToUser(user);
+
+  if (!userWithAvatar?.cover_storage_key) {
+    return userWithAvatar;
+  }
+
+  const publicCoverUrl = getPublicFileUrl(userWithAvatar.cover_storage_key);
+  return {
+    ...userWithAvatar,
+    cover_url:
+      publicCoverUrl ||
+      userWithAvatar.cover_url ||
+      (await createDownloadUrl(userWithAvatar.cover_storage_key)),
+  };
+}
+
 // get the user's profile
 router.get("/me", authenticate, async (req, res) => {
   try {
@@ -58,7 +81,8 @@ router.get("/me", authenticate, async (req, res) => {
 
     // Get user info
     const userResult = await pool.query(
-      `SELECT id, username, email, avatar_url, avatar_storage_key, avatar_updated_at, created_at
+      `SELECT id, username, email, avatar_url, avatar_storage_key, avatar_updated_at,
+              cover_url, cover_storage_key, cover_updated_at, created_at
        FROM users WHERE id = $1`,
       [userId],
     );
@@ -104,7 +128,7 @@ router.get("/me", authenticate, async (req, res) => {
     );
 
     res.json({
-      user: await addAvatarUrlToUser(userResult.rows[0]),
+      user: await addMediaUrlsToUser(userResult.rows[0]),
       posts: postsResult.rows,
       comments: commentsResult.rows,
       groups: groupsResult.rows,
@@ -114,6 +138,8 @@ router.get("/me", authenticate, async (req, res) => {
   }
 });
 
+// PRESIGN ENDPOINT
+// receives metadata and returns temporary upload permission
 router.post("/me/avatar/presign", authenticate, async (req, res) => {
   try {
     await ensureUserAvatarColumns();
@@ -145,7 +171,7 @@ router.post("/me/avatar/presign", authenticate, async (req, res) => {
   }
 });
 
-// browser uploads directly to R2
+// browser uploads directly to R2, then this endpoint confirms the upload
 router.post("/me/avatar/confirm", authenticate, async (req, res) => {
   try {
     await ensureUserAvatarColumns();
@@ -218,6 +244,115 @@ router.delete("/me/avatar", authenticate, async (req, res) => {
   }
 });
 
+// PRESIGN ENDPOINT
+// receives metadata and returns temporary upload permission
+router.post("/me/cover/presign", authenticate, async (req, res) => {
+  try {
+    await ensureUserAvatarColumns();
+    const file = {
+      file_size: Number(req.body.file_size),
+      mime_type: req.body.mime_type,
+      original_name: req.body.original_name,
+    };
+    validateCoverMetadata(file);
+
+    const upload = await createCoverUploadUrl({
+      mimeType: file.mime_type,
+      originalName: file.original_name,
+      userId: req.user.id,
+    });
+
+    res.json({
+      file_size: file.file_size,
+      file_url: upload.fileUrl,
+      mime_type: file.mime_type,
+      original_name: file.original_name,
+      storage_key: upload.storageKey,
+      upload_url: upload.uploadUrl,
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// browser uploads directly to R2, then this endpoint confirms the upload
+router.post("/me/cover/confirm", authenticate, async (req, res) => {
+  try {
+    await ensureUserAvatarColumns();
+    const file = {
+      file_size: Number(req.body.file_size),
+      mime_type: req.body.mime_type,
+      original_name: req.body.original_name,
+    };
+    const storageKey = req.body.storage_key;
+    validateCoverMetadata(file); // validates confirmation data
+
+    if (!storageKey?.startsWith(`covers/${req.user.id}/`)) {
+      return res.status(400).json({ error: "Cover upload key is invalid" });
+    }
+
+    await verifyUploadedObject({
+      fileSize: file.file_size,
+      mimeType: file.mime_type,
+      storageKey,
+    }); // verify object in R2
+
+    // find previous cover picture's key in R2
+    const currentUser = await pool.query(
+      `SELECT cover_storage_key FROM users WHERE id = $1`,
+      [req.user.id],
+    );
+    const previousStorageKey = currentUser.rows[0]?.cover_storage_key;
+
+    // update with new cover's info
+    const result = await pool.query(
+      `UPDATE users
+       SET cover_url = $1, cover_storage_key = $2, cover_updated_at = NOW()
+       WHERE id = $3
+       RETURNING id, username, email, avatar_url, avatar_storage_key, avatar_updated_at,
+                 cover_url, cover_storage_key, cover_updated_at, created_at`,
+      [getPublicFileUrl(storageKey), storageKey, req.user.id],
+    );
+
+    // delete previous R2 object
+    if (previousStorageKey && previousStorageKey !== storageKey) {
+      deleteStoredObject(previousStorageKey).catch(() => {});
+    }
+
+    res.json({ user: await addMediaUrlsToUser(result.rows[0]) });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// delete cover picture
+router.delete("/me/cover", authenticate, async (req, res) => {
+  try {
+    await ensureUserAvatarColumns();
+    const currentUser = await pool.query(
+      `SELECT cover_storage_key FROM users WHERE id = $1`,
+      [req.user.id],
+    );
+    const previousStorageKey = currentUser.rows[0]?.cover_storage_key;
+    const result = await pool.query(
+      `UPDATE users
+       SET cover_url = NULL, cover_storage_key = NULL, cover_updated_at = NOW()
+       WHERE id = $1
+       RETURNING id, username, email, avatar_url, avatar_storage_key, avatar_updated_at,
+                 cover_url, cover_storage_key, cover_updated_at, created_at`,
+      [req.user.id],
+    ); // set to null
+
+    if (previousStorageKey) {
+      deleteStoredObject(previousStorageKey).catch(() => {});
+    }
+
+    res.json({ user: result.rows[0] });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // get a public profile by user id
 router.get("/:id", async (req, res) => {
   try {
@@ -226,7 +361,8 @@ router.get("/:id", async (req, res) => {
 
     // Get public user info
     const userResult = await pool.query(
-      `SELECT id, username, email, avatar_url, avatar_storage_key, avatar_updated_at, created_at
+      `SELECT id, username, email, avatar_url, avatar_storage_key, avatar_updated_at,
+              cover_url, cover_storage_key, cover_updated_at, created_at
        FROM users WHERE id = $1`,
       [id],
     );
@@ -272,7 +408,7 @@ router.get("/:id", async (req, res) => {
     );
 
     res.json({
-      user: await addAvatarUrlToUser(userResult.rows[0]),
+      user: await addMediaUrlsToUser(userResult.rows[0]),
       posts: postsResult.rows,
       comments: commentsResult.rows,
       groups: groupsResult.rows,

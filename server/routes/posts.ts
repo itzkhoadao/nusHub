@@ -98,6 +98,7 @@ router.get("/", async (req, res) => {
   // do not use authenticate => can view posts without logging in
   try {
     await ensurePostPublishedAtColumn();
+    await ensurePostAttachmentSchema();
     const { topic, sort, search } = req.query;
     const userId = getOptionalUserId(req);
     const params = [];
@@ -126,11 +127,26 @@ router.get("/", async (req, res) => {
           WHEN p.is_anonymous = true THEN NULL
           ELSE u.avatar_storage_key
         END as avatar_storage_key,
-        COUNT(c.id) as comment_count,
+        COUNT(DISTINCT c.id) as comment_count,
+        COUNT(DISTINCT pa.id) as attachment_count,
+        COALESCE(
+          jsonb_agg(
+            DISTINCT jsonb_build_object(
+              'id', pa.id,
+              'original_name', pa.original_name,
+              'storage_key', pa.storage_key,
+              'mime_type', pa.mime_type,
+              'file_size', pa.file_size,
+              'file_url', pa.file_url
+            )
+          ) FILTER (WHERE pa.id IS NOT NULL),
+          '[]'::jsonb
+        ) as attachments,
         ${upvotedSelect} as upvoted
       FROM posts p
       LEFT JOIN users u ON p.user_id = u.id
       LEFT JOIN comments c ON c.post_id = p.id
+      LEFT JOIN post_attachments pa ON pa.post_id = p.id
       WHERE 1=1
     `;
 
@@ -151,7 +167,8 @@ router.get("/", async (req, res) => {
         : " ORDER BY COALESCE(p.published_at, p.created_at) DESC, p.id DESC";
 
     const result = await pool.query(query, params);
-    res.json(await addResolvedAvatarUrls(result.rows));
+    const posts = await Promise.all(result.rows.map(addDownloadUrlsToPost));
+    res.json(await addResolvedAvatarUrls(posts));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
