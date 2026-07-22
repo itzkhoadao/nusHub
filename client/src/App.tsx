@@ -8,6 +8,7 @@ import ProfilePage from "./pages/ProfilePage";
 import GroupsPage from "./pages/GroupsPage";
 import GroupDetailPage from "./pages/GroupDetailPage";
 import ChatPage from "./pages/ChatPage";
+import OnboardingPage from "./pages/OnboardingPage";
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/onboarding" element={<OnboardingPage />} />
       <Route path="/create-post" element={<CreatePostPage />} />
       <Route path="/posts/:id" element={<PostDetailPage />} />
       <Route path="/profile" element={<ProfilePage />} />

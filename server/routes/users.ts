@@ -15,6 +15,33 @@ import {
   verifyUploadedObject,
 } from "../utils/r2Storage";
 
+const ACADEMIC_YEARS = new Set([
+  "Year 1", "Year 2", "Year 3", "Year 4", "Year 5", "Year 6",
+  "Master", "PhD", "None",
+]);
+const AGE_RANGES = new Set([
+  "Below 20", "20 - 25", "25 - 30", "30 - 40", "Above 40", "Not shared",
+]);
+const NUS_FACULTIES = new Set([
+  "Faculty of Arts & Social Sciences",
+  "NUS Business School",
+  "School of Computing",
+  "School of Continuing & Lifelong Education",
+  "Faculty of Dentistry",
+  "College of Design and Engineering",
+  "Duke-NUS Medical School",
+  "College of Humanities and Sciences",
+  "NUS College",
+  "NUS Graduate School",
+  "Faculty of Law",
+  "Yong Loo Lin School of Medicine (including Nursing)",
+  "Yong Siew Toh Conservatory of Music",
+  "Saw Swee Hock School of Public Health",
+  "Lee Kuan Yew School of Public Policy",
+  "Faculty of Science",
+  "Institute of Systems Science",
+]);
+
 // ensure db has these
 async function ensureUserAvatarColumns() {
   await pool.query(`
@@ -24,7 +51,18 @@ async function ensureUserAvatarColumns() {
     ADD COLUMN IF NOT EXISTS avatar_updated_at TIMESTAMPTZ,
     ADD COLUMN IF NOT EXISTS cover_url TEXT,
     ADD COLUMN IF NOT EXISTS cover_storage_key TEXT,
-    ADD COLUMN IF NOT EXISTS cover_updated_at TIMESTAMPTZ
+    ADD COLUMN IF NOT EXISTS cover_updated_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS academic_year TEXT,
+    ADD COLUMN IF NOT EXISTS is_teaching_assistant BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS is_professor BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS is_staff BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS stays_on_campus BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS age_range TEXT,
+    ADD COLUMN IF NOT EXISTS faculty TEXT,
+    ADD COLUMN IF NOT EXISTS nusnet_id TEXT,
+    ADD COLUMN IF NOT EXISTS nus_email TEXT,
+    ADD COLUMN IF NOT EXISTS bio TEXT,
+    ADD COLUMN IF NOT EXISTS onboarding_completed_at TIMESTAMPTZ
   `);
 }
 
@@ -81,8 +119,12 @@ router.get("/me", authenticate, async (req, res) => {
 
     // Get user info
     const userResult = await pool.query(
-      `SELECT id, username, email, avatar_url, avatar_storage_key, avatar_updated_at,
-              cover_url, cover_storage_key, cover_updated_at, created_at
+      `SELECT id, username, email, bio, avatar_url, avatar_storage_key, avatar_updated_at,
+              cover_url, cover_storage_key, cover_updated_at,
+              academic_year, is_teaching_assistant, is_professor, is_staff,
+              stays_on_campus, age_range, faculty, nusnet_id, nus_email,
+              (onboarding_completed_at IS NOT NULL) AS onboarding_completed,
+              created_at
        FROM users WHERE id = $1`,
       [userId],
     );
@@ -133,6 +175,155 @@ router.get("/me", authenticate, async (req, res) => {
       comments: commentsResult.rows,
       groups: groupsResult.rows,
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.patch("/me/profile", authenticate, async (req, res) => {
+  try {
+    await ensureUserAvatarColumns();
+    const hasUsername = req.body.username !== undefined;
+    const hasBio = req.body.bio !== undefined;
+
+    if (!hasUsername && !hasBio) {
+      return res.status(400).json({ error: "No profile changes provided" });
+    }
+
+    const currentResult = await pool.query(
+      `SELECT username, bio FROM users WHERE id = $1`,
+      [req.user.id],
+    );
+    if (currentResult.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const username = hasUsername
+      ? String(req.body.username).trim()
+      : currentResult.rows[0].username;
+    const bio = hasBio
+      ? String(req.body.bio).trim()
+      : currentResult.rows[0].bio;
+
+    if (!/^[A-Za-z0-9_]{3,24}$/.test(username)) {
+      return res.status(400).json({
+        error: "Username must be 3–24 characters using letters, numbers, or underscores",
+      });
+    }
+    if (bio && bio.length > 160) {
+      return res.status(400).json({ error: "Bio must be 160 characters or fewer" });
+    }
+
+    const duplicate = await pool.query(
+      `SELECT 1 FROM users WHERE LOWER(username) = LOWER($1) AND id <> $2`,
+      [username, req.user.id],
+    );
+    if (duplicate.rows.length > 0) {
+      return res.status(409).json({ error: "That username is already taken" });
+    }
+
+    const result = await pool.query(
+      `UPDATE users SET username = $1, bio = $2 WHERE id = $3
+       RETURNING id, username, email, bio, avatar_url, avatar_storage_key,
+                 avatar_updated_at, cover_url, cover_storage_key, cover_updated_at,
+                 academic_year, is_teaching_assistant, is_professor, is_staff,
+                 stays_on_campus, age_range, faculty,
+                 (onboarding_completed_at IS NOT NULL) AS onboarding_completed,
+                 created_at`,
+      [username, bio || null, req.user.id],
+    );
+
+    res.json({ user: await addMediaUrlsToUser(result.rows[0]) });
+  } catch (err) {
+    if (err?.code === "23505") {
+      return res.status(409).json({ error: "That username is already taken" });
+    }
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// validate and update user's info after filling in Onboarding Page
+router.put("/me/background", authenticate, async (req, res) => {
+  try {
+    await ensureUserAvatarColumns();
+    const {
+      academic_year,
+      age_range,
+      faculty,
+      is_professor,
+      is_staff,
+      is_teaching_assistant,
+      nus_email,
+      nusnet_id,
+      stays_on_campus,
+    } = req.body;
+
+    if (!ACADEMIC_YEARS.has(academic_year)) {
+      return res.status(400).json({ error: "Choose a valid year of study" });
+    }
+    if (!AGE_RANGES.has(age_range)) {
+      return res.status(400).json({ error: "Choose a valid age range" });
+    }
+    if (!NUS_FACULTIES.has(faculty)) {
+      return res.status(400).json({ error: "Choose a valid NUS faculty or school" });
+    }
+    if (
+      typeof is_professor !== "boolean" ||
+      typeof is_staff !== "boolean" ||
+      typeof is_teaching_assistant !== "boolean" ||
+      typeof stays_on_campus !== "boolean"
+    ) {
+      return res.status(400).json({ error: "Invalid background information" });
+    }
+
+    const usesNusEmail = is_professor || is_staff;
+    const normalizedNusnetId = String(nusnet_id || "").trim().toUpperCase();
+    const normalizedNusEmail = String(nus_email || "").trim().toLowerCase();
+
+    if (usesNusEmail) {
+      if (!/^[^\s@]+@(?:[a-z0-9-]+\.)*nus\.edu\.sg$/i.test(normalizedNusEmail)) {
+        return res.status(400).json({
+          error: "Enter a valid NUS email ending in nus.edu.sg",
+        });
+      }
+    } else if (!/^E\d{7}$/.test(normalizedNusnetId)) {
+      return res.status(400).json({
+        error: "NUSNET ID must use the format E1234567",
+      });
+    }
+
+    const result = await pool.query(
+      `UPDATE users
+       SET academic_year = $1,
+           is_teaching_assistant = $2,
+           is_professor = $3,
+           is_staff = $4,
+           stays_on_campus = $5,
+           age_range = $6,
+           faculty = $7,
+           nusnet_id = $8,
+           nus_email = $9,
+           onboarding_completed_at = NOW()
+       WHERE id = $10
+       RETURNING id, username, email, avatar_url, academic_year,
+                 is_teaching_assistant, is_professor, is_staff,
+                 stays_on_campus, age_range, faculty,
+                 (onboarding_completed_at IS NOT NULL) AS onboarding_completed`,
+      [
+        academic_year,
+        is_teaching_assistant,
+        is_professor,
+        is_staff,
+        stays_on_campus,
+        age_range,
+        faculty,
+        usesNusEmail ? null : normalizedNusnetId,
+        usesNusEmail ? normalizedNusEmail : null,
+        req.user.id,
+      ],
+    );
+
+    res.json({ user: result.rows[0] });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -202,7 +393,7 @@ router.post("/me/avatar/confirm", authenticate, async (req, res) => {
            avatar_storage_key = $2,
            avatar_updated_at = NOW()
        WHERE id = $3
-       RETURNING id, username, email, avatar_url, avatar_storage_key, avatar_updated_at, created_at`,
+       RETURNING id, username, email, bio, avatar_url, avatar_storage_key, avatar_updated_at, created_at`,
       [publicAvatarUrl, storageKey, req.user.id],
     ); // update user records
 
@@ -229,7 +420,7 @@ router.delete("/me/avatar", authenticate, async (req, res) => {
            avatar_storage_key = NULL,
            avatar_updated_at = NOW()
        WHERE id = $1
-       RETURNING id, username, email, avatar_url, avatar_storage_key, avatar_updated_at, created_at`,
+       RETURNING id, username, email, bio, avatar_url, avatar_storage_key, avatar_updated_at, created_at`,
       [req.user.id],
     ); // update db to delete avatar for that user
 
@@ -309,7 +500,7 @@ router.post("/me/cover/confirm", authenticate, async (req, res) => {
       `UPDATE users
        SET cover_url = $1, cover_storage_key = $2, cover_updated_at = NOW()
        WHERE id = $3
-       RETURNING id, username, email, avatar_url, avatar_storage_key, avatar_updated_at,
+       RETURNING id, username, email, bio, avatar_url, avatar_storage_key, avatar_updated_at,
                  cover_url, cover_storage_key, cover_updated_at, created_at`,
       [getPublicFileUrl(storageKey), storageKey, req.user.id],
     );
@@ -338,7 +529,7 @@ router.delete("/me/cover", authenticate, async (req, res) => {
       `UPDATE users
        SET cover_url = NULL, cover_storage_key = NULL, cover_updated_at = NOW()
        WHERE id = $1
-       RETURNING id, username, email, avatar_url, avatar_storage_key, avatar_updated_at,
+       RETURNING id, username, email, bio, avatar_url, avatar_storage_key, avatar_updated_at,
                  cover_url, cover_storage_key, cover_updated_at, created_at`,
       [req.user.id],
     ); // set to null
@@ -361,8 +552,12 @@ router.get("/:id", async (req, res) => {
 
     // Get public user info
     const userResult = await pool.query(
-      `SELECT id, username, email, avatar_url, avatar_storage_key, avatar_updated_at,
-              cover_url, cover_storage_key, cover_updated_at, created_at
+      `SELECT id, username, email, bio, avatar_url, avatar_storage_key, avatar_updated_at,
+              cover_url, cover_storage_key, cover_updated_at,
+              academic_year, is_teaching_assistant, is_professor, is_staff,
+              stays_on_campus, age_range, faculty,
+              (onboarding_completed_at IS NOT NULL) AS onboarding_completed,
+              created_at
        FROM users WHERE id = $1`,
       [id],
     );

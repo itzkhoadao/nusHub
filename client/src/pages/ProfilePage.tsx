@@ -16,6 +16,7 @@ import {
   removeProfileCover,
   updateProfileAvatar,
   updateProfileCover,
+  updateProfileDetails,
   validateAvatarFile,
   validateCoverFile,
 } from "../utils/profileApi";
@@ -96,6 +97,12 @@ export default function ProfilePage() {
   const [coverError, setCoverError] = useState("");
   const [coverSaving, setCoverSaving] = useState(false);
   const coverInputRef = useRef<HTMLInputElement | null>(null);
+  const [profileFieldEditor, setProfileFieldEditor] = useState<
+    "username" | "bio" | null
+  >(null);
+  const [profileFieldValue, setProfileFieldValue] = useState("");
+  const [profileFieldError, setProfileFieldError] = useState("");
+  const [profileFieldSaving, setProfileFieldSaving] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { userId } = useParams();
@@ -347,6 +354,58 @@ export default function ProfilePage() {
     }
   };
 
+  const openProfileFieldEditor = (field: "username" | "bio") => {
+    setIsEditProfileModalOpen(false);
+    setProfileFieldEditor(field);
+    setProfileFieldValue(
+      field === "username" ? profileUser.username : profileUser.bio || "",
+    );
+    setProfileFieldError("");
+  };
+
+  const closeProfileFieldEditor = () => {
+    if (profileFieldSaving) return;
+    setProfileFieldEditor(null);
+    setProfileFieldValue("");
+    setProfileFieldError("");
+  };
+
+  const handleSaveProfileField = async () => {
+    if (!profileFieldEditor || profileFieldSaving) return;
+    const value = profileFieldValue.trim();
+
+    if (
+      profileFieldEditor === "username" &&
+      !/^[A-Za-z0-9_]{3,24}$/.test(value)
+    ) {
+      setProfileFieldError(
+        "Use 3–24 letters, numbers, or underscores.",
+      );
+      return;
+    }
+    if (profileFieldEditor === "bio" && value.length > 160) {
+      setProfileFieldError("Bio must be 160 characters or fewer.");
+      return;
+    }
+
+    setProfileFieldSaving(true);
+    setProfileFieldError("");
+    try {
+      const result = await updateProfileDetails({
+        [profileFieldEditor]: value,
+      });
+      updateProfileUser(result.user);
+      setProfileFieldEditor(null);
+      setProfileFieldValue("");
+    } catch (err) {
+      setProfileFieldError(
+        err instanceof Error ? err.message : "Failed to update profile",
+      );
+    } finally {
+      setProfileFieldSaving(false);
+    }
+  };
+
   // start direct chat with another user
   const handleStartChat = async () => {
     if (!profileUser?.id || startingChat) {
@@ -419,15 +478,19 @@ export default function ProfilePage() {
                     </h1>
                     <BadgePill label="Member" tone="orange" />
                   </div>
-                  <p className="mt-2 text-sm font-semibold text-app-muted">
-                    {profileUser.email}
-                  </p>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-app-muted">
-                    Active NUSHub contributor since{" "}
-                    {new Date(profileUser.created_at).toLocaleDateString()}.
-                    Most active around{" "}
-                    <span className="font-bold">{topTopic}</span>.
-                  </p>
+                  {profileUser.bio ? (
+                    <p className="mt-3 max-w-2xl whitespace-pre-wrap text-sm leading-6 text-app-muted">
+                      {profileUser.bio}
+                    </p>
+                  ) : isOwnProfile ? (
+                    <button
+                      className="mt-3 text-sm font-bold text-secondary transition-colors hover:text-orange-600 hover:underline"
+                      onClick={() => openProfileFieldEditor("bio")}
+                      type="button"
+                    >
+                      Add bio!
+                    </button>
+                  ) : null}
                 </div>
               </div>
 
@@ -768,8 +831,8 @@ export default function ProfilePage() {
               </button>
 
               <button
-                className="flex w-full cursor-not-allowed items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-4 text-left opacity-70"
-                disabled
+                className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary-fixed/30"
+                onClick={() => openProfileFieldEditor("username")}
                 type="button"
               >
                 <span>
@@ -777,17 +840,15 @@ export default function ProfilePage() {
                     Change Username
                   </span>
                   <span className="mt-1 block text-sm text-app-muted">
-                    Coming soon.
+                    Choose a unique name for your profile.
                   </span>
                 </span>
-                <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-app-muted">
-                  Later
-                </span>
+                <Icon name="post" className="h-5 w-5 text-primary" />
               </button>
 
               <button
-                className="flex w-full cursor-not-allowed items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-4 text-left opacity-70"
-                disabled
+                className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary-fixed/30"
+                onClick={() => openProfileFieldEditor("bio")}
                 type="button"
               >
                 <span>
@@ -795,12 +856,114 @@ export default function ProfilePage() {
                     Change Bio
                   </span>
                   <span className="mt-1 block text-sm text-app-muted">
-                    Coming soon.
+                    Tell the community a little about yourself.
                   </span>
                 </span>
-                <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-app-muted">
-                  Later
-                </span>
+                <Icon name="message" className="h-5 w-5 text-primary" />
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {profileFieldEditor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6 backdrop-blur-sm">
+          <section className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-secondary">
+                  Profile details
+                </p>
+                <h2 className="mt-1 text-2xl font-bold tracking-tight text-primary">
+                  {profileFieldEditor === "username"
+                    ? "Change username"
+                    : profileUser.bio
+                      ? "Edit your bio"
+                      : "Add a bio"}
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-app-muted">
+                  {profileFieldEditor === "username"
+                    ? "Use 3–24 letters, numbers, or underscores."
+                    : "Share a short introduction in up to 160 characters."}
+                </p>
+              </div>
+              <button
+                aria-label={`Close ${profileFieldEditor} editor`}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 text-app-muted transition-colors hover:bg-slate-50 hover:text-primary"
+                disabled={profileFieldSaving}
+                onClick={closeProfileFieldEditor}
+                type="button"
+              >
+                <Icon name="x" className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-6">
+              {profileFieldEditor === "username" ? (
+                <input
+                  autoComplete="off"
+                  autoFocus
+                  className="app-input h-12 font-semibold"
+                  maxLength={24}
+                  onChange={(event) => {
+                    setProfileFieldValue(event.target.value);
+                    setProfileFieldError("");
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") handleSaveProfileField();
+                  }}
+                  placeholder="Your username"
+                  value={profileFieldValue}
+                />
+              ) : (
+                <>
+                  <textarea
+                    autoFocus
+                    className="app-input min-h-32 resize-none py-3 leading-6"
+                    maxLength={160}
+                    onChange={(event) => {
+                      setProfileFieldValue(event.target.value);
+                      setProfileFieldError("");
+                    }}
+                    placeholder="A little about you..."
+                    value={profileFieldValue}
+                  />
+                  <p className="mt-2 text-right text-xs font-semibold text-app-muted">
+                    {profileFieldValue.length}/160
+                  </p>
+                </>
+              )}
+            </div>
+
+            {profileFieldError && (
+              <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-app-danger">
+                {profileFieldError}
+              </div>
+            )}
+
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-primary transition-colors hover:bg-slate-50 disabled:opacity-60"
+                disabled={profileFieldSaving}
+                onClick={closeProfileFieldEditor}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-primary to-secondary px-5 py-2 text-sm font-bold text-white shadow-sm transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={
+                  profileFieldSaving ||
+                  (profileFieldEditor === "username" &&
+                    profileFieldValue.trim() === profileUser.username) ||
+                  (profileFieldEditor === "bio" &&
+                    profileFieldValue.trim() === (profileUser.bio || ""))
+                }
+                onClick={handleSaveProfileField}
+                type="button"
+              >
+                <span>{profileFieldSaving ? "Saving..." : "Save changes"}</span>
+                <Icon name="send" className="h-4 w-4" />
               </button>
             </div>
           </section>

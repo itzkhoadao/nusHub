@@ -279,3 +279,19 @@ export async function removeProfileCover() {
   });
   return readJsonResponse<{ user: unknown }>(response);
 }
+
+export async function updateProfileDetails(changes: {
+  bio?: string;
+  username?: string;
+}) {
+  const response = await fetch(apiUrl("/api/users/me/profile"), {
+    method: "PATCH",
+    headers: {
+      ...getAuthHeaders(),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(changes),
+  });
+
+  return readJsonResponse<{ user: unknown }>(response);
+}
