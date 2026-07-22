@@ -325,6 +325,7 @@ export default function Topbar({
               avatarUrl={user?.avatar_url}
               className="h-9 w-9 text-sm"
               name={user?.username || "NUSHub user"}
+              userId={user?.id}
             />
           </button>
 

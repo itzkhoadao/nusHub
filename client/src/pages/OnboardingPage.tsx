@@ -119,11 +119,12 @@ function BinaryCard({
 
 export default function OnboardingPage() {
   const navigate = useNavigate();
+  const isEditing = new URLSearchParams(window.location.search).get("mode") === "edit";
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState<"forward" | "back">("forward");
   const [academicYear, setAcademicYear] = useState("");
   const [ageRange, setAgeRange] = useState("");
-  const [faculty, setFaculty] = useState("");
+  const [faculties, setFaculties] = useState<string[]>([]);
   const [nusnetId, setNusnetId] = useState("");
   const [nusEmail, setNusEmail] = useState("");
   const [isTeachingAssistant, setIsTeachingAssistant] = useState<Answer>(null);
@@ -136,15 +137,41 @@ export default function OnboardingPage() {
   useEffect(() => {
     const user = getStoredUser();
     if (!getAuthToken() || !user) navigate("/login", { replace: true });
-    else if (user.onboarding_completed) navigate("/", { replace: true });
-  }, [navigate]);
+    else if (isEditing) {
+      setAcademicYear(user.academic_year || "");
+      setAgeRange(user.age_range || "");
+      setFaculties(
+        user.faculties?.length
+          ? user.faculties.slice(0, 3)
+          : user.faculty
+            ? [user.faculty]
+            : [],
+      );
+      setIsTeachingAssistant(
+        typeof user.is_teaching_assistant === "boolean"
+          ? user.is_teaching_assistant
+          : null,
+      );
+      setIsProfessor(
+        typeof user.is_professor === "boolean" ? user.is_professor : null,
+      );
+      setIsStaff(typeof user.is_staff === "boolean" ? user.is_staff : null);
+      setStaysOnCampus(
+        typeof user.stays_on_campus === "boolean"
+          ? user.stays_on_campus
+          : null,
+      );
+      setNusnetId(user.nusnet_id || "");
+      setNusEmail(user.nus_email || "");
+    } else if (user.onboarding_completed) navigate("/", { replace: true });
+  }, [isEditing, navigate]);
 
   const progress = ((step + 1) / STEPS.length) * 100;
   const usesNusEmail = isProfessor === true || isStaff === true;
 
   const validateStep = () => {
-    if (step === 0 && (!academicYear || !faculty)) {
-      return "Choose your academic year and NUS academic unit.";
+    if (step === 0 && (!academicYear || faculties.length === 0)) {
+      return "Choose your academic year and at least one NUS academic unit.";
     }
     if (
       step === 1 &&
@@ -201,7 +228,7 @@ export default function OnboardingPage() {
         body: JSON.stringify({
           academic_year: academicYear,
           age_range: ageRange,
-          faculty,
+          faculties,
           is_professor: isProfessor,
           is_staff: isStaff,
           is_teaching_assistant: isTeachingAssistant,
@@ -213,8 +240,8 @@ export default function OnboardingPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not save your details");
 
-      updateStoredUser(data.user);
-      navigate("/", { replace: true });
+      updateStoredUser({ ...getStoredUser(), ...data.user });
+      navigate(isEditing ? "/profile" : "/", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save your details");
     } finally {
@@ -231,19 +258,49 @@ export default function OnboardingPage() {
       </div>
 
       <div className="mt-8">
-        <label className="onboarding-label" htmlFor="faculty">Faculty, school, or college</label>
+        <label className="onboarding-label" htmlFor="faculty">
+          Faculties, schools, or colleges
+          <span className="ml-2 font-semibold text-[#8791a0]">Up to 3</span>
+        </label>
         <div className="relative mt-2">
           <select
-            className={`onboarding-select ${faculty ? "has-value" : ""}`}
+            className={`onboarding-select ${faculties.length ? "has-value" : ""}`}
+            disabled={faculties.length >= 3}
             id="faculty"
-            onChange={(event) => { setFaculty(event.target.value); setError(""); }}
-            value={faculty}
+            onChange={(event) => {
+              const value = event.target.value;
+              if (value && !faculties.includes(value) && faculties.length < 3) {
+                setFaculties((current) => [...current, value]);
+                setError("");
+              }
+            }}
+            value=""
           >
-            <option value="">Choose your academic home</option>
-            {FACULTIES.map((item) => <option key={item}>{item}</option>)}
+            <option value="">
+              {faculties.length >= 3 ? "Maximum of 3 selected" : "Add an academic unit"}
+            </option>
+            {FACULTIES.map((item) => (
+              <option disabled={faculties.includes(item)} key={item}>{item}</option>
+            ))}
           </select>
           <Icon className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#718096]" name="chevronDown" />
         </div>
+        {faculties.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {faculties.map((item) => (
+              <button
+                className="inline-flex items-center gap-2 rounded-full border border-[#b9cde1] bg-[#edf5ff] px-3 py-1.5 text-xs font-bold text-[#073b72] transition-colors hover:bg-[#e1efff]"
+                key={item}
+                onClick={() => setFaculties((current) => current.filter((faculty) => faculty !== item))}
+                title={`Remove ${item}`}
+                type="button"
+              >
+                <span>{item}</span>
+                <span aria-hidden="true" className="text-sm leading-none">×</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <fieldset className="mt-7">
@@ -354,7 +411,7 @@ export default function OnboardingPage() {
       </div>
 
       <div className="mt-5 grid gap-2 sm:grid-cols-2">
-        <div className="onboarding-review-item"><span>Academic</span><strong>{academicYear} · {faculty}</strong></div>
+        <div className="onboarding-review-item"><span>Academic</span><strong>{academicYear} · {faculties.join(", ")}</strong></div>
         <div className="onboarding-review-item"><span>Community</span><strong>{staysOnCampus ? "Lives on campus" : "Lives off campus"} · {ageRange}</strong></div>
       </div>
     </div>,
@@ -375,9 +432,17 @@ export default function OnboardingPage() {
               textClassName="text-lg font-black tracking-[0.08em] text-white"
               variant="inverse"
             />
-            <p className="mt-12 text-[11px] font-bold uppercase tracking-[0.2em] text-blue-200/70">Profile setup</p>
-            <h1 className="mt-3 max-w-xs text-3xl font-black leading-[1.12] tracking-[-0.04em] text-white">A profile that feels like you.</h1>
-            <p className="mt-4 max-w-xs text-sm leading-6 text-blue-100/75">Four quick steps. Thoughtful context, better conversations, zero public oversharing.</p>
+            <p className="mt-12 text-[11px] font-bold uppercase tracking-[0.2em] text-blue-200/70">
+              {isEditing ? "Edit profile details" : "Profile setup"}
+            </p>
+            <h1 className="mt-3 max-w-xs text-3xl font-black leading-[1.12] tracking-[-0.04em] text-white">
+              {isEditing ? "Keep your profile current." : "A profile that feels like you."}
+            </h1>
+            <p className="mt-4 max-w-xs text-sm leading-6 text-blue-100/75">
+              {isEditing
+                ? "Review your choices and save anything that has changed."
+                : "Four quick steps. Thoughtful context, better conversations, zero public oversharing."}
+            </p>
           </div>
 
           <nav aria-label="Onboarding progress" className="mt-10 space-y-1.5">
@@ -432,7 +497,17 @@ export default function OnboardingPage() {
                 onClick={step === STEPS.length - 1 ? handleSubmit : goNext}
                 type="button"
               >
-                <span>{saving ? "Creating your profile..." : step === STEPS.length - 1 ? "Enter NUSHub" : "Continue"}</span>
+                <span>
+                  {saving
+                    ? isEditing
+                      ? "Saving changes..."
+                      : "Creating your profile..."
+                    : step === STEPS.length - 1
+                      ? isEditing
+                        ? "Save changes"
+                        : "Enter NUSHub"
+                      : "Continue"}
+                </span>
                 {saving ? <span className="onboarding-spinner" /> : <span className="text-lg leading-none">→</span>}
               </button>
             </footer>

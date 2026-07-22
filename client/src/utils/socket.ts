@@ -10,6 +10,11 @@ type ServerToClientEvents = {
   "message:new": (message: ChatMessage) => void;
   "message:read": (receipt: MessageReadReceipt) => void;
   "notification:new": (notification: AppNotification) => void;
+  "presence:snapshot": (userIds: string[]) => void;
+  "presence:update": (presence: {
+    is_online: boolean;
+    user_id: string;
+  }) => void;
 };
 
 type ClientToServerEvents = Record<string, never>;

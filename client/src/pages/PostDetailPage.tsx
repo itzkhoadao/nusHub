@@ -292,6 +292,7 @@ export default function PostDetailPage() {
         avatarUrl={comment.avatar_url}
         className={avatarSize}
         name={comment.username}
+        userId={canOpenProfile ? comment.user_id : null}
       />
     );
 
@@ -500,6 +501,7 @@ export default function PostDetailPage() {
                     avatarUrl={post.avatar_url}
                     className="h-11 w-11 text-sm"
                     name={post.username}
+                    userId={null}
                   />
                 ) : (
                   <Link
@@ -511,6 +513,7 @@ export default function PostDetailPage() {
                       avatarUrl={post.avatar_url}
                       className="h-11 w-11 text-sm"
                       name={post.username}
+                      userId={post.user_id}
                     />
                   </Link>
                 )}
