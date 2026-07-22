@@ -198,6 +198,7 @@ export default function GroupDetailPage() {
                       className="h-10 w-10 text-sm"
                       name={member.username}
                       rounded="lg"
+                      userId={member.id}
                     />
                   </Link>
                 <div className="min-w-0 flex-1">

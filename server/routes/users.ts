@@ -59,10 +59,38 @@ async function ensureUserAvatarColumns() {
     ADD COLUMN IF NOT EXISTS stays_on_campus BOOLEAN NOT NULL DEFAULT FALSE,
     ADD COLUMN IF NOT EXISTS age_range TEXT,
     ADD COLUMN IF NOT EXISTS faculty TEXT,
+    ADD COLUMN IF NOT EXISTS faculties TEXT[],
     ADD COLUMN IF NOT EXISTS nusnet_id TEXT,
     ADD COLUMN IF NOT EXISTS nus_email TEXT,
     ADD COLUMN IF NOT EXISTS bio TEXT,
     ADD COLUMN IF NOT EXISTS onboarding_completed_at TIMESTAMPTZ
+  `);
+  await pool.query(`
+    UPDATE users
+    SET nusnet_id = NULL
+    WHERE nusnet_id IS NOT NULL AND BTRIM(nusnet_id) = ''
+  `);
+  await pool.query(`
+    WITH ranked_nusnet_ids AS (
+      SELECT id,
+             ROW_NUMBER() OVER (
+               PARTITION BY UPPER(BTRIM(nusnet_id))
+               ORDER BY created_at ASC, id ASC
+             ) AS occurrence
+      FROM users
+      WHERE nusnet_id IS NOT NULL AND BTRIM(nusnet_id) <> ''
+    )
+    UPDATE users AS user_record
+    SET nusnet_id = NULL,
+        onboarding_completed_at = NULL
+    FROM ranked_nusnet_ids
+    WHERE user_record.id = ranked_nusnet_ids.id
+      AND ranked_nusnet_ids.occurrence > 1
+  `);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS users_nusnet_id_unique
+    ON users (UPPER(BTRIM(nusnet_id)))
+    WHERE nusnet_id IS NOT NULL AND BTRIM(nusnet_id) <> ''
   `);
 }
 
@@ -122,7 +150,9 @@ router.get("/me", authenticate, async (req, res) => {
       `SELECT id, username, email, bio, avatar_url, avatar_storage_key, avatar_updated_at,
               cover_url, cover_storage_key, cover_updated_at,
               academic_year, is_teaching_assistant, is_professor, is_staff,
-              stays_on_campus, age_range, faculty, nusnet_id, nus_email,
+              stays_on_campus, age_range, faculty,
+              COALESCE(faculties, CASE WHEN faculty IS NULL THEN ARRAY[]::TEXT[] ELSE ARRAY[faculty] END) AS faculties,
+              nusnet_id, nus_email,
               (onboarding_completed_at IS NOT NULL) AS onboarding_completed,
               created_at
        FROM users WHERE id = $1`,
@@ -228,6 +258,7 @@ router.patch("/me/profile", authenticate, async (req, res) => {
                  avatar_updated_at, cover_url, cover_storage_key, cover_updated_at,
                  academic_year, is_teaching_assistant, is_professor, is_staff,
                  stays_on_campus, age_range, faculty,
+                 COALESCE(faculties, CASE WHEN faculty IS NULL THEN ARRAY[]::TEXT[] ELSE ARRAY[faculty] END) AS faculties,
                  (onboarding_completed_at IS NOT NULL) AS onboarding_completed,
                  created_at`,
       [username, bio || null, req.user.id],
@@ -249,7 +280,7 @@ router.put("/me/background", authenticate, async (req, res) => {
     const {
       academic_year,
       age_range,
-      faculty,
+      faculties,
       is_professor,
       is_staff,
       is_teaching_assistant,
@@ -264,8 +295,16 @@ router.put("/me/background", authenticate, async (req, res) => {
     if (!AGE_RANGES.has(age_range)) {
       return res.status(400).json({ error: "Choose a valid age range" });
     }
-    if (!NUS_FACULTIES.has(faculty)) {
-      return res.status(400).json({ error: "Choose a valid NUS faculty or school" });
+    if (
+      !Array.isArray(faculties) ||
+      faculties.length < 1 ||
+      faculties.length > 3 ||
+      new Set(faculties).size !== faculties.length ||
+      faculties.some((faculty) => !NUS_FACULTIES.has(faculty))
+    ) {
+      return res.status(400).json({
+        error: "Choose between one and three valid NUS faculties or schools",
+      });
     }
     if (
       typeof is_professor !== "boolean" ||
@@ -292,6 +331,19 @@ router.put("/me/background", authenticate, async (req, res) => {
       });
     }
 
+    if (!usesNusEmail) {
+      const existingNusnetId = await pool.query(
+        `SELECT 1 FROM users
+         WHERE UPPER(nusnet_id) = $1 AND id <> $2`,
+        [normalizedNusnetId, req.user.id],
+      );
+      if (existingNusnetId.rows.length > 0) {
+        return res.status(409).json({
+          error: "That NUSNET ID is already linked to another account",
+        });
+      }
+    }
+
     const result = await pool.query(
       `UPDATE users
        SET academic_year = $1,
@@ -301,13 +353,14 @@ router.put("/me/background", authenticate, async (req, res) => {
            stays_on_campus = $5,
            age_range = $6,
            faculty = $7,
-           nusnet_id = $8,
-           nus_email = $9,
+           faculties = $8,
+           nusnet_id = $9,
+           nus_email = $10,
            onboarding_completed_at = NOW()
-       WHERE id = $10
+       WHERE id = $11
        RETURNING id, username, email, avatar_url, academic_year,
                  is_teaching_assistant, is_professor, is_staff,
-                 stays_on_campus, age_range, faculty,
+                 stays_on_campus, age_range, faculty, faculties,
                  (onboarding_completed_at IS NOT NULL) AS onboarding_completed`,
       [
         academic_year,
@@ -316,7 +369,8 @@ router.put("/me/background", authenticate, async (req, res) => {
         is_staff,
         stays_on_campus,
         age_range,
-        faculty,
+        faculties[0],
+        faculties,
         usesNusEmail ? null : normalizedNusnetId,
         usesNusEmail ? normalizedNusEmail : null,
         req.user.id,
@@ -325,6 +379,11 @@ router.put("/me/background", authenticate, async (req, res) => {
 
     res.json({ user: result.rows[0] });
   } catch (err) {
+    if (err?.code === "23505" && err?.constraint === "users_nusnet_id_unique") {
+      return res.status(409).json({
+        error: "That NUSNET ID is already linked to another account",
+      });
+    }
     res.status(500).json({ error: err.message });
   }
 });
@@ -556,6 +615,7 @@ router.get("/:id", async (req, res) => {
               cover_url, cover_storage_key, cover_updated_at,
               academic_year, is_teaching_assistant, is_professor, is_staff,
               stays_on_campus, age_range, faculty,
+              COALESCE(faculties, CASE WHEN faculty IS NULL THEN ARRAY[]::TEXT[] ELSE ARRAY[faculty] END) AS faculties,
               (onboarding_completed_at IS NOT NULL) AS onboarding_completed,
               created_at
        FROM users WHERE id = $1`,

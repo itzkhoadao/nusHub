@@ -655,6 +655,7 @@ export default function ChatPage() {
                         avatarUrl={conversation.other_avatar_url}
                         className="h-11 w-11 text-sm"
                         name={displayName}
+                        userId={conversation.other_user_id}
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-3">
@@ -719,6 +720,7 @@ export default function ChatPage() {
                         avatarUrl={activeConversation.other_avatar_url}
                         className="h-11 w-11 text-sm"
                         name={activeConversation.other_username || "NUSHub user"}
+                        userId={activeConversation.other_user_id}
                       />
                     </Link>
                   ) : (
@@ -726,6 +728,7 @@ export default function ChatPage() {
                       avatarUrl={activeConversation.other_avatar_url}
                       className="h-11 w-11 text-sm"
                       name={activeConversation.other_username || "NUSHub user"}
+                      userId={activeConversation.other_user_id}
                     />
                   )}
                   <div className="min-w-0">
@@ -810,6 +813,7 @@ export default function ChatPage() {
                                 avatarUrl={message.sender_avatar_url}
                                 className="h-8 w-8 text-xs"
                                 name={message.sender_username || "NUSHub user"}
+                                userId={message.sender_id}
                               />
                             </Link>
                           )}

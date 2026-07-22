@@ -1,5 +1,10 @@
 const TOKEN_KEY = "token";
 const USER_KEY = "user";
+export const AUTH_SESSION_CHANGE_EVENT = "nushub:auth-session-change";
+
+function notifyAuthSessionChange() {
+  window.dispatchEvent(new Event(AUTH_SESSION_CHANGE_EVENT));
+}
 
 export function getAuthToken() {
   return sessionStorage.getItem(TOKEN_KEY);
@@ -23,6 +28,7 @@ export function getStoredUser() {
 export function setAuthSession(token: string, user: unknown) {
   sessionStorage.setItem(TOKEN_KEY, token);
   sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+  notifyAuthSessionChange();
 }
 
 export function updateStoredUser(user: unknown) {
@@ -32,4 +38,5 @@ export function updateStoredUser(user: unknown) {
 export function clearAuthSession() {
   sessionStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(USER_KEY);
+  notifyAuthSessionChange();
 }

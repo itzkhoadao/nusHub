@@ -204,6 +204,7 @@ export default function CreatePostPage() {
                 className="h-11 w-11 text-lg"
                 name={isAnonymous ? "?" : user?.username || "NUSHub user"}
                 rounded="lg"
+                userId={isAnonymous ? null : user?.id}
               />
               <div>
                 <p className="font-bold text-app-text">

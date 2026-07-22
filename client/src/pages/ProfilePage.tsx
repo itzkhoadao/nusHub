@@ -27,6 +27,26 @@ import {
   type Conversation,
 } from "../utils/chatApi";
 
+const FACULTY_ABBREVIATIONS: Record<string, string> = {
+  "Faculty of Arts & Social Sciences": "FASS",
+  "NUS Business School": "Biz",
+  "School of Computing": "SoC",
+  "School of Continuing & Lifelong Education": "SCALE",
+  "Faculty of Dentistry": "FoD",
+  "College of Design and Engineering": "CDE",
+  "Duke-NUS Medical School": "Duke-NUS",
+  "College of Humanities and Sciences": "CHS",
+  "NUS College": "NUSC",
+  "NUS Graduate School": "NUS GS",
+  "Faculty of Law": "Law",
+  "Yong Loo Lin School of Medicine (including Nursing)": "YLLSoM",
+  "Yong Siew Toh Conservatory of Music": "YST",
+  "Saw Swee Hock School of Public Health": "SSHSPH",
+  "Lee Kuan Yew School of Public Policy": "LKYSPP",
+  "Faculty of Science": "FoS",
+  "Institute of Systems Science": "NUS-ISS",
+};
+
 function StatTile({ label, value, helper }) {
   return (
     <div className="app-stat-card">
@@ -41,15 +61,20 @@ function StatTile({ label, value, helper }) {
   );
 }
 
-function BadgePill({ label, tone = "blue" }) {
+function BadgePill({ label, title = undefined, tone = "blue" }) {
   const tones = {
     blue: "bg-primary-fixed text-primary",
     orange: "bg-secondary-fixed text-secondary",
     green: "bg-emerald-50 text-emerald-700",
+    purple: "bg-violet-50 text-violet-700",
+    slate: "bg-slate-100 text-slate-700",
   };
 
   return (
-    <span className={`rounded-full px-3 py-1 text-xs font-bold ${tones[tone]}`}>
+    <span
+      className={`rounded-full px-3 py-1 text-xs font-bold ${tones[tone]}`}
+      title={title}
+    >
       {label}
     </span>
   );
@@ -74,6 +99,7 @@ function ProfileAvatar({ user, className = "h-24 w-24 text-4xl" }) {
       className={`${className} shadow-raised ring-4`}
       name={user.username}
       rounded="3xl"
+      userId={user.id}
     />
   );
 }
@@ -195,6 +221,29 @@ export default function ProfilePage() {
       (a, b) => b[1] - a[1],
     )[0]?.[0] || "General";
 
+  const profileBadges = [
+    ...(profileUser.academic_year && profileUser.academic_year !== "None"
+      ? [{ label: profileUser.academic_year, tone: "blue" }]
+      : []),
+    ...(profileUser.is_teaching_assistant
+      ? [{ label: "Teaching Assistant", tone: "green" }]
+      : []),
+    ...(profileUser.is_professor
+      ? [{ label: "Professor", tone: "purple" }]
+      : []),
+    ...(
+      profileUser.faculties?.length
+        ? profileUser.faculties
+        : profileUser.faculty
+          ? [profileUser.faculty]
+          : []
+    ).map((faculty) => ({
+      label: FACULTY_ABBREVIATIONS[faculty] || faculty,
+      title: faculty,
+      tone: "slate",
+    })),
+  ];
+
   const tabs = [
     { id: "posts", label: "Posts", count: posts.length },
     { id: "comments", label: "Comments", count: comments.length },
@@ -203,13 +252,12 @@ export default function ProfilePage() {
   ];
 
   const updateProfileUser = (nextUser) => {
-    setProfileData((currentData) =>
-      currentData ? { ...currentData, user: nextUser } : currentData,
-    );
-
-    if (isOwnProfile) {
-      updateStoredUser(nextUser);
-    }
+    setProfileData((currentData) => {
+      if (!currentData) return currentData;
+      const mergedUser = { ...currentData.user, ...nextUser };
+      if (isOwnProfile) updateStoredUser(mergedUser);
+      return { ...currentData, user: mergedUser };
+    });
   };
 
   const resetAvatarModal = () => {
@@ -468,7 +516,6 @@ export default function ProfilePage() {
               <div className="flex min-w-0 flex-col gap-5 md:flex-row md:items-start">
                 <div className="relative shrink-0">
                   <ProfileAvatar user={profileUser} />
-                  <div className="absolute bottom-2 right-2 h-5 w-5 rounded-full border-4 border-white bg-emerald-500" />
                 </div>
 
                 <div className="min-w-0">
@@ -476,7 +523,14 @@ export default function ProfilePage() {
                     <h1 className="break-words text-3xl font-bold tracking-tight text-primary md:text-4xl">
                       {profileUser.username}
                     </h1>
-                    <BadgePill label="Member" tone="orange" />
+                    {profileBadges.map((badge) => (
+                      <BadgePill
+                        key={`${badge.label}-${badge.tone}`}
+                        label={badge.label}
+                        title={badge.title}
+                        tone={badge.tone}
+                      />
+                    ))}
                   </div>
                   {profileUser.bio ? (
                     <p className="mt-3 max-w-2xl whitespace-pre-wrap text-sm leading-6 text-app-muted">
@@ -860,6 +914,22 @@ export default function ProfilePage() {
                   </span>
                 </span>
                 <Icon name="message" className="h-5 w-5 text-primary" />
+              </button>
+
+              <button
+                className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary-fixed/30"
+                onClick={() => navigate("/onboarding?mode=edit")}
+                type="button"
+              >
+                <span>
+                  <span className="block text-sm font-bold text-app-text">
+                    Change Basic Information
+                  </span>
+                  <span className="mt-1 block text-sm text-app-muted">
+                    Update your year, roles, faculties, and campus details.
+                  </span>
+                </span>
+                <Icon name="groups" className="h-5 w-5 text-primary" />
               </button>
             </div>
           </section>

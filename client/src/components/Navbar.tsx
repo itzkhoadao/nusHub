@@ -53,6 +53,7 @@ export default function Navbar() {
                         avatarUrl={user?.avatar_url}
                         className="h-8 w-8 text-sm transition-colors hover:bg-blue-200"
                         name={user?.username || 'NUSHub user'}
+                        userId={user?.id}
                     />
                 </Link>
                 <button

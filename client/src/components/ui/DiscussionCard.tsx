@@ -41,7 +41,11 @@ export default function DiscussionCard({ post, onUpvote }) {
   const actionClass =
     "flex h-10 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 text-xs font-bold text-app-muted shadow-sm ring-1 ring-slate-900/5 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:bg-primary-fixed/40 hover:text-primary";
   const authorAvatar = (
-    <UserAvatar avatarUrl={post.avatar_url} name={post.username || "Anonymous"} />
+    <UserAvatar
+      avatarUrl={post.avatar_url}
+      name={post.username || "Anonymous"}
+      userId={canOpenProfile ? post.user_id : null}
+    />
   );
 
   return (
