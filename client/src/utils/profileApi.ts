@@ -7,6 +7,11 @@ const AVATAR_CACHE_CONTROL = "public, max-age=31536000, immutable";
 const ALLOWED_AVATAR_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const OPTIMIZED_AVATAR_TYPE = "image/webp";
 const OPTIMIZED_AVATAR_QUALITY = 0.82;
+const MAX_COVER_SIZE_BYTES = 8 * 1024 * 1024;
+const MAX_COVER_WIDTH = 1920;
+const MAX_COVER_HEIGHT = 720;
+const COVER_CACHE_CONTROL = AVATAR_CACHE_CONTROL;
+const OPTIMIZED_COVER_QUALITY = 0.84;
 
 type AvatarUpload = {
   file_size: number;
@@ -16,6 +21,8 @@ type AvatarUpload = {
   storage_key: string;
   upload_url: string;
 };
+
+type CoverUpload = AvatarUpload;
 
 function getAuthHeaders() {
   const token = getAuthToken();
@@ -96,7 +103,7 @@ async function optimizeAvatarFile(file: File) {
     MAX_AVATAR_DIMENSION / Math.max(image.naturalWidth, image.naturalHeight),
   ); // calculate resize scale
 
-  // calculate final dimensions
+  // calculate final dimensions (after resize)
   const width = Math.max(1, Math.round(image.naturalWidth * scale));
   const height = Math.max(1, Math.round(image.naturalHeight * scale));
 
@@ -113,6 +120,53 @@ async function optimizeAvatarFile(file: File) {
 
   const blob = await canvasToBlob(canvas); // convert to Blob
   return new File([blob], createOptimizedAvatarName(file.name), {
+    lastModified: Date.now(),
+    type: OPTIMIZED_AVATAR_TYPE,
+  }); // convert Blob into File object
+}
+
+export function validateCoverFile(file: File) {
+  if (file.size > MAX_COVER_SIZE_BYTES) {
+    throw new Error("Cover picture must be 8 MB or smaller");
+  }
+
+  if (!ALLOWED_AVATAR_TYPES.has(file.type)) {
+    throw new Error("Cover picture must be a JPEG, PNG, or WEBP image");
+  }
+}
+
+async function optimizeCoverFile(file: File) {
+  const image = await loadImage(file); // first, load the original image
+  const scale = Math.min(
+    1,
+    MAX_COVER_WIDTH / image.naturalWidth,
+    MAX_COVER_HEIGHT / image.naturalHeight,
+  ); // calculate resize scale
+
+  // calculate final dimensions (after resize)
+  const width = Math.max(1, Math.round(image.naturalWidth * scale));
+  const height = Math.max(1, Math.round(image.naturalHeight * scale));
+
+  const canvas = document.createElement("canvas"); // temporary image-processing surface
+  const context = canvas.getContext("2d"); // 2D drawing context
+
+  if (!context) {
+    throw new Error("Failed to prepare cover picture optimizer");
+  }
+
+  canvas.width = width;
+  canvas.height = height;
+  context.drawImage(image, 0, 0, width, height); // draw original image on canvas
+
+  const blob = await new Promise<Blob | null>((resolve) => {
+    canvas.toBlob(resolve, OPTIMIZED_AVATAR_TYPE, OPTIMIZED_COVER_QUALITY);
+  }); // convert to Blob
+  if (!blob) {
+    throw new Error("Failed to optimize cover picture");
+  }
+
+  const baseName = file.name.replace(/\.[^/.]+$/, "") || "cover";
+  return new File([blob], `${baseName}-cover.webp`, {
     lastModified: Date.now(),
     type: OPTIMIZED_AVATAR_TYPE,
   }); // convert Blob into File object
@@ -175,5 +229,53 @@ export async function removeProfileAvatar() {
     headers: getAuthHeaders(),
   });
 
+  return readJsonResponse<{ user: unknown }>(response);
+}
+
+export async function updateProfileCover(file: File) {
+  validateCoverFile(file);
+  const uploadFile = await optimizeCoverFile(file);
+  const presignResponse = await fetch(apiUrl("/api/users/me/cover/presign"), {
+    method: "POST",
+    headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({
+      file_size: uploadFile.size,
+      mime_type: uploadFile.type,
+      original_name: uploadFile.name,
+    }),
+  });
+  const upload = await readJsonResponse<CoverUpload>(presignResponse);
+  const uploadResponse = await fetch(upload.upload_url, {
+    method: "PUT",
+    headers: {
+      "Cache-Control": COVER_CACHE_CONTROL,
+      "Content-Type": upload.mime_type,
+    },
+    body: uploadFile,
+  });
+
+  if (!uploadResponse.ok) {
+    throw new Error("Failed to upload cover picture");
+  }
+
+  const confirmResponse = await fetch(apiUrl("/api/users/me/cover/confirm"), {
+    method: "POST",
+    headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify({
+      file_size: upload.file_size,
+      mime_type: upload.mime_type,
+      original_name: upload.original_name,
+      storage_key: upload.storage_key,
+    }),
+  });
+
+  return readJsonResponse<{ user: unknown }>(confirmResponse);
+}
+
+export async function removeProfileCover() {
+  const response = await fetch(apiUrl("/api/users/me/cover"), {
+    method: "DELETE",
+    headers: getAuthHeaders(),
+  });
   return readJsonResponse<{ user: unknown }>(response);
 }

@@ -13,8 +13,11 @@ import {
 } from "../utils/authStorage";
 import {
   removeProfileAvatar,
+  removeProfileCover,
   updateProfileAvatar,
+  updateProfileCover,
   validateAvatarFile,
+  validateCoverFile,
 } from "../utils/profileApi";
 import {
   conversationsKey,
@@ -87,6 +90,12 @@ export default function ProfilePage() {
   const [avatarError, setAvatarError] = useState("");
   const [avatarSaving, setAvatarSaving] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
+  const [isCoverModalOpen, setIsCoverModalOpen] = useState(false);
+  const [selectedCoverFile, setSelectedCoverFile] = useState<File | null>(null);
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState("");
+  const [coverError, setCoverError] = useState("");
+  const [coverSaving, setCoverSaving] = useState(false);
+  const coverInputRef = useRef<HTMLInputElement | null>(null);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { userId } = useParams();
@@ -138,6 +147,12 @@ export default function ProfilePage() {
       }
     };
   }, [avatarPreviewUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl);
+    };
+  }, [coverPreviewUrl]);
 
   if (loading) {
     return (
@@ -269,6 +284,69 @@ export default function ProfilePage() {
     }
   };
 
+  const resetCoverModal = () => {
+    setIsCoverModalOpen(false);
+    setSelectedCoverFile(null);
+    if (coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl);
+    setCoverPreviewUrl("");
+    setCoverError("");
+    if (coverInputRef.current) coverInputRef.current.value = "";
+  };
+
+  const openCoverEditor = () => {
+    setIsEditProfileModalOpen(false);
+    setIsCoverModalOpen(true);
+  };
+
+  const handleCoverFileChange = (file: File | null) => {
+    if (!file) return;
+    try {
+      validateCoverFile(file);
+      if (coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl);
+      setSelectedCoverFile(file);
+      setCoverPreviewUrl(URL.createObjectURL(file));
+      setCoverError("");
+    } catch (err) {
+      setCoverError(
+        err instanceof Error ? err.message : "Invalid cover picture",
+      );
+    }
+  };
+
+  const handleSaveCover = async () => {
+    if (!selectedCoverFile || coverSaving) return;
+    setCoverSaving(true);
+    setCoverError("");
+    try {
+      const result = await updateProfileCover(selectedCoverFile);
+      updateProfileUser(result.user);
+      resetCoverModal();
+    } catch (err) {
+      setCoverError(
+        err instanceof Error ? err.message : "Failed to update cover picture",
+      );
+    } finally {
+      setCoverSaving(false);
+    }
+  };
+
+  const handleRemoveCover = async () => {
+    if (coverSaving) return;
+    setCoverSaving(true);
+    setCoverError("");
+    try {
+      const result = await removeProfileCover();
+      updateProfileUser(result.user);
+      resetCoverModal();
+    } catch (err) {
+      setCoverError(
+        err instanceof Error ? err.message : "Failed to remove cover picture",
+      );
+    } finally {
+      setCoverSaving(false);
+    }
+  };
+
   // start direct chat with another user
   const handleStartChat = async () => {
     if (!profileUser?.id || startingChat) {
@@ -311,11 +389,18 @@ export default function ProfilePage() {
       <div className="mx-auto max-w-6xl space-y-8">
         <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_20px_50px_rgba(15,23,42,0.08)] ring-1 ring-slate-900/5">
           <div className="relative h-44 overflow-hidden bg-primary">
-            <div className="absolute inset-0 bg-[linear-gradient(135deg,_#002754_0%,_#003d7c_45%,_#fd8614_140%)]" />
-            <div className="absolute left-8 top-8 rounded-full bg-white/15 px-4 py-2 text-xs font-bold uppercase tracking-widest text-white">
-              NUSHub Profile
-            </div>
-            <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-white/20 blur-3xl" />
+            {profileUser.cover_url ? (
+              <img
+                alt={`${profileUser.username}'s cover`}
+                className="absolute inset-0 h-full w-full object-cover"
+                src={profileUser.cover_url}
+              />
+            ) : (
+              <>
+                <div className="absolute inset-0 bg-[linear-gradient(135deg,_#002754_0%,_#003d7c_45%,_#fd8614_140%)]" />
+                <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-white/20 blur-3xl" />
+              </>
+            )}
             <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-black/30 to-transparent" />
           </div>
 
@@ -667,6 +752,22 @@ export default function ProfilePage() {
               </button>
 
               <button
+                className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary-fixed/30"
+                onClick={openCoverEditor}
+                type="button"
+              >
+                <span>
+                  <span className="block text-sm font-bold text-app-text">
+                    Change Cover Picture
+                  </span>
+                  <span className="mt-1 block text-sm text-app-muted">
+                    Upload or remove your profile cover.
+                  </span>
+                </span>
+                <Icon name="camera" className="h-5 w-5 text-primary" />
+              </button>
+
+              <button
                 className="flex w-full cursor-not-allowed items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-4 text-left opacity-70"
                 disabled
                 type="button"
@@ -808,6 +909,112 @@ export default function ProfilePage() {
                   type="button"
                 >
                   <span>{avatarSaving ? "Saving..." : "Save photo"}</span>
+                  <Icon name="send" className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {isCoverModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6 backdrop-blur-sm">
+          <section className="w-full max-w-xl rounded-lg border border-slate-200 bg-white p-5 shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-secondary">
+                  Cover picture
+                </p>
+                <h2 className="mt-1 text-2xl font-bold tracking-tight text-primary">
+                  Update your cover
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-app-muted">
+                  Use a JPEG, PNG, or WEBP image up to 8 MB. Wide images work
+                  best.
+                </p>
+              </div>
+              <button
+                aria-label="Close cover picture editor"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 text-app-muted transition-colors hover:bg-slate-50 hover:text-primary"
+                disabled={coverSaving}
+                onClick={resetCoverModal}
+                type="button"
+              >
+                <Icon name="x" className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-6 flex flex-col items-center gap-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-5">
+              <div className="relative aspect-[3/1] w-full overflow-hidden rounded-lg bg-primary shadow-sm">
+                {coverPreviewUrl || profileUser.cover_url ? (
+                  <img
+                    alt="Cover picture preview"
+                    className="h-full w-full object-cover"
+                    src={coverPreviewUrl || profileUser.cover_url}
+                  />
+                ) : (
+                  <div className="h-full w-full bg-[linear-gradient(135deg,_#002754_0%,_#003d7c_45%,_#fd8614_140%)]" />
+                )}
+                <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/20 to-transparent" />
+              </div>
+
+              <input
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(event) =>
+                  handleCoverFileChange(event.target.files?.[0] || null)
+                }
+                ref={coverInputRef}
+                type="file"
+              />
+              <button
+                className="inline-flex items-center gap-2 rounded-full border border-primary bg-white px-5 py-2.5 text-sm font-bold text-primary transition-colors hover:bg-primary-fixed"
+                disabled={coverSaving}
+                onClick={() => coverInputRef.current?.click()}
+                type="button"
+              >
+                <Icon name="camera" className="h-4 w-4" />
+                Choose image
+              </button>
+              {selectedCoverFile && (
+                <p className="max-w-full truncate text-xs font-semibold text-app-muted">
+                  {selectedCoverFile.name} ·{" "}
+                  {(selectedCoverFile.size / 1024 / 1024).toFixed(2)} MB original
+                </p>
+              )}
+            </div>
+
+            {coverError && (
+              <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-app-danger">
+                {coverError}
+              </div>
+            )}
+
+            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <button
+                className="rounded-full px-4 py-2 text-sm font-bold text-app-muted transition-colors hover:bg-slate-100 hover:text-app-text disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={coverSaving || !profileUser.cover_url}
+                onClick={handleRemoveCover}
+                type="button"
+              >
+                Remove cover
+              </button>
+              <div className="flex gap-3">
+                <button
+                  className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-primary transition-colors hover:bg-slate-50 disabled:opacity-60"
+                  disabled={coverSaving}
+                  onClick={resetCoverModal}
+                  type="button"
+                >
+                  Cancel
+                </button>
+                <button
+                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-primary to-secondary px-5 py-2 text-sm font-bold text-white shadow-sm transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={!selectedCoverFile || coverSaving}
+                  onClick={handleSaveCover}
+                  type="button"
+                >
+                  <span>{coverSaving ? "Saving..." : "Save cover"}</span>
                   <Icon name="send" className="h-4 w-4" />
                 </button>
               </div>
