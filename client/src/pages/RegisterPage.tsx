@@ -40,8 +40,7 @@ export default function RegisterPage() {
       // user is logged in
       setAuthSession(data.token, data.user);
 
-      // Redirect to home page
-      navigate("/");
+      navigate("/onboarding"); // after register, go to onboarding page
     } catch (err) {
       setError("Something went wrong. Is your server running?");
     } finally {
@@ -69,7 +68,7 @@ export default function RegisterPage() {
 
       // save user info got from backend to local storage
       setAuthSession(data.token, data.user);
-      navigate("/");
+      navigate(data.user.onboarding_completed ? "/" : "/onboarding");
     } catch (err) {
       setError("Google sign-in failed. Is your server running?");
     } finally {

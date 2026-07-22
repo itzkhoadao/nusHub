@@ -16,7 +16,18 @@ async function ensureGoogleAuthColumns() {
     ADD COLUMN IF NOT EXISTS avatar_url TEXT,
     ADD COLUMN IF NOT EXISTS avatar_storage_key TEXT,
     ADD COLUMN IF NOT EXISTS avatar_updated_at TIMESTAMPTZ,
-    ADD COLUMN IF NOT EXISTS auth_provider TEXT DEFAULT 'local'
+    ADD COLUMN IF NOT EXISTS auth_provider TEXT DEFAULT 'local',
+    ADD COLUMN IF NOT EXISTS academic_year TEXT,
+    ADD COLUMN IF NOT EXISTS is_teaching_assistant BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS is_professor BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS is_staff BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS stays_on_campus BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS age_range TEXT,
+    ADD COLUMN IF NOT EXISTS faculty TEXT,
+    ADD COLUMN IF NOT EXISTS nusnet_id TEXT,
+    ADD COLUMN IF NOT EXISTS nus_email TEXT,
+    ADD COLUMN IF NOT EXISTS bio TEXT,
+    ADD COLUMN IF NOT EXISTS onboarding_completed_at TIMESTAMPTZ
   `);
 }
 
@@ -60,6 +71,7 @@ async function createUniqueUsername(
 // POST /api/auth/register
 router.post("/register", async (req, res) => {
   try {
+    await ensureGoogleAuthColumns();
     const { username, email, password } = req.body;
 
     // Check if the user already exists
@@ -77,7 +89,8 @@ router.post("/register", async (req, res) => {
 
     // Save user to database
     const result = await pool.query(
-      "INSERT INTO users (username, email, password_hash) VALUES ($1,$2,$3) RETURNING id, username, email",
+      `INSERT INTO users (username, email, password_hash) VALUES ($1,$2,$3)
+       RETURNING id, username, email, (onboarding_completed_at IS NOT NULL) AS onboarding_completed`,
       [username, email, hash],
     );
 
@@ -93,6 +106,7 @@ router.post("/register", async (req, res) => {
 // POST /api/auth/login
 router.post("/login", async (req, res) => {
   try {
+    await ensureGoogleAuthColumns();
     const { email, password } = req.body;
 
     // Check if the user is in the database
@@ -124,7 +138,12 @@ router.post("/login", async (req, res) => {
 
     res.json({
       token,
-      user: { id: user.id, username: user.username, email: user.email },
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        onboarding_completed: Boolean(user.onboarding_completed_at),
+      },
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -153,7 +172,9 @@ router.post("/google", async (req, res) => {
     const email = payload?.email;
     const avatarUrl = payload?.picture || null;
     let result = await pool.query(
-      `SELECT id, username, email FROM users WHERE google_id = $1 OR email = $2`,
+      `SELECT id, username, email,
+              (onboarding_completed_at IS NOT NULL) AS onboarding_completed
+       FROM users WHERE google_id = $1 OR email = $2`,
       [googleId, email],
     );
 
@@ -168,7 +189,8 @@ router.post("/google", async (req, res) => {
       result = await pool.query(
         `INSERT INTO users (username, email, password_hash, google_id, avatar_url, auth_provider)
          VALUES ($1, $2, $3, $4, $5, 'google')
-         RETURNING id, username, email`,
+         RETURNING id, username, email,
+                   (onboarding_completed_at IS NOT NULL) AS onboarding_completed`,
         [username, email, "", googleId, avatarUrl],
       ); 
     } else {
