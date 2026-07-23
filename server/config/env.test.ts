@@ -17,6 +17,11 @@ test("parses defaults and environment strings into typed configuration", () => {
   assert.equal(environment.AI_INTERACTIONS_STORE, false);
   assert.equal(environment.AI_REQUEST_TIMEOUT_MS, 20_000);
   assert.equal(environment.JWT_EXPIRES_IN, "7d");
+  assert.equal(environment.REQUEST_BODY_LIMIT, "1mb");
+  assert.equal(environment.TRUST_PROXY_HOPS, 0);
+  assert.equal(environment.API_RATE_LIMIT_WINDOW_MS, 900_000);
+  assert.equal(environment.API_RATE_LIMIT_MAX, 500);
+  assert.equal(environment.AUTH_RATE_LIMIT_MAX, 30);
 });
 
 test("requires a strong JWT secret in production", () => {
@@ -60,5 +65,17 @@ test("rejects a partially configured R2 integration", () => {
         R2_ACCOUNT_ID: "account-id",
       }),
     /R2_ACCESS_KEY_ID is required when Cloudflare R2 is configured/,
+  );
+});
+
+test("rejects malformed API safety limits", () => {
+  assert.throws(
+    () =>
+      parseEnvironment({
+        ...validEnvironment,
+        REQUEST_BODY_LIMIT: "huge",
+        API_RATE_LIMIT_MAX: "0",
+      }),
+    /REQUEST_BODY_LIMIT must use a value such as 100kb or 1mb/,
   );
 });

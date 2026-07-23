@@ -6,6 +6,7 @@ import { OAuth2Client } from "google-auth-library";
 import { createAccessToken } from "../auth/tokens";
 import { env } from "../config/env";
 import { pool } from "../db";
+import { respondWithCaughtError } from "../middleware/errorHandler";
 // register with Google Account option
 const googleClient = new OAuth2Client(env.GOOGLE_CLIENT_ID);
 
@@ -124,7 +125,7 @@ router.post("/register", async (req, res) => {
 
     res.json({ user: result.rows[0], token }); // sends a success response to the frontend
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    respondWithCaughtError(req, res, err);
   }
 });
 
@@ -171,7 +172,7 @@ router.post("/login", async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    respondWithCaughtError(req, res, err);
   }
 });
 

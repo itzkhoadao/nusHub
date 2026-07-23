@@ -7,7 +7,7 @@
     "dev": "tsx watch index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "tsx --test auth/tokens.test.ts config/env.test.ts"
+    "test": "tsx --test **/*.test.ts"
   },
   "keywords": [],
   "author": "",
@@ -19,7 +19,9 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.6.0",
     "google-auth-library": "^10.9.0",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.21.0",
     "socket.io": "^4.8.3",
@@ -31,7 +33,9 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.1.0",
     "@types/pg": "^8.20.0",
+    "@types/supertest": "^7.2.1",
     "nodemon": "^3.1.14",
+    "supertest": "^7.2.2",
     "tsx": "^4.22.5",
     "typescript": "^6.0.3"
   }

@@ -2,8 +2,8 @@ import express from "express";
 import type { PoolClient } from "pg";
 import { pool } from "../db";
 import authenticate from "../middleware/authenticate";
+import { respondWithCaughtError } from "../middleware/errorHandler";
 import { getSocketServer } from "../socket";
-import { getErrorMessage } from "../types";
 import { ensureChatSchema } from "../utils/chatSchema";
 import {
   MAX_ATTACHMENTS_PER_MESSAGE,
@@ -339,7 +339,7 @@ router.post("/direct/:userId", authenticate, async (req, res) => {
     res.json({ conversation });
   } catch (err) {
     await client.query("ROLLBACK");
-    res.status(500).json({ error: getErrorMessage(err) });
+    respondWithCaughtError(req, res, err);
   } finally {
     client.release();
   }
@@ -413,7 +413,7 @@ router.get("/", authenticate, async (req, res) => {
 
     res.json(await Promise.all(result.rows.map(addResolvedConversationAvatar)));
   } catch (err) {
-    res.status(500).json({ error: getErrorMessage(err) });
+    respondWithCaughtError(req, res, err);
   }
 });
 
@@ -505,7 +505,7 @@ router.get("/:id/messages", authenticate, async (req, res) => {
 
     res.json(await addDownloadUrlsToMessages(result.rows));
   } catch (err) {
-    res.status(500).json({ error: getErrorMessage(err) });
+    respondWithCaughtError(req, res, err);
   }
 });
 
@@ -547,7 +547,7 @@ router.post("/:id/read", authenticate, async (req, res) => {
 
     res.json(readReceipt);
   } catch (err) {
-    res.status(500).json({ error: getErrorMessage(err) });
+    respondWithCaughtError(req, res, err);
   }
 });
 
@@ -604,7 +604,7 @@ router.post("/:id/attachments/presign", authenticate, async (req, res) => {
 
     res.json({ uploads });
   } catch (err) {
-    res.status(400).json({ error: getErrorMessage(err) });
+    respondWithCaughtError(req, res, err, { statusCode: 400 });
   }
 });
 
@@ -638,7 +638,7 @@ router.post("/:id/messages", authenticate, async (req, res) => {
         }
       });
     } catch (err) {
-      return res.status(400).json({ error: getErrorMessage(err) });
+      return respondWithCaughtError(req, res, err, { statusCode: 400 });
     }
 
     if (!body && attachments.length === 0) {
@@ -663,7 +663,7 @@ router.post("/:id/messages", authenticate, async (req, res) => {
         ),
       );
     } catch (err) {
-      return res.status(400).json({ error: getErrorMessage(err) });
+      return respondWithCaughtError(req, res, err, { statusCode: 400 });
     }
 
     if (replyToMessageId) {
@@ -758,7 +758,7 @@ router.post("/:id/messages", authenticate, async (req, res) => {
 
     res.status(201).json(message);
   } catch (err) {
-    res.status(500).json({ error: getErrorMessage(err) });
+    respondWithCaughtError(req, res, err);
   }
 });
 

@@ -5,6 +5,7 @@ import { saveRecentActivity } from "../utils/recentActivity";
 
 import { getOptionalAuthenticatedUser } from "../auth/tokens";
 import { pool } from "../db";
+import { respondWithCaughtError } from "../middleware/errorHandler";
 import { addResolvedAvatarUrls } from "../utils/userAvatar";
 
 function getOptionalUserId(req) {
@@ -39,7 +40,7 @@ router.get("/", async (req, res) => {
     const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    respondWithCaughtError(req, res, err);
   }
 });
 
@@ -79,7 +80,7 @@ router.get("/:id", async (req, res) => {
       members: await addResolvedAvatarUrls(membersResult.rows),
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    respondWithCaughtError(req, res, err);
   }
 });
 
@@ -118,7 +119,7 @@ router.post("/", authenticate, async (req, res) => {
 
     res.json(group);
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return respondWithCaughtError(req, res, err);
   }
 });
 
@@ -149,7 +150,7 @@ router.post("/:id/join", authenticate, async (req, res) => {
       res.json({ joined: true });
     }
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    respondWithCaughtError(req, res, err);
   }
 });
 

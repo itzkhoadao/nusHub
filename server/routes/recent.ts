@@ -4,6 +4,7 @@ import authenticate from "../middleware/authenticate";
 import { getRecentActivity, saveRecentActivity } from "../utils/recentActivity"; // import backend utility functions
 
 import { pool } from "../db";
+import { respondWithCaughtError } from "../middleware/errorHandler";
 async function itemExists(type, id) {
   const table = type === "post" ? "posts" : "study_groups"; // choose which table to search in
   const result = await pool.query(`SELECT 1 FROM ${table} WHERE id = $1`, [id]);
@@ -16,7 +17,7 @@ router.get("/", authenticate, async (req, res) => {
   try {
     res.json(await getRecentActivity(req.user.id));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    respondWithCaughtError(req, res, err);
   }
 });
 
@@ -39,7 +40,7 @@ router.post("/", authenticate, async (req, res) => {
     await saveRecentActivity(req.user.id, type, id);
     res.json({ saved: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    respondWithCaughtError(req, res, err);
   }
 });
 

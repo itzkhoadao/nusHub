@@ -6,6 +6,7 @@ import { saveRecentActivity } from "../utils/recentActivity";
 
 import { getOptionalAuthenticatedUser } from "../auth/tokens";
 import { pool } from "../db";
+import { respondWithCaughtError } from "../middleware/errorHandler";
 import { createNotification } from "../utils/notificationSchema";
 import { addResolvedAvatarUrl, addResolvedAvatarUrls } from "../utils/userAvatar";
 import {
@@ -159,7 +160,7 @@ router.get("/", async (req, res) => {
     const posts = await Promise.all(result.rows.map(addDownloadUrlsToPost));
     res.json(await addResolvedAvatarUrls(posts));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    respondWithCaughtError(req, res, err);
   }
 });
 
@@ -206,7 +207,7 @@ router.post("/attachments/presign", authenticate, async (req, res) => {
 
     res.json({ uploads });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    respondWithCaughtError(req, res, err, { statusCode: 400 });
   }
 });
 
@@ -250,7 +251,7 @@ router.post("/", authenticate, async (req, res) => {
         ),
       );
     } catch (err) {
-      return res.status(400).json({ error: err.message });
+      return respondWithCaughtError(req, res, err, { statusCode: 400 });
     }
 
     const client = await pool.connect();
@@ -301,7 +302,7 @@ router.post("/", authenticate, async (req, res) => {
       client.release();
     }
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    respondWithCaughtError(req, res, err);
   }
 });
 
@@ -358,7 +359,7 @@ router.post("/:id/upvote", authenticate, async (req, res) => {
       res.json({ upvoted: true });
     }
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    respondWithCaughtError(req, res, err);
   }
 });
 
@@ -422,7 +423,7 @@ router.get("/:id", async (req, res) => {
 
     res.json(await addResolvedAvatarUrl(post));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    respondWithCaughtError(req, res, err);
   }
 });
 

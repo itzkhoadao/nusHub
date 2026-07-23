@@ -4,6 +4,7 @@ const router = express.Router();
 import authenticate from "../middleware/authenticate";
 
 import { pool } from "../db";
+import { respondWithCaughtError } from "../middleware/errorHandler";
 import {
   createAvatarUploadUrl,
   createCoverUploadUrl,
@@ -206,7 +207,7 @@ router.get("/me", authenticate, async (req, res) => {
       groups: groupsResult.rows,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    respondWithCaughtError(req, res, err);
   }
 });
 
@@ -269,7 +270,7 @@ router.patch("/me/profile", authenticate, async (req, res) => {
     if (err?.code === "23505") {
       return res.status(409).json({ error: "That username is already taken" });
     }
-    res.status(500).json({ error: err.message });
+    respondWithCaughtError(req, res, err);
   }
 });
 
@@ -384,7 +385,7 @@ router.put("/me/background", authenticate, async (req, res) => {
         error: "That NUSNET ID is already linked to another account",
       });
     }
-    res.status(500).json({ error: err.message });
+    respondWithCaughtError(req, res, err);
   }
 });
 
@@ -417,7 +418,7 @@ router.post("/me/avatar/presign", authenticate, async (req, res) => {
       upload_url: upload.uploadUrl,
     }); // return upload info
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    respondWithCaughtError(req, res, err, { statusCode: 400 });
   }
 });
 
@@ -458,7 +459,7 @@ router.post("/me/avatar/confirm", authenticate, async (req, res) => {
 
     res.json({ user: await addAvatarUrlToUser(result.rows[0]) });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    respondWithCaughtError(req, res, err, { statusCode: 400 });
   }
 });
 
@@ -490,7 +491,7 @@ router.delete("/me/avatar", authenticate, async (req, res) => {
     }
     res.json({ user: result.rows[0] });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    respondWithCaughtError(req, res, err, { statusCode: 400 });
   }
 });
 
@@ -521,7 +522,7 @@ router.post("/me/cover/presign", authenticate, async (req, res) => {
       upload_url: upload.uploadUrl,
     });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    respondWithCaughtError(req, res, err, { statusCode: 400 });
   }
 });
 
@@ -571,7 +572,7 @@ router.post("/me/cover/confirm", authenticate, async (req, res) => {
 
     res.json({ user: await addMediaUrlsToUser(result.rows[0]) });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    respondWithCaughtError(req, res, err, { statusCode: 400 });
   }
 });
 
@@ -599,7 +600,7 @@ router.delete("/me/cover", authenticate, async (req, res) => {
 
     res.json({ user: result.rows[0] });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    respondWithCaughtError(req, res, err, { statusCode: 400 });
   }
 });
 
@@ -669,7 +670,7 @@ router.get("/:id", async (req, res) => {
       groups: groupsResult.rows,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    respondWithCaughtError(req, res, err);
   }
 });
 

@@ -32,6 +32,9 @@ const booleanFromEnvironment = z.preprocess((value) => {
 const positiveInteger = (defaultValue: number) =>
   z.coerce.number().int().positive().default(defaultValue);
 
+const nonNegativeInteger = (defaultValue: number) =>
+  z.coerce.number().int().nonnegative().default(defaultValue);
+
 const environmentSchema = z
   .object({
     NODE_ENV: z
@@ -44,8 +47,7 @@ const environmentSchema = z
       .min(1, "DATABASE_URL is required")
       .refine(
         (value) =>
-          value.startsWith("postgres://") ||
-          value.startsWith("postgresql://"),
+          value.startsWith("postgres://") || value.startsWith("postgresql://"),
         "DATABASE_URL must be a PostgreSQL connection URL",
       ),
     JWT_SECRET: z.string().trim().min(1, "JWT_SECRET is required"),
@@ -59,6 +61,18 @@ const environmentSchema = z
       )
       .default("7d"),
     CLIENT_URL: z.string().url(),
+    REQUEST_BODY_LIMIT: z
+      .string()
+      .trim()
+      .regex(
+        /^\d+(?:b|kb|mb)$/i,
+        "REQUEST_BODY_LIMIT must use a value such as 100kb or 1mb",
+      )
+      .default("1mb"),
+    TRUST_PROXY_HOPS: nonNegativeInteger(0),
+    API_RATE_LIMIT_WINDOW_MS: positiveInteger(15 * 60 * 1_000), // rate limit counting window lasts 15 mins
+    API_RATE_LIMIT_MAX: positiveInteger(500), // can make up to 500 API requests per 15-minute window
+    AUTH_RATE_LIMIT_MAX: positiveInteger(30), // can make up to 30 auth-related requests per 15-minute window
     GOOGLE_CLIENT_ID: optionalString,
     R2_ACCOUNT_ID: optionalString,
     R2_ACCESS_KEY_ID: optionalString,
@@ -89,8 +103,7 @@ const environmentSchema = z
     ) {
       context.addIssue({
         code: "custom",
-        message:
-          "JWT_SECRET must contain at least 32 characters in production",
+        message: "JWT_SECRET must contain at least 32 characters in production",
         path: ["JWT_SECRET"],
       });
     }
