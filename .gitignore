@@ -10,8 +10,8 @@ build/
 
 # OS files
 .DS_Store
-Thumbs.db.codex/ 
+Thumbs.db
 .codex/
 
-# Local AI assistant safety requirements
-docs/AI_SAFETY_REQUIREMENTS.md
+# Local project documentation
+docs/

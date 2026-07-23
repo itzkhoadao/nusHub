@@ -14,6 +14,17 @@ The project was originally started as a two-person project. It is now maintained
 - Chat with other community members in real time
 - Upload images and attachments
 
+## Planned AI Assistant
+
+NUSHub is preparing a grounded AI assistant for basic NUS information. The
+planned design uses the Gemini API for language generation, NUSMods for
+structured course data, and an approved set of official NUS sources for
+retrieval and citations.
+
+The assistant is not implemented or available to users yet. It will remain
+disabled until authentication, privacy, source-governance, evaluation, cost,
+and safety release gates are complete.
+
 ## Tech Stack
 
 - **Frontend:** React, TypeScript, Vite, Tailwind CSS, React Query
