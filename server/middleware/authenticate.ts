@@ -1,14 +1,12 @@
 import type { NextFunction, Request, Response } from "express";
-import jwt from "jsonwebtoken";
-import type { AuthUser } from "../types";
+import { readBearerToken, verifyAccessToken } from "../auth/tokens";
 
 export default function authenticate(
   req: Request,
   res: Response,
   next: NextFunction,
 ) {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1]; // take the token from the request
+  const token = readBearerToken(req.headers.authorization);
 
   if (!token) {
     // user is not logged in
@@ -16,12 +14,11 @@ export default function authenticate(
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || "") as AuthUser;
-    req.user = decoded;
+    req.user = verifyAccessToken(token);
     next(); // authentication passed, move on to the actual route
-  } catch (err) {
+  } catch {
     return res
       .status(401)
-      .json({ error: "Invalid token. Please log in again." });
+      .json({ error: "Your session is invalid or expired. Please log in again." });
   }
 }

@@ -1,10 +1,10 @@
 import express from "express";
 const router = express.Router();
 import { randomUUID } from "crypto";
-import jwt from "jsonwebtoken";
 import authenticate from "../middleware/authenticate";
 import { saveRecentActivity } from "../utils/recentActivity";
 
+import { getOptionalAuthenticatedUser } from "../auth/tokens";
 import { pool } from "../db";
 import { createNotification } from "../utils/notificationSchema";
 import { addResolvedAvatarUrl, addResolvedAvatarUrls } from "../utils/userAvatar";
@@ -79,18 +79,7 @@ async function addDownloadUrlsToPost(post: any) {
 }
 
 function getOptionalUserId(req) {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
-
-  if (!token) {
-    return null;
-  }
-
-  try {
-    return (jwt.verify(token, process.env.JWT_SECRET || "") as any).id;
-  } catch (err) {
-    return null;
-  }
+  return getOptionalAuthenticatedUser(req.headers.authorization)?.id ?? null;
 }
 
 // GET /api/posts — fetch all posts

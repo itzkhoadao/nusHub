@@ -1,6 +1,7 @@
 import type { Server as HttpServer } from "http";
-import jwt from "jsonwebtoken";
 import { Server } from "socket.io";
+import { verifyAccessToken } from "./auth/tokens";
+import { env } from "./config/env";
 import type { AuthUser } from "./types";
 
 // stores the Socket.IO server instance, at first this server is null (not created)
@@ -20,7 +21,7 @@ export function configureSocketServer(httpServer: HttpServer) {
   // attach Socket.IO to the existing HTTP server
   io = new Server(httpServer, {
     cors: {
-      origin: process.env.CLIENT_URL || "http://localhost:5173",
+      origin: env.CLIENT_URL,
       credentials: true,
     },
   });
@@ -36,7 +37,7 @@ export function configureSocketServer(httpServer: HttpServer) {
 
     try {
       // verify the token
-      const user = jwt.verify(token, process.env.JWT_SECRET || "") as AuthUser;
+      const user = verifyAccessToken(token);
       socket.data.user = user;
       next(); // allow connection
     } catch {

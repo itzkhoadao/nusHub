@@ -8,6 +8,7 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { env } from "../config/env";
 
 export const MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024;
 export const MAX_ATTACHMENTS_PER_MESSAGE = 5;
@@ -61,15 +62,22 @@ type CoverUploadInput = AvatarUploadInput;
 
 let r2Client: S3Client | null = null;
 
-// prevents the app from running with missing config
-function requireEnv(name: string) {
-  const value = process.env[name];
-
-  if (!value) {
-    throw new Error(`${name} is not configured`);
+function requireR2Configuration() {
+  if (
+    !env.R2_ACCOUNT_ID ||
+    !env.R2_ACCESS_KEY_ID ||
+    !env.R2_SECRET_ACCESS_KEY ||
+    !env.R2_BUCKET_NAME
+  ) {
+    throw new Error("Cloudflare R2 storage is not configured");
   }
 
-  return value;
+  return {
+    accessKeyId: env.R2_ACCESS_KEY_ID,
+    accountId: env.R2_ACCOUNT_ID,
+    bucketName: env.R2_BUCKET_NAME,
+    secretAccessKey: env.R2_SECRET_ACCESS_KEY,
+  };
 }
 
 function getR2Client() {
@@ -77,14 +85,14 @@ function getR2Client() {
     return r2Client;
   }
 
-  const accountId = requireEnv("R2_ACCOUNT_ID");
+  const r2 = requireR2Configuration();
 
   r2Client = new S3Client({
     credentials: {
-      accessKeyId: requireEnv("R2_ACCESS_KEY_ID"),
-      secretAccessKey: requireEnv("R2_SECRET_ACCESS_KEY"),
+      accessKeyId: r2.accessKeyId,
+      secretAccessKey: r2.secretAccessKey,
     },
-    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+    endpoint: `https://${r2.accountId}.r2.cloudflarestorage.com`,
     region: "auto",
   });
 
@@ -92,7 +100,7 @@ function getR2Client() {
 }
 
 export function getR2BucketName() {
-  return requireEnv("R2_BUCKET_NAME");
+  return requireR2Configuration().bucketName;
 }
 
 // checks filename, size, and MIME type validity
@@ -185,7 +193,7 @@ export function createCoverStorageKey({
 }
 
 export function getPublicFileUrl(storageKey: string) {
-  const publicBaseUrl = process.env.R2_PUBLIC_BASE_URL;
+  const publicBaseUrl = env.R2_PUBLIC_BASE_URL;
 
   if (!publicBaseUrl) {
     return "";
