@@ -1,7 +1,7 @@
 import express from "express";
 import authenticate from "../middleware/authenticate";
 import { pool } from "../db";
-import { getErrorMessage } from "../types";
+import { respondWithCaughtError } from "../middleware/errorHandler";
 import { ensureNotificationSchemaOnce } from "../utils/notificationSchema";
 
 const router = express.Router();
@@ -37,7 +37,7 @@ router.get("/", authenticate, async (req, res) => {
       unread_count: countResult.rows[0]?.unread_count || 0,
     }); // return these 2 information
   } catch (err) {
-    res.status(500).json({ error: getErrorMessage(err) });
+    respondWithCaughtError(req, res, err);
   }
 });
 
@@ -55,7 +55,7 @@ router.get("/unread-count", authenticate, async (req, res) => {
 
     res.json({ unread_count: result.rows[0]?.unread_count || 0 });
   } catch (err) {
-    res.status(500).json({ error: getErrorMessage(err) });
+    respondWithCaughtError(req, res, err);
   }
 });
 
@@ -73,7 +73,7 @@ router.post("/read-all", authenticate, async (req, res) => {
 
     res.json({ ok: true });
   } catch (err) {
-    res.status(500).json({ error: getErrorMessage(err) });
+    respondWithCaughtError(req, res, err);
   }
 });
 

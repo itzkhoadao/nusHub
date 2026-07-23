@@ -4,6 +4,7 @@ import authenticate from "../middleware/authenticate";
 
 import { getOptionalAuthenticatedUser } from "../auth/tokens";
 import { pool } from "../db";
+import { respondWithCaughtError } from "../middleware/errorHandler";
 import { createNotification } from "../utils/notificationSchema";
 import { addResolvedAvatarUrls } from "../utils/userAvatar";
 async function ensureCommentRepliesColumn() {
@@ -61,7 +62,7 @@ router.get("/", async (req, res) => {
 
     res.json(await addResolvedAvatarUrls(result.rows));
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    respondWithCaughtError(req, res, err);
   }
 });
 
@@ -143,7 +144,7 @@ router.post("/", authenticate, async (req, res) => {
 
     res.json(result.rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    respondWithCaughtError(req, res, err);
   }
 });
 
@@ -204,7 +205,7 @@ router.post("/:commentId/upvote", authenticate, async (req, res) => {
       res.json({ upvoted: true });
     }
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    respondWithCaughtError(req, res, err);
   }
 });
 
