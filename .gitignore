@@ -12,3 +12,6 @@ build/
 .DS_Store
 Thumbs.db.codex/ 
 .codex/
+
+# Local AI assistant safety requirements
+docs/AI_SAFETY_REQUIREMENTS.md
