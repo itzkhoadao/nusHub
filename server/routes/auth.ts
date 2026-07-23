@@ -1,12 +1,13 @@
 import express from "express";
 const router = express.Router();
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
 
+import { createAccessToken } from "../auth/tokens";
+import { env } from "../config/env";
 import { pool } from "../db";
 // register with Google Account option
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const googleClient = new OAuth2Client(env.GOOGLE_CLIENT_ID);
 
 // ensure db has these
 async function ensureGoogleAuthColumns() {
@@ -57,10 +58,6 @@ async function ensureGoogleAuthColumns() {
     ON users (UPPER(BTRIM(nusnet_id)))
     WHERE nusnet_id IS NOT NULL AND BTRIM(nusnet_id) <> ''
   `);
-}
-
-function createToken(userId: string) {
-  return jwt.sign({ id: userId }, process.env.JWT_SECRET || "");
 }
 
 // sign up with Google => not choose a username manually
@@ -123,7 +120,7 @@ router.post("/register", async (req, res) => {
     );
 
     // Create a token (indicate the user is signed in)
-    const token = createToken(result.rows[0].id); // result is the id, username, email returned by pool query
+    const token = createAccessToken(result.rows[0].id); // result is the id, username, email returned by pool query
 
     res.json({ user: result.rows[0], token }); // sends a success response to the frontend
   } catch (err) {
@@ -162,7 +159,7 @@ router.post("/login", async (req, res) => {
     }
 
     // Create a token
-    const token = createToken(user.id);
+    const token = createAccessToken(user.id);
 
     res.json({
       token,
@@ -191,7 +188,7 @@ router.post("/google", async (req, res) => {
 
     const ticket = await googleClient.verifyIdToken({
       idToken: credential,
-      audience: process.env.GOOGLE_CLIENT_ID,
+      audience: env.GOOGLE_CLIENT_ID,
     }); // verifies the Google credential
 
     // extracts Google user information
@@ -236,7 +233,7 @@ router.post("/google", async (req, res) => {
     }
 
     const user = result.rows[0];
-    const token = createToken(user.id);
+    const token = createAccessToken(user.id);
 
     res.json({ user, token }); // send user info to front-end 
   } catch (err) {
