@@ -1,22 +1,30 @@
 import http from "http";
 import { createApp } from "./app";
 import { env } from "./config/env";
+import { runMigrations } from "./database/migrate";
 import { pool } from "./db";
 import { configureSocketServer } from "./socket";
 
-const app = createApp(); // builds the Express app
-const server = http.createServer(app);
-configureSocketServer(server);
+async function startServer() {
+  await runMigrations();
 
-pool.query("SELECT NOW()", (err, res) => {
-  // check if can connect to database
-  if (err) {
-    console.log("Database connection FAILED:", err.message);
-  } else {
-    console.log("Database connected successfully at:", res.rows[0].now); // now: time of connection
-  }
-});
+  const connectionCheck = await pool.query("SELECT NOW()");
+  console.log(
+    "Database connected successfully at:",
+    connectionCheck.rows[0].now,
+  );
 
-server.listen(env.PORT, () => {
-  console.log("Server running on port", env.PORT);
+  const app = createApp();
+  const server = http.createServer(app);
+  configureSocketServer(server);
+
+  server.listen(env.PORT, () => {
+    console.log("Server running on port", env.PORT);
+  });
+}
+
+startServer().catch(async (error: unknown) => {
+  console.error("Server startup failed:", error);
+  await pool.end().catch(() => undefined);
+  process.exitCode = 1;
 });

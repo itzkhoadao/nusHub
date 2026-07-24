@@ -112,6 +112,10 @@ Start the backend development server:
 npm run dev
 ```
 
+The backend applies pending numbered migrations from `server/migrations`
+before it starts accepting requests. Migration files are immutable after they
+have been applied; create the next numbered file for every schema change.
+
 The API will run at `http://localhost:5000` by default.
 
 ### 3. Configure the Frontend
@@ -163,14 +167,19 @@ Run these commands from the relevant `client` or `server` directory.
 | `client` | `npm run preview` | Preview the production frontend build |
 | `server` | `npm run dev` | Start the backend with automatic reloads |
 | `server` | `npm run build` | Compile the backend TypeScript |
+| `server` | `npm run lint` | Check backend code quality |
+| `server` | `npm test` | Run backend unit and API tests |
+| `server` | `npm run check` | Run backend lint, tests, and production build |
+| `server` | `npm run migrate` | Apply pending database migrations without starting the server |
 | `server` | `npm start` | Run the compiled backend |
 
 ## Project Structure
 
 ```text
 nusHub/
+├── .github/      # Automated GitHub quality checks
 ├── client/       # React frontend
-├── server/       # Express API, real-time chat, and database access
+├── server/       # Express API, migrations, tests, and real-time services
 └── README.md
 ```
 

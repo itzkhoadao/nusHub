@@ -48,6 +48,9 @@ CREATE TABLE IF NOT EXISTS message_attachments (
 );
 
 ALTER TABLE messages
+  ADD COLUMN IF NOT EXISTS reply_to_message_id UUID REFERENCES messages(id) ON DELETE SET NULL;
+
+ALTER TABLE messages
   ALTER COLUMN body SET DEFAULT '';
 
 ALTER TABLE messages

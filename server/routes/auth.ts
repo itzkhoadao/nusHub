@@ -10,57 +10,6 @@ import { respondWithCaughtError } from "../middleware/errorHandler";
 // register with Google Account option
 const googleClient = new OAuth2Client(env.GOOGLE_CLIENT_ID);
 
-// ensure db has these
-async function ensureGoogleAuthColumns() {
-  await pool.query(`
-    ALTER TABLE users
-    ADD COLUMN IF NOT EXISTS google_id TEXT UNIQUE,
-    ADD COLUMN IF NOT EXISTS avatar_url TEXT,
-    ADD COLUMN IF NOT EXISTS avatar_storage_key TEXT,
-    ADD COLUMN IF NOT EXISTS avatar_updated_at TIMESTAMPTZ,
-    ADD COLUMN IF NOT EXISTS auth_provider TEXT DEFAULT 'local',
-    ADD COLUMN IF NOT EXISTS academic_year TEXT,
-    ADD COLUMN IF NOT EXISTS is_teaching_assistant BOOLEAN NOT NULL DEFAULT FALSE,
-    ADD COLUMN IF NOT EXISTS is_professor BOOLEAN NOT NULL DEFAULT FALSE,
-    ADD COLUMN IF NOT EXISTS is_staff BOOLEAN NOT NULL DEFAULT FALSE,
-    ADD COLUMN IF NOT EXISTS stays_on_campus BOOLEAN NOT NULL DEFAULT FALSE,
-    ADD COLUMN IF NOT EXISTS age_range TEXT,
-    ADD COLUMN IF NOT EXISTS faculty TEXT,
-    ADD COLUMN IF NOT EXISTS faculties TEXT[],
-    ADD COLUMN IF NOT EXISTS nusnet_id TEXT,
-    ADD COLUMN IF NOT EXISTS nus_email TEXT,
-    ADD COLUMN IF NOT EXISTS bio TEXT,
-    ADD COLUMN IF NOT EXISTS onboarding_completed_at TIMESTAMPTZ
-  `);
-  await pool.query(`
-    UPDATE users
-    SET nusnet_id = NULL
-    WHERE nusnet_id IS NOT NULL AND BTRIM(nusnet_id) = ''
-  `);
-  await pool.query(`
-    WITH ranked_nusnet_ids AS (
-      SELECT id,
-             ROW_NUMBER() OVER (
-               PARTITION BY UPPER(BTRIM(nusnet_id))
-               ORDER BY created_at ASC, id ASC
-             ) AS occurrence
-      FROM users
-      WHERE nusnet_id IS NOT NULL AND BTRIM(nusnet_id) <> ''
-    )
-    UPDATE users AS user_record
-    SET nusnet_id = NULL,
-        onboarding_completed_at = NULL
-    FROM ranked_nusnet_ids
-    WHERE user_record.id = ranked_nusnet_ids.id
-      AND ranked_nusnet_ids.occurrence > 1
-  `);
-  await pool.query(`
-    CREATE UNIQUE INDEX IF NOT EXISTS users_nusnet_id_unique
-    ON users (UPPER(BTRIM(nusnet_id)))
-    WHERE nusnet_id IS NOT NULL AND BTRIM(nusnet_id) <> ''
-  `);
-}
-
 // sign up with Google => not choose a username manually
 async function createUniqueUsername(
   name: string | undefined,
@@ -97,7 +46,6 @@ async function createUniqueUsername(
 // POST /api/auth/register
 router.post("/register", async (req, res) => {
   try {
-    await ensureGoogleAuthColumns();
     const { username, email, password } = req.body;
 
     // Check if the user already exists
@@ -132,7 +80,6 @@ router.post("/register", async (req, res) => {
 // POST /api/auth/login
 router.post("/login", async (req, res) => {
   try {
-    await ensureGoogleAuthColumns();
     const { email, password } = req.body;
 
     // Check if the user is in the database
@@ -185,8 +132,6 @@ router.post("/google", async (req, res) => {
       return res.status(400).json({ error: "Google credential is required" });
     }
 
-    await ensureGoogleAuthColumns();
-
     const ticket = await googleClient.verifyIdToken({
       idToken: credential,
       audience: env.GOOGLE_CLIENT_ID,
@@ -237,7 +182,7 @@ router.post("/google", async (req, res) => {
     const token = createAccessToken(user.id);
 
     res.json({ user, token }); // send user info to front-end 
-  } catch (err) {
+  } catch {
     res.status(401).json({ error: "Google sign-in failed" });
   }
 });

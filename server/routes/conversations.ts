@@ -4,7 +4,6 @@ import { pool } from "../db";
 import authenticate from "../middleware/authenticate";
 import { respondWithCaughtError } from "../middleware/errorHandler";
 import { getSocketServer } from "../socket";
-import { ensureChatSchema } from "../utils/chatSchema";
 import {
   MAX_ATTACHMENTS_PER_MESSAGE,
   createDownloadUrl,
@@ -23,15 +22,6 @@ type PendingAttachment = {
   original_name: string;
   storage_key: string;
 };
-
-// ensure conversation tables are created only once
-// first request runs ensureChatSchema(), later reuse the same Promise
-let chatSchemaReady: Promise<void> | null = null;
-
-function ensureChatSchemaOnce() {
-  chatSchemaReady ??= ensureChatSchema();
-  return chatSchemaReady;
-}
 
 async function resolveStoredAvatarUrl(
   avatarUrl?: string | null,
@@ -287,8 +277,6 @@ async function getMessageById(messageId: string) {
 // POST /api/conversations/direct/:userId
 // finds or creates the one-to-one conversation between the logged-in user and another user.
 router.post("/direct/:userId", authenticate, async (req, res) => {
-  await ensureChatSchemaOnce();
-
   const currentUserId = req.user.id;
   const otherUserId = req.params.userId as string;
 
@@ -349,8 +337,6 @@ router.post("/direct/:userId", authenticate, async (req, res) => {
 // Lists all conversations for the logged-in user, newest activity first.
 router.get("/", authenticate, async (req, res) => {
   try {
-    await ensureChatSchemaOnce();
-
     const result = await pool.query(
       `SELECT
          c.id,
@@ -421,8 +407,6 @@ router.get("/", authenticate, async (req, res) => {
 // Loads message history for a conversation the logged-in user belongs to.
 router.get("/:id/messages", authenticate, async (req, res) => {
   try {
-    await ensureChatSchemaOnce();
-
     const id = req.params.id as string;
     const isParticipant = await ensureConversationParticipant(id, req.user.id);
 
@@ -513,8 +497,6 @@ router.get("/:id/messages", authenticate, async (req, res) => {
 // Marks the current user's read position in a conversation and notifies other participants
 router.post("/:id/read", authenticate, async (req, res) => {
   try {
-    await ensureChatSchemaOnce(); // ensure chat tables exist
-
     const id = req.params.id as string; // get conversation id
     const isParticipant = await ensureConversationParticipant(id, req.user.id);
 
@@ -553,8 +535,6 @@ router.post("/:id/read", authenticate, async (req, res) => {
 
 router.post("/:id/attachments/presign", authenticate, async (req, res) => {
   try {
-    await ensureChatSchemaOnce();
-
     // user must belong to the conversation
     const id = req.params.id as string;
     const isParticipant = await ensureConversationParticipant(id, req.user.id);
@@ -612,8 +592,6 @@ router.post("/:id/attachments/presign", authenticate, async (req, res) => {
 // Sends a message by saving it to the database.
 router.post("/:id/messages", authenticate, async (req, res) => {
   try {
-    await ensureChatSchemaOnce();
-
     const id = req.params.id as string;
     const body =
       typeof req.body.body === "string" ? req.body.body.trim() : "";

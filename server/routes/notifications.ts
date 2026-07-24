@@ -2,15 +2,12 @@ import express from "express";
 import authenticate from "../middleware/authenticate";
 import { pool } from "../db";
 import { respondWithCaughtError } from "../middleware/errorHandler";
-import { ensureNotificationSchemaOnce } from "../utils/notificationSchema";
 
 const router = express.Router();
 
 // LOAD NOTIFICATIONS
 router.get("/", authenticate, async (req, res) => {
   try {
-    await ensureNotificationSchemaOnce();
-
     // fetch notifications and unread count at the same time
     const [notificationsResult, countResult] = await Promise.all([
       pool.query(
@@ -44,8 +41,6 @@ router.get("/", authenticate, async (req, res) => {
 // ONLY GET UNREAD COUNT (USED WHEN NO NEED TO LOAD WHOLE NOTI LIST)
 router.get("/unread-count", authenticate, async (req, res) => {
   try {
-    await ensureNotificationSchemaOnce();
-
     const result = await pool.query(
       `SELECT COUNT(*)::int AS unread_count
        FROM notifications
@@ -62,8 +57,6 @@ router.get("/unread-count", authenticate, async (req, res) => {
 // marks every currently unread notification as read
 router.post("/read-all", authenticate, async (req, res) => {
   try {
-    await ensureNotificationSchemaOnce();
-
     await pool.query(
       `UPDATE notifications
        SET read_at = NOW()

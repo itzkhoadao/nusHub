@@ -43,58 +43,6 @@ const NUS_FACULTIES = new Set([
   "Institute of Systems Science",
 ]);
 
-// ensure db has these
-async function ensureUserAvatarColumns() {
-  await pool.query(`
-    ALTER TABLE users
-    ADD COLUMN IF NOT EXISTS avatar_url TEXT,
-    ADD COLUMN IF NOT EXISTS avatar_storage_key TEXT,
-    ADD COLUMN IF NOT EXISTS avatar_updated_at TIMESTAMPTZ,
-    ADD COLUMN IF NOT EXISTS cover_url TEXT,
-    ADD COLUMN IF NOT EXISTS cover_storage_key TEXT,
-    ADD COLUMN IF NOT EXISTS cover_updated_at TIMESTAMPTZ,
-    ADD COLUMN IF NOT EXISTS academic_year TEXT,
-    ADD COLUMN IF NOT EXISTS is_teaching_assistant BOOLEAN NOT NULL DEFAULT FALSE,
-    ADD COLUMN IF NOT EXISTS is_professor BOOLEAN NOT NULL DEFAULT FALSE,
-    ADD COLUMN IF NOT EXISTS is_staff BOOLEAN NOT NULL DEFAULT FALSE,
-    ADD COLUMN IF NOT EXISTS stays_on_campus BOOLEAN NOT NULL DEFAULT FALSE,
-    ADD COLUMN IF NOT EXISTS age_range TEXT,
-    ADD COLUMN IF NOT EXISTS faculty TEXT,
-    ADD COLUMN IF NOT EXISTS faculties TEXT[],
-    ADD COLUMN IF NOT EXISTS nusnet_id TEXT,
-    ADD COLUMN IF NOT EXISTS nus_email TEXT,
-    ADD COLUMN IF NOT EXISTS bio TEXT,
-    ADD COLUMN IF NOT EXISTS onboarding_completed_at TIMESTAMPTZ
-  `);
-  await pool.query(`
-    UPDATE users
-    SET nusnet_id = NULL
-    WHERE nusnet_id IS NOT NULL AND BTRIM(nusnet_id) = ''
-  `);
-  await pool.query(`
-    WITH ranked_nusnet_ids AS (
-      SELECT id,
-             ROW_NUMBER() OVER (
-               PARTITION BY UPPER(BTRIM(nusnet_id))
-               ORDER BY created_at ASC, id ASC
-             ) AS occurrence
-      FROM users
-      WHERE nusnet_id IS NOT NULL AND BTRIM(nusnet_id) <> ''
-    )
-    UPDATE users AS user_record
-    SET nusnet_id = NULL,
-        onboarding_completed_at = NULL
-    FROM ranked_nusnet_ids
-    WHERE user_record.id = ranked_nusnet_ids.id
-      AND ranked_nusnet_ids.occurrence > 1
-  `);
-  await pool.query(`
-    CREATE UNIQUE INDEX IF NOT EXISTS users_nusnet_id_unique
-    ON users (UPPER(BTRIM(nusnet_id)))
-    WHERE nusnet_id IS NOT NULL AND BTRIM(nusnet_id) <> ''
-  `);
-}
-
 // generates temporary signed download URL, returns new user object containing that URL
 async function addAvatarUrlToUser(user: any) {
   if (!user) {
@@ -143,7 +91,6 @@ async function addMediaUrlsToUser(user: any) {
 // get the user's profile
 router.get("/me", authenticate, async (req, res) => {
   try {
-    await ensureUserAvatarColumns();
     const userId = req.user.id;
 
     // Get user info
@@ -213,7 +160,6 @@ router.get("/me", authenticate, async (req, res) => {
 
 router.patch("/me/profile", authenticate, async (req, res) => {
   try {
-    await ensureUserAvatarColumns();
     const hasUsername = req.body.username !== undefined;
     const hasBio = req.body.bio !== undefined;
 
@@ -277,7 +223,6 @@ router.patch("/me/profile", authenticate, async (req, res) => {
 // validate and update user's info after filling in Onboarding Page
 router.put("/me/background", authenticate, async (req, res) => {
   try {
-    await ensureUserAvatarColumns();
     const {
       academic_year,
       age_range,
@@ -393,8 +338,6 @@ router.put("/me/background", authenticate, async (req, res) => {
 // receives metadata and returns temporary upload permission
 router.post("/me/avatar/presign", authenticate, async (req, res) => {
   try {
-    await ensureUserAvatarColumns();
-
     const file = {
       file_size: Number(req.body.file_size),
       mime_type: req.body.mime_type,
@@ -425,8 +368,6 @@ router.post("/me/avatar/presign", authenticate, async (req, res) => {
 // browser uploads directly to R2, then this endpoint confirms the upload
 router.post("/me/avatar/confirm", authenticate, async (req, res) => {
   try {
-    await ensureUserAvatarColumns();
-
     const file = {
       file_size: Number(req.body.file_size),
       mime_type: req.body.mime_type,
@@ -466,8 +407,6 @@ router.post("/me/avatar/confirm", authenticate, async (req, res) => {
 // deleting avatar
 router.delete("/me/avatar", authenticate, async (req, res) => {
   try {
-    await ensureUserAvatarColumns();
-
     const currentUser = await pool.query(
       `SELECT avatar_storage_key FROM users WHERE id = $1`,
       [req.user.id],
@@ -499,7 +438,6 @@ router.delete("/me/avatar", authenticate, async (req, res) => {
 // receives metadata and returns temporary upload permission
 router.post("/me/cover/presign", authenticate, async (req, res) => {
   try {
-    await ensureUserAvatarColumns();
     const file = {
       file_size: Number(req.body.file_size),
       mime_type: req.body.mime_type,
@@ -529,7 +467,6 @@ router.post("/me/cover/presign", authenticate, async (req, res) => {
 // browser uploads directly to R2, then this endpoint confirms the upload
 router.post("/me/cover/confirm", authenticate, async (req, res) => {
   try {
-    await ensureUserAvatarColumns();
     const file = {
       file_size: Number(req.body.file_size),
       mime_type: req.body.mime_type,
@@ -579,7 +516,6 @@ router.post("/me/cover/confirm", authenticate, async (req, res) => {
 // delete cover picture
 router.delete("/me/cover", authenticate, async (req, res) => {
   try {
-    await ensureUserAvatarColumns();
     const currentUser = await pool.query(
       `SELECT cover_storage_key FROM users WHERE id = $1`,
       [req.user.id],
@@ -607,7 +543,6 @@ router.delete("/me/cover", authenticate, async (req, res) => {
 // get a public profile by user id
 router.get("/:id", async (req, res) => {
   try {
-    await ensureUserAvatarColumns();
     const { id } = req.params;
 
     // Get public user info
