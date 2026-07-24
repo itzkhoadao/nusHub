@@ -1,18 +1,6 @@
 import { pool } from "../db";
 import { getErrorMessage } from "../types";
 
-export async function ensureRecentActivityTable() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS recent_activity (
-      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      item_type VARCHAR(10) NOT NULL CHECK (item_type IN ('post', 'group')),
-      item_id UUID NOT NULL,
-      accessed_at TIMESTAMP NOT NULL DEFAULT NOW(),
-      PRIMARY KEY (user_id, item_type, item_id)
-    )
-  `);
-} // creates the recent_activity table if it does not already exist
-
 export async function saveRecentActivity(
   userId: string | null,
   type: "post" | "group",
@@ -23,8 +11,6 @@ export async function saveRecentActivity(
   } // only allow items of type post and group
 
   try {
-    await ensureRecentActivityTable();
-
     await pool.query(
       `
         INSERT INTO recent_activity (user_id, item_type, item_id, accessed_at)
@@ -58,8 +44,6 @@ export async function getRecentActivity(userId: string) {
   if (!userId) {
     return [];
   }
-
-  await ensureRecentActivityTable();
 
   const result = await pool.query(
     `

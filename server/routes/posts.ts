@@ -25,40 +25,6 @@ type PendingPostAttachment = {
   storage_key: string;
 };
 
-async function ensurePostPublishedAtColumn() {
-  await pool.query(`
-    ALTER TABLE posts
-    ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ DEFAULT NOW()
-  `);
-
-  await pool.query(`
-    UPDATE posts
-    SET published_at = created_at
-    WHERE published_at IS NULL
-  `);
-}
-
-async function ensurePostAttachmentSchema() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS post_attachments (
-      id UUID PRIMARY KEY,
-      post_id UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
-      original_name TEXT NOT NULL,
-      storage_provider TEXT NOT NULL DEFAULT 'r2',
-      storage_key TEXT NOT NULL,
-      mime_type TEXT NOT NULL,
-      file_size INTEGER NOT NULL,
-      file_url TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `); // post attachments table
-
-  await pool.query(`
-    CREATE INDEX IF NOT EXISTS idx_post_attachments_post_id
-      ON post_attachments(post_id, created_at)
-  `);
-}
-
 async function addDownloadUrlsToPost(post: any) {
   if (!post?.attachments?.length) {
     return post;
@@ -87,8 +53,6 @@ function getOptionalUserId(req) {
 router.get("/", async (req, res) => {
   // do not use authenticate => can view posts without logging in
   try {
-    await ensurePostPublishedAtColumn();
-    await ensurePostAttachmentSchema();
     const { topic, sort, search } = req.query;
     const userId = getOptionalUserId(req);
     const params = [];
@@ -215,8 +179,6 @@ router.post("/attachments/presign", authenticate, async (req, res) => {
 router.post("/", authenticate, async (req, res) => {
   // use authenticate: only logged-in users can create posts
   try {
-    await ensurePostPublishedAtColumn();
-    await ensurePostAttachmentSchema();
     const { title, content, topic, is_anonymous } = req.body;
     const attachments: PendingPostAttachment[] = Array.isArray(
       req.body.attachments,
@@ -309,7 +271,6 @@ router.post("/", authenticate, async (req, res) => {
 // POST /api/posts/:id/upvote — toggle upvote
 router.post("/:id/upvote", authenticate, async (req, res) => {
   try {
-    await ensurePostPublishedAtColumn();
     const id = req.params.id as string;
     const userId = req.user.id;
 
@@ -366,7 +327,6 @@ router.post("/:id/upvote", authenticate, async (req, res) => {
 // GET /api/posts/:id — get a single post by its post id
 router.get("/:id", async (req, res) => {
   try {
-    await ensurePostAttachmentSchema();
     const { id } = req.params;
     const userId = getOptionalUserId(req);
     const params = [id];

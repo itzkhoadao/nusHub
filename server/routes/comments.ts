@@ -7,12 +7,6 @@ import { pool } from "../db";
 import { respondWithCaughtError } from "../middleware/errorHandler";
 import { createNotification } from "../utils/notificationSchema";
 import { addResolvedAvatarUrls } from "../utils/userAvatar";
-async function ensureCommentRepliesColumn() {
-  await pool.query(`
-    ALTER TABLE comments
-    ADD COLUMN IF NOT EXISTS parent_comment_id UUID REFERENCES comments(id) ON DELETE CASCADE
-  `);
-}
 
 function getOptionalUserId(req) {
   return getOptionalAuthenticatedUser(req.headers.authorization)?.id ?? null;
@@ -21,8 +15,6 @@ function getOptionalUserId(req) {
 // GET /api/posts/:postId/comments — get all comments, display ones with the most upvotes first
 router.get("/", async (req, res) => {
   try {
-    await ensureCommentRepliesColumn();
-
     const postId = (req.params as any).postId as string;
     const userId = getOptionalUserId(req);
     const params = [postId];
@@ -69,8 +61,6 @@ router.get("/", async (req, res) => {
 // POST /api/posts/:postId/comments — post a comment to the post
 router.post("/", authenticate, async (req, res) => {
   try {
-    await ensureCommentRepliesColumn();
-
     const postId = (req.params as any).postId as string;
     const { content, is_anonymous, parent_comment_id } = req.body;
 

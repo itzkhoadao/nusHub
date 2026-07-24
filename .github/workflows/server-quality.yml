@@ -1,0 +1,48 @@
+name: Server quality
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/server-quality.yml"
+      - "server/**"
+  push:
+    paths:
+      - ".github/workflows/server-quality.yml"
+      - "server/**"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Lint, test, build, and audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: server
+    env:
+      CLIENT_URL: http://localhost:5173
+      DATABASE_URL: postgresql://test:test@localhost:5432/nushub_test
+      JWT_SECRET: ci-only-secret-that-is-never-used-in-production
+      NODE_ENV: test
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+          node-version: 22
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Run backend quality gate
+        run: npm run check
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev

@@ -19,41 +19,6 @@ type CreateNotificationInput = {
   type: NotificationType;
 }; // info needed to create a noti
 
-let notificationSchemaReady: Promise<void> | null = null;
-
-async function ensureNotificationSchema() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS notifications (
-      id UUID PRIMARY KEY,
-      recipient_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      actor_id UUID REFERENCES users(id) ON DELETE SET NULL,
-      type TEXT NOT NULL,
-      post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
-      comment_id UUID REFERENCES comments(id) ON DELETE CASCADE,
-      message TEXT NOT NULL,
-      link_path TEXT NOT NULL,
-      read_at TIMESTAMPTZ,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-
-  await pool.query(`
-    CREATE INDEX IF NOT EXISTS idx_notifications_recipient_created_at
-      ON notifications(recipient_id, created_at DESC)
-  `);
-
-  await pool.query(`
-    CREATE INDEX IF NOT EXISTS idx_notifications_recipient_read_at
-      ON notifications(recipient_id, read_at)
-  `);
-}
-
-export function ensureNotificationSchemaOnce() {
-  // at first, null => run ensureNotificationSchema(), later reuse the same Promise
-  notificationSchemaReady ??= ensureNotificationSchema();
-  return notificationSchemaReady;
-}
-
 export async function createNotification({
   actorId,
   commentId = null,
@@ -68,8 +33,6 @@ export async function createNotification({
   }
 
   try {
-    await ensureNotificationSchemaOnce();
-
     const result = await pool.query(
       `INSERT INTO notifications (
          id,
