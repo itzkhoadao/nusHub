@@ -199,4 +199,27 @@ router.post("/:commentId/upvote", authenticate, async (req, res) => {
   }
 });
 
+// DELETE /api/posts/:postId/comments/:commentId — author-only for comments and replies
+router.delete("/:commentId", authenticate, async (req, res) => {
+  try {
+    const postId = (req.params as any).postId as string;
+    const result = await pool.query(
+      `DELETE FROM comments
+       WHERE id = $1 AND post_id = $2 AND user_id = $3
+       RETURNING id`,
+      [req.params.commentId, postId, req.user.id],
+    );
+
+    if (result.rowCount === 0) {
+      return res
+        .status(404)
+        .json({ error: "Comment not found or not yours to delete" });
+    }
+
+    res.json({ deleted: true, id: result.rows[0].id });
+  } catch (err) {
+    respondWithCaughtError(req, res, err);
+  }
+});
+
 export default router;

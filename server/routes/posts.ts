@@ -324,6 +324,24 @@ router.post("/:id/upvote", authenticate, async (req, res) => {
   }
 });
 
+// DELETE /api/posts/:id — only the author can delete their post
+router.delete("/:id", authenticate, async (req, res) => {
+  try {
+    const result = await pool.query(
+      "DELETE FROM posts WHERE id = $1 AND user_id = $2 RETURNING id",
+      [req.params.id, req.user.id],
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Post not found or not yours to delete" });
+    }
+
+    res.json({ deleted: true, id: result.rows[0].id });
+  } catch (err) {
+    respondWithCaughtError(req, res, err);
+  }
+});
+
 // GET /api/posts/:id — get a single post by its post id
 router.get("/:id", async (req, res) => {
   try {

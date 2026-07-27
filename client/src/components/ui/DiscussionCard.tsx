@@ -4,6 +4,8 @@ import TopicBadge from "./TopicBadge";
 import UserAvatar from "./UserAvatar";
 import VoteBlock from "./VoteBlock";
 import { API_URL } from "../../utils/api";
+import ContentActionMenu from "./ContentActionMenu";
+import { getStoredUser } from "../../utils/authStorage";
 
 function isImageAttachment(mimeType = "") {
   return mimeType.startsWith("image/");
@@ -21,7 +23,8 @@ function resolveAttachmentUrl(fileUrl = "") {
   return fileUrl.startsWith("http") ? fileUrl : `${API_URL}${fileUrl}`;
 }
 
-export default function DiscussionCard({ post, onUpvote }) {
+export default function DiscussionCard({ post, onDelete, onUpvote }) {
+  const user = getStoredUser();
   const canOpenProfile = !post.is_anonymous && post.user_id;
   const profilePath = canOpenProfile ? `/users/${post.user_id}` : null;
   const postDate = post.post_date || post.published_at || post.created_at;
@@ -171,13 +174,11 @@ export default function DiscussionCard({ post, onUpvote }) {
             <Icon name="share" className="h-4 w-4" />
             Share
           </button>
-          <button
-            className="ml-auto flex h-10 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 text-xs font-bold text-app-muted shadow-sm ring-1 ring-slate-900/5 transition-all hover:-translate-y-0.5 hover:border-red-200 hover:bg-red-50 hover:text-app-danger"
-            type="button"
-          >
-            <Icon name="flag" className="h-4 w-4" />
-            Report
-          </button>
+          <ContentActionMenu
+            isAuthor={String(user?.id) === String(post.user_id)}
+            label="post"
+            onDelete={() => onDelete?.(post.id)}
+          />
         </div>
       </div>
     </article>

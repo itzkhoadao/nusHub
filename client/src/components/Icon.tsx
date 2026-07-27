@@ -118,6 +118,15 @@ const ICON_PATHS = {
       <path d="M5 4h12l-1.5 4L17 12H5" />
     </>
   ),
+  trash: (
+    <>
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="m19 6-1 15H6L5 6" />
+      <path d="M10 11v5" />
+      <path d="M14 11v5" />
+    </>
+  ),
   chevronUp: <path d="m18 15-6-6-6 6" />,
   chevronDown: <path d="m6 9 6 6 6-6" />,
 } as const satisfies Record<string, ReactNode>;
