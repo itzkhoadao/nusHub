@@ -18,6 +18,7 @@ import groupRoutes from "./routes/groups";
 import notificationRoutes from "./routes/notifications";
 import postRoutes from "./routes/posts";
 import recentRoutes from "./routes/recent";
+import reportRoutes from "./routes/reports";
 import userRoutes from "./routes/users";
 
 export function createApp() {
@@ -42,6 +43,7 @@ export function createApp() {
   app.use("/api/groups", groupRoutes);
   app.use("/api/recent", recentRoutes);
   app.use("/api/notifications", notificationRoutes);
+  app.use("/api/reports", reportRoutes);
 
   app.get("/", (_req, res) => {
     res.json({ message: "NUSHub API is running!" });
