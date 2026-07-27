@@ -6,6 +6,7 @@ import AiAssistantCard from "../components/ui/AiAssistantCard";
 import TopicBadge from "../components/ui/TopicBadge";
 import UserAvatar from "../components/ui/UserAvatar";
 import VoteBlock from "../components/ui/VoteBlock";
+import ContentActionMenu from "../components/ui/ContentActionMenu";
 import { API_URL, apiUrl } from "../utils/api";
 import { getAuthToken, getStoredUser } from "../utils/authStorage";
 
@@ -257,6 +258,31 @@ export default function PostDetailPage() {
     }));
   };
 
+  const deletePost = async () => {
+    const res = await fetch(apiUrl(`/api/posts/${id}`), {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Could not delete post");
+    navigate("/");
+  };
+
+  const deleteComment = async (commentId) => {
+    const res = await fetch(
+      apiUrl(`/api/posts/${id}/comments/${commentId}`),
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${getAuthToken()}` },
+      },
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Could not delete comment");
+    setComments((currentComments) =>
+      currentComments.filter((comment) => comment.id !== commentId),
+    );
+  };
+
   const topLevelComments = comments.filter(
     (comment) => !comment.parent_comment_id,
   );
@@ -366,13 +392,11 @@ export default function PostDetailPage() {
               <Icon name="message" className="h-4 w-4" />
               Reply
             </button>
-            <button
-              className="ml-auto flex h-10 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 text-xs font-bold text-app-muted shadow-sm ring-1 ring-slate-900/5 transition-all hover:-translate-y-0.5 hover:border-red-200 hover:bg-red-50 hover:text-app-danger"
-              type="button"
-            >
-              <Icon name="flag" className="h-4 w-4" />
-              Report
-            </button>
+            <ContentActionMenu
+              isAuthor={String(user?.id) === String(comment.user_id)}
+              label={comment.parent_comment_id ? "reply" : "comment"}
+              onDelete={() => deleteComment(comment.id)}
+            />
           </div>
         </article>
         {isReplying && (
@@ -629,13 +653,11 @@ export default function PostDetailPage() {
                 <Icon name="share" className="h-4 w-4" />
                 Share
               </button>
-              <button
-                className="ml-auto flex h-10 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 text-sm font-bold text-app-muted shadow-sm ring-1 ring-slate-900/5 transition-all hover:-translate-y-0.5 hover:border-red-200 hover:bg-red-50 hover:text-app-danger"
-                type="button"
-              >
-                <Icon name="flag" className="h-4 w-4" />
-                Report
-              </button>
+              <ContentActionMenu
+                isAuthor={String(user?.id) === String(post.user_id)}
+                label="post"
+                onDelete={deletePost}
+              />
             </div>
           </article>
         )}

@@ -125,6 +125,18 @@ export default function HomePage() {
     );
   };
 
+  const handleDeletePost = async (postId) => {
+    const res = await fetch(apiUrl(`/api/posts/${postId}`), {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Could not delete post");
+    setPosts((currentPosts) =>
+      currentPosts.filter((post) => post.id !== postId),
+    );
+  };
+
   return (
     <AppShell
       contextualPlaceholder="Search forum..."
@@ -262,6 +274,7 @@ export default function HomePage() {
             {posts.map((post) => (
               <DiscussionCard
                 key={post.id}
+                onDelete={handleDeletePost}
                 onUpvote={handleUpvote}
                 post={post}
               />
