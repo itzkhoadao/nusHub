@@ -178,6 +178,8 @@ export default function DiscussionCard({ post, onDelete, onUpvote }) {
             isAuthor={String(user?.id) === String(post.user_id)}
             label="post"
             onDelete={() => onDelete?.(post.id)}
+            postId={post.id}
+            targetId={post.id}
           />
         </div>
       </div>

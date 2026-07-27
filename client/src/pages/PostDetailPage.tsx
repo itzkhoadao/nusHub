@@ -396,6 +396,8 @@ export default function PostDetailPage() {
               isAuthor={String(user?.id) === String(comment.user_id)}
               label={comment.parent_comment_id ? "reply" : "comment"}
               onDelete={() => deleteComment(comment.id)}
+              postId={id}
+              targetId={comment.id}
             />
           </div>
         </article>
@@ -657,6 +659,8 @@ export default function PostDetailPage() {
                 isAuthor={String(user?.id) === String(post.user_id)}
                 label="post"
                 onDelete={deletePost}
+                postId={id}
+                targetId={id}
               />
             </div>
           </article>

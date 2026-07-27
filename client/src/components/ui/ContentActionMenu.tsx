@@ -1,18 +1,24 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useNavigate } from "react-router-dom";
 import Icon from "../Icon";
 
 type ContentActionMenuProps = {
   isAuthor: boolean;
   label: string;
   onDelete?: () => Promise<void>;
+  postId: string;
+  targetId: string;
 };
 
 export default function ContentActionMenu({
   isAuthor,
   label,
   onDelete,
+  postId,
+  targetId,
 }: ContentActionMenuProps) {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -77,15 +83,18 @@ export default function ContentActionMenu({
           }`}
           role="menu"
         >
-          <div className="mb-1 flex items-center gap-2 px-3 py-2">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-secondary" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-app-muted">
-              Quick actions
-            </span>
-          </div>
           <button
             className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-bold text-app-text transition-all hover:translate-x-0.5 hover:bg-primary-fixed/60 hover:text-primary"
-            onClick={() => setOpen(false)}
+            onClick={() => {
+              setOpen(false);
+              const targetType = label === "post" ? "post" : "comment";
+              const params = new URLSearchParams({
+                type: targetType,
+                id: targetId,
+                postId,
+              });
+              navigate(`/report?${params}`);
+            }}
             role="menuitem"
             type="button"
           >
