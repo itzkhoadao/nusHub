@@ -9,7 +9,7 @@ const TOPIC_STYLES = {
 
 export default function TopicBadge({ topic = "General" }) {
   return (
-    <span className={`app-badge ${TOPIC_STYLES[topic] || TOPIC_STYLES.General}`}>
+    <span className={`app-badge topic-badge ${TOPIC_STYLES[topic] || TOPIC_STYLES.General}`}>
       {topic}
     </span>
   );

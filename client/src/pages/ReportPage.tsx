@@ -70,7 +70,7 @@ type Target = {
   title?: string;
   userId?: string;
   username: string;
-};
+}; // target post/comment/reply being reported
 
 export default function ReportPage() {
   const navigate = useNavigate();
@@ -130,7 +130,7 @@ export default function ReportPage() {
             userId: data.is_anonymous ? undefined : data.user_id,
             username: data.username,
           });
-        } else {
+        } else { // target is comment/reply
           const res = await fetch(apiUrl(`/api/posts/${postId}/comments`), {
             headers: { Authorization: `Bearer ${token}` },
           });

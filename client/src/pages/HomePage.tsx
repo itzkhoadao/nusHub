@@ -144,12 +144,13 @@ export default function HomePage() {
       onSearchClear={clearSearch}
       onSearchSubmit={handleSearch}
       searchValue={search}
+      sidebarSize="compact"
       sidebar={
-        <div className="space-y-4">
+        <div className="forum-sidebar-stack space-y-4">
           <AiAssistantCard />
 
           {/* Right sidebar remembers posts/groups the user opened recently */}
-          <section className="app-section-card">
+          <section className="app-section-card forum-recent-panel">
             <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-app-muted">
               Recent
             </h2>
@@ -157,7 +158,7 @@ export default function HomePage() {
               <div className="space-y-3 text-sm font-semibold text-app-text">
                 {recentItems.map((item) => (
                   <Link
-                    className="group block rounded-lg border border-slate-200 bg-white p-3 shadow-sm ring-1 ring-slate-900/5 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:bg-primary-fixed/30 hover:text-primary"
+                    className="forum-recent-link group block rounded-lg border border-slate-200 bg-white p-3 shadow-sm ring-1 ring-slate-900/5"
                     key={`${item.type}-${item.id}`}
                     to={item.path}
                   >
@@ -178,9 +179,9 @@ export default function HomePage() {
       }
       user={user}
     >
-      <div className="space-y-6">
+      <div className="forum-refresh space-y-6">
         {/* Hero summary: tells the user what this feed is for */}
-        <section className="app-hero">
+        <section className="app-hero forum-hero">
           <p className="text-sm font-semibold uppercase tracking-wide text-primary-fixed-dim">
             NUSHub Community
           </p>
@@ -194,14 +195,15 @@ export default function HomePage() {
                 updates, and student discussions in one structured feed.
               </p>
             </div>
-            <Link className="app-button-secondary shrink-0" to="/create-post">
-              Create Post
+            <Link className="forum-hero-cta shrink-0" to="/create-post">
+              <span>Create Post</span>
+              <span aria-hidden="true">↗</span>
             </Link>
           </div>
         </section>
 
         {/* Sort and topic filters. Search lives in the topbar now. */}
-        <section className="app-section-card">
+        <section className="app-section-card forum-filter-panel">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h2 className="text-sm font-bold uppercase tracking-wide text-app-muted">
@@ -212,14 +214,10 @@ export default function HomePage() {
               </p>
             </div>
 
-            <div className="flex w-fit rounded-lg border border-slate-200 bg-surface-low p-1 shadow-inner">
+            <div className="forum-sort-control flex w-fit">
               {["recent", "popular"].map((option) => (
                 <button
-                  className={`rounded-md px-4 py-2 text-sm font-bold capitalize transition-colors ${
-                    sort === option
-                    ? "bg-primary text-white shadow-sm"
-                    : "text-app-muted hover:bg-white hover:text-primary"
-                  }`}
+                  className={sort === option ? "is-active" : ""}
                   key={option}
                   onClick={() => setSort(option)}
                   type="button"
@@ -230,14 +228,10 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="forum-topic-filters mt-4 flex flex-wrap gap-2">
             {TOPICS.map((item) => (
               <button
-                className={`rounded-full border px-4 py-1.5 text-sm font-bold transition-colors ${
-                  topic === item
-                    ? "border-primary bg-primary text-white shadow-sm"
-                    : "border-slate-200 bg-white text-app-muted shadow-sm hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary-fixed/30 hover:text-primary"
-                }`}
+                className={topic === item ? "is-active" : ""}
                 key={item}
                 onClick={() => setTopic(item)}
                 type="button"
@@ -250,7 +244,7 @@ export default function HomePage() {
 
         {/* Posts */}
         {loading ? (
-          <div className="space-y-4">
+          <div className="forum-card-list space-y-4">
             {[1, 2, 3].map((item) => (
               <div className="app-card animate-pulse p-5" key={item}>
                 <div className="mb-4 h-4 w-24 rounded bg-surface-high" />
