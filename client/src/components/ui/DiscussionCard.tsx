@@ -42,7 +42,7 @@ export default function DiscussionCard({ post, onDelete, onUpvote }) {
   
   const shouldShowFileSummary = attachmentCount > 0 && !shouldPreviewSingleMedia;
   const actionClass =
-    "flex h-10 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 text-xs font-bold text-app-muted shadow-sm ring-1 ring-slate-900/5 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:bg-primary-fixed/40 hover:text-primary";
+    "forum-card-action flex h-10 items-center gap-1.5 border bg-white px-4 text-xs font-bold text-app-muted";
   const authorAvatar = (
     <UserAvatar
       avatarUrl={post.avatar_url}
@@ -52,15 +52,15 @@ export default function DiscussionCard({ post, onDelete, onUpvote }) {
   );
 
   return (
-    <article className="group relative overflow-hidden rounded-lg border border-slate-200 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.06)] ring-1 ring-slate-900/5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/20 hover:shadow-[0_18px_44px_rgba(0,39,84,0.10)]">
-      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-primary-fixed to-secondary-container opacity-80" />
+    <article className="forum-discussion-card group relative overflow-hidden border bg-white p-5">
+      <div className="forum-card-accent absolute inset-x-0 top-0 h-1" />
       <div className="min-w-0">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             {canOpenProfile ? (
               <Link
                 aria-label={`View ${post.username}'s profile`}
-                className="transition-transform hover:-translate-y-0.5"
+                className="forum-card-avatar transition-transform"
                 to={profilePath}
               >
                 {authorAvatar}
@@ -89,20 +89,20 @@ export default function DiscussionCard({ post, onDelete, onUpvote }) {
             </div>
           </div>
 
-          <div className="shrink-0">
+          <div className="forum-card-topic shrink-0">
             <TopicBadge topic={post.topic} />
           </div>
         </div>
 
         <Link
           to={`/posts/${post.id}`}
-          className="block text-lg font-bold leading-snug text-app-text transition-colors hover:text-primary"
+          className="forum-card-title block text-lg font-bold leading-snug text-app-text"
         >
           {post.title}
         </Link>
 
         {post.content && (
-          <p className="mt-2 line-clamp-2 text-sm leading-6 text-app-muted">
+          <p className="forum-card-excerpt mt-2 line-clamp-2 text-sm leading-6 text-app-muted">
             {post.content}
           </p>
         )}
@@ -110,7 +110,7 @@ export default function DiscussionCard({ post, onDelete, onUpvote }) {
         {shouldPreviewSingleMedia && (
           <Link
             aria-label={`Open ${onlyAttachment.original_name}`}
-            className="mt-4 flex min-h-56 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-950 shadow-sm transition hover:shadow-md"
+            className="forum-card-media mt-4 flex min-h-56 items-center justify-center overflow-hidden border border-slate-200 bg-slate-950"
             to={`/posts/${post.id}`}
           >
             {isVideoAttachment(onlyAttachment.mime_type) ? (
@@ -137,7 +137,7 @@ export default function DiscussionCard({ post, onDelete, onUpvote }) {
             aria-label={`${attachmentCount} attached file${
               attachmentCount === 1 ? "" : "s"
             }`}
-            className="mt-4 flex items-center gap-4 rounded-xl border border-primary/25 bg-primary-fixed px-5 py-4 text-primary shadow-sm ring-1 ring-primary/10 transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+            className="forum-card-files mt-4 flex items-center gap-4 border border-primary/25 bg-primary-fixed px-5 py-4 text-primary"
             to={`/posts/${post.id}`}
           >
             <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white/80 shadow-sm">
@@ -154,7 +154,7 @@ export default function DiscussionCard({ post, onDelete, onUpvote }) {
           </Link>
         )}
 
-        <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-surface-variant pt-4 text-xs font-semibold text-app-muted">
+        <div className="forum-card-footer mt-5 flex flex-wrap items-center gap-3 border-t border-surface-variant pt-4 text-xs font-semibold text-app-muted">
           <VoteBlock
             active={post.upvoted}
             count={post.upvotes}

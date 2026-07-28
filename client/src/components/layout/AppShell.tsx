@@ -19,6 +19,7 @@ type AppShellProps = {
   searchValue?: string;
   user?: unknown;
   sidebar?: ReactNode;
+  sidebarSize?: "default" | "compact";
 };
 
 export default function AppShell({
@@ -30,6 +31,7 @@ export default function AppShell({
   searchValue = "",
   user,
   sidebar,
+  sidebarSize = "default",
 }: AppShellProps) {
   const navigate = useNavigate();
   const currentUserQuery = useQuery({
@@ -57,7 +59,13 @@ export default function AppShell({
         />
         <main className="app-container py-6 lg:py-8">
           {sidebar ? (
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+            <div
+              className={`grid gap-6 ${
+                sidebarSize === "compact"
+                  ? "xl:grid-cols-[minmax(0,1fr)_17rem]"
+                  : "xl:grid-cols-[minmax(0,1fr)_22rem]"
+              }`}
+            >
               <div className="min-w-0">{children}</div>
               <aside className="hidden xl:block">{sidebar}</aside>
             </div>
