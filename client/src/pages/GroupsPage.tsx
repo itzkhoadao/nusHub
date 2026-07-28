@@ -104,25 +104,29 @@ export default function GroupsPage() {
       onSearchClear={clearSearch}
       onSearchSubmit={() => {}}
       searchValue={search}
+      sidebarSize="compact"
       sidebar={
-        <div className="space-y-4">
+        <div className="forum-sidebar-stack groups-sidebar space-y-4">
           <AiAssistantCard
             description="Find study partners, summarize group resources, or ask for module planning ideas."
             title="AI Study Assistant"
           />
 
-          <section className="app-section-card">
+          <section className="app-section-card forum-recent-panel group-areas-panel">
             <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-app-muted">
               Active Study Areas
             </h2>
             <div className="space-y-3 text-sm">
               {["CS2040S", "CS2103T", "MA1521"].map((moduleCode) => (
                 <div
-                  className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-3 shadow-sm ring-1 ring-slate-900/5"
+                  className="group-area-item flex items-center justify-between border border-slate-200 bg-white p-3"
                   key={moduleCode}
                 >
-                  <span className="font-bold text-app-text">{moduleCode}</span>
-                  <span className="text-xs font-semibold text-app-muted">
+                  <span className="font-bold text-app-text">
+                    <i />
+                    {moduleCode}
+                  </span>
+                  <span className="text-xs font-semibold">
                     Trending
                   </span>
                 </div>
@@ -133,8 +137,8 @@ export default function GroupsPage() {
       }
       user={user}
     >
-      <div className="space-y-6">
-        <section className="app-hero">
+      <div className="groups-refresh space-y-6">
+        <section className="app-hero groups-hero">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="text-sm font-semibold uppercase tracking-wide text-primary-fixed-dim">
@@ -149,7 +153,9 @@ export default function GroupsPage() {
               </p>
             </div>
             <button
-              className="app-button-secondary shrink-0"
+              className={`groups-create-trigger shrink-0 ${
+                showCreateForm ? "is-active" : ""
+              }`}
               onClick={() => setShowCreateForm(!showCreateForm)}
               type="button"
             >
@@ -161,20 +167,33 @@ export default function GroupsPage() {
 
         {/* Create group form */}
         {showCreateForm && (
-          <section className="app-section-card">
-            <h2 className="mb-4 text-lg font-bold text-app-text">
-              Create a Study Group
-            </h2>
+          <section className="groups-create-panel">
+            <div className="groups-create-heading">
+              <div>
+                <p>Create together</p>
+                <h2 className="mt-1 text-lg font-bold text-app-text">
+                  Create a Study Group
+                </h2>
+              </div>
+              <button
+                aria-label="Close create group form"
+                className="groups-form-close"
+                onClick={() => setShowCreateForm(false)}
+                type="button"
+              >
+                <Icon name="x" className="h-4 w-4" />
+              </button>
+            </div>
 
             {error && (
-              <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm font-semibold text-app-danger">
+              <div className="groups-error mb-4 bg-red-50 p-3 text-sm font-semibold text-app-danger">
                 {error}
               </div>
             )}
 
-            <div className="space-y-3">
+            <div className="groups-form-grid">
               <input
-                className="app-input"
+                className="app-input groups-input"
                 onChange={(e) =>
                   setNewGroup({ ...newGroup, name: e.target.value })
                 }
@@ -182,7 +201,7 @@ export default function GroupsPage() {
                 value={newGroup.name}
               />
               <input
-                className="app-input"
+                className="app-input groups-input"
                 onChange={(e) =>
                   setNewGroup({
                     ...newGroup,
@@ -193,12 +212,12 @@ export default function GroupsPage() {
                 placeholder="Module code only (e.g. MA1521) - optional"
                 value={newGroup.module_code}
               />
-              <p className="text-xs font-semibold text-app-muted">
+              <p className="groups-form-helper text-xs font-semibold text-app-muted">
                 Put the full module title in the group name or description.
                 Module code is limited to 20 characters.
               </p>
               <textarea
-                className="app-input h-28 resize-none"
+                className="app-input groups-input groups-description-input h-28 resize-none"
                 onChange={(e) =>
                   setNewGroup({ ...newGroup, description: e.target.value })
                 }
@@ -207,9 +226,9 @@ export default function GroupsPage() {
               />
             </div>
 
-            <div className="mt-4 flex gap-2">
+            <div className="groups-form-actions mt-4 flex gap-2">
               <button
-                className="app-button-primary"
+                className="groups-primary-button"
                 disabled={creating}
                 onClick={handleCreateGroup}
                 type="button"
@@ -217,7 +236,7 @@ export default function GroupsPage() {
                 {creating ? "Creating..." : "Create Group"}
               </button>
               <button
-                className="app-button-ghost"
+                className="groups-secondary-button"
                 onClick={() => setShowCreateForm(false)}
                 type="button"
               >
@@ -229,9 +248,9 @@ export default function GroupsPage() {
 
         {/* Groups list */}
         {loading ? (
-          <div className="space-y-4">
+          <div className="groups-loading space-y-4">
             {[1, 2].map((item) => (
-              <div className="app-card animate-pulse p-5" key={item}>
+              <div className="group-feed-skeleton animate-pulse p-5" key={item}>
                 <div className="mb-4 h-4 w-20 rounded bg-surface-high" />
                 <div className="mb-3 h-5 w-1/2 rounded bg-surface-high" />
                 <div className="h-4 w-2/3 rounded bg-surface-high" />
@@ -239,13 +258,13 @@ export default function GroupsPage() {
             ))}
           </div>
         ) : groups.length === 0 ? (
-          <section className="app-empty-state">
+          <section className="app-empty-state groups-empty-state">
             <h2 className="text-xl font-bold text-app-text">No groups yet</h2>
             <p className="mt-2 text-sm text-app-muted">
               Create the first one and invite your classmates.
             </p>
             <button
-              className="app-button-primary mt-5"
+              className="groups-primary-button mt-5"
               onClick={() => setShowCreateForm(true)}
               type="button"
             >
@@ -253,39 +272,50 @@ export default function GroupsPage() {
             </button>
           </section>
         ) : (
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="groups-feed space-y-4">
             {groups.map((group) => (
               <Link
-                className="group relative block overflow-hidden rounded-lg border border-slate-200 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.06)] ring-1 ring-slate-900/5 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-[0_18px_44px_rgba(0,39,84,0.10)]"
+                className="group group-feed-card relative block overflow-hidden border border-slate-200 bg-white p-5 sm:p-6"
                 key={group.id}
                 to={`/groups/${group.id}`}
               >
-                <div className="flex items-start justify-between gap-4">
+                <div className="group-feed-layout flex flex-col gap-5 sm:flex-row sm:items-stretch sm:justify-between">
                   <div className="min-w-0">
-                    {group.module_code && (
-                      <span className="app-badge bg-emerald-50 text-emerald-700">
-                        {group.module_code}
+                    <div className="flex flex-wrap items-center gap-3">
+                      {group.module_code && (
+                        <span className="group-module-ticket">
+                          {group.module_code}
+                        </span>
+                      )}
+                      <span className="group-creator-meta text-xs font-semibold text-app-muted">
+                        Created by {group.creator_name || "Anonymous"}
                       </span>
-                    )}
-                    <h2 className="mt-3 text-lg font-bold leading-snug text-app-text group-hover:text-primary">
+                    </div>
+                    <h2 className="group-feed-title mt-3 text-xl font-bold leading-snug text-app-text">
                       {group.name}
                     </h2>
                     {group.description && (
-                      <p className="mt-2 line-clamp-2 text-sm leading-6 text-app-muted">
+                      <p className="group-feed-description mt-2 text-sm leading-6 text-app-muted">
                         {group.description}
                       </p>
                     )}
-                    <p className="mt-3 text-xs font-semibold text-app-muted">
-                      Created by {group.creator_name || "Anonymous"}
-                    </p>
+                    <span className="group-open-link mt-5 inline-flex items-center gap-2 text-sm font-bold">
+                      Open group
+                      <span aria-hidden="true">↗</span>
+                    </span>
                   </div>
 
-                  <div className="rounded-lg border border-primary/10 bg-primary-fixed/60 px-4 py-3 text-center shadow-sm">
+                  <div className="group-member-signal flex shrink-0 items-center gap-3 sm:w-36 sm:flex-col sm:justify-center">
+                    <span className="group-member-icon">
+                      <Icon name="groups" className="h-5 w-5" />
+                    </span>
+                    <div className="text-left sm:text-center">
                     <div className="text-2xl font-bold text-primary">
                       {group.member_count}
                     </div>
                     <div className="text-xs font-semibold text-app-muted">
                       members
+                    </div>
                     </div>
                   </div>
                 </div>
