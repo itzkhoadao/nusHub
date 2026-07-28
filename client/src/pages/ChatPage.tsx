@@ -49,17 +49,57 @@ function getLocalDateKey(value: string | Date) {
   });
 }
 
+function getLocalDayNumber(value: string | Date) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: userTimeZone,
+    year: "numeric",
+  }).formatToParts(new Date(value));
+  const partValue = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === type)?.value || 0);
+
+  return (
+    Date.UTC(partValue("year"), partValue("month") - 1, partValue("day")) /
+    (24 * 60 * 60 * 1000)
+  );
+}
+
 // converts db time into readable time
 function formatTime(value: string | null) {
   if (!value) {
     return "";
   }
 
-  return new Date(value).toLocaleTimeString([], {
+  const date = new Date(value);
+  const calendarDaysAgo = getLocalDayNumber(new Date()) - getLocalDayNumber(date);
+  const time = date.toLocaleTimeString("en-GB", {
     hour: "2-digit",
+    hour12: false,
     minute: "2-digit",
     timeZone: userTimeZone,
-  }); // for ex, 06:50
+  });
+
+  if (calendarDaysAgo === 0) {
+    return time;
+  }
+
+  if (calendarDaysAgo >= 1 && calendarDaysAgo <= 3) {
+    const weekday = date.toLocaleDateString("en-GB", {
+      timeZone: userTimeZone,
+      weekday: "short",
+    });
+
+    return `${weekday} ${time}`;
+  }
+
+  const dateLabel = date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: userTimeZone,
+  });
+
+  return `${dateLabel} ${time}`;
 }
 
 function formatDateLabel(value: string | null) {
@@ -605,27 +645,27 @@ export default function ChatPage() {
 
   return (
     <AppShell contextualPlaceholder="Search chats..." user={user}>
-      <section className="grid h-[calc(100vh-8rem)] min-h-0 overflow-hidden rounded-lg border border-surface-variant bg-white shadow-soft lg:grid-cols-[21rem_minmax(0,1fr)]">
-        <aside className="flex min-h-0 flex-col border-b border-surface-variant bg-surface-low lg:border-b-0 lg:border-r">
-          <div className="border-b border-surface-variant p-5">
+      <section className="chat-refresh chat-workspace grid h-[calc(100vh-8rem)] min-h-0 overflow-hidden border border-surface-variant bg-white lg:grid-cols-[19.5rem_minmax(0,1fr)]">
+        <aside className="chat-conversation-panel flex min-h-0 flex-col border-b border-surface-variant lg:border-b-0 lg:border-r">
+          <div className="chat-list-header border-b border-surface-variant p-5">
             <p className="text-sm font-semibold uppercase tracking-wide text-primary">
               Messages
             </p>
             <h1 className="mt-1 text-2xl font-bold text-app-text">Chat</h1>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto p-3">
+          <div className="chat-conversation-scroll min-h-0 flex-1 overflow-y-auto p-3">
             {conversationsQuery.isLoading ? (
               <p className="p-3 text-sm font-semibold text-app-muted">
                 Loading conversations...
               </p>
             ) : conversations.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-surface-variant bg-white p-4 text-sm text-app-muted">
+              <div className="chat-list-empty border border-dashed border-surface-variant bg-white p-4 text-sm text-app-muted">
                 No conversations yet. Open another user's profile and start a
                 chat from there.
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="chat-conversation-list space-y-2">
                 {conversations.map((conversation) => {
                   const isActive = conversation.id === conversationId;
                   const displayName =
@@ -641,13 +681,9 @@ export default function ChatPage() {
 
                   return (
                     <Link
-                      className={`flex gap-3 rounded-lg border p-3 transition-colors ${
-                        isActive
-                          ? "border-primary/25 bg-primary-fixed text-primary"
-                          : hasUnread
-                            ? "border-secondary-container/25 bg-white text-app-text shadow-sm"
-                            : "border-transparent bg-white text-app-text hover:border-surface-variant hover:bg-surface-low"
-                      }`}
+                      className={`chat-conversation-item flex gap-3 border p-3 ${
+                        isActive ? "is-active" : ""
+                      } ${hasUnread ? "has-unread" : ""}`}
                       key={conversation.id}
                       to={`/chat/${conversation.id}`}
                     >
@@ -672,7 +708,7 @@ export default function ChatPage() {
                           </p>
                           <div className="flex shrink-0 items-center gap-2">
                             {hasUnread && (
-                              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-secondary-container px-1.5 text-[11px] font-bold text-white">
+                              <span className="chat-unread-badge flex h-5 min-w-5 items-center justify-center px-1.5 text-[11px] font-bold text-white">
                                 {unreadCount > 9 ? "9+" : unreadCount}
                               </span>
                             )}
@@ -705,10 +741,10 @@ export default function ChatPage() {
           </div>
         </aside>
 
-        <div className="flex min-h-0 flex-col">
+        <div className="chat-thread-panel flex min-h-0 flex-col">
           {activeConversation ? (
             <>
-              <header className="flex items-center justify-between border-b border-surface-variant px-5 py-4">
+              <header className="chat-thread-header flex items-center justify-between border-b border-surface-variant px-5 py-4">
                 <div className="flex min-w-0 items-center gap-3">
                   {activeProfilePath ? (
                     <Link
@@ -749,7 +785,9 @@ export default function ChatPage() {
                     </h2>
                   </div>
                 </div>
-                <Icon name="message" className="h-5 w-5 text-primary" />
+                <span className="chat-header-signal">
+                  <Icon name="message" className="h-5 w-5" />
+                </span>
               </header>
 
               {displayedError && (
@@ -758,13 +796,13 @@ export default function ChatPage() {
                 </div>
               )}
 
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-surface-low px-5 py-5">
+              <div className="chat-message-scroll min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-5">
                 {messagesQuery.isLoading ? (
                   <p className="text-sm font-semibold text-app-muted">
                     Loading messages...
                   </p>
                 ) : messages.length === 0 ? (
-                  <div className="mx-auto mt-16 max-w-sm rounded-lg border border-dashed border-surface-variant bg-white p-6 text-center">
+                  <div className="chat-thread-empty mx-auto mt-16 max-w-sm border border-dashed border-surface-variant bg-white p-6 text-center">
                     <Icon
                       name="message"
                       className="mx-auto h-8 w-8 text-primary"
@@ -790,17 +828,17 @@ export default function ChatPage() {
                         : message.reply_to_sender_username || "Message";
 
                     return (
-                      <div className="space-y-3" key={message.id}>
+                      <div className="chat-message-entry space-y-3" key={message.id}>
                         {showDate && (
                           <div className="flex justify-center">
-                            <span className="rounded-full border border-surface-variant bg-white px-3 py-1 text-xs font-bold text-app-muted shadow-sm">
+                            <span className="chat-date-divider border border-surface-variant bg-white px-3 py-1 text-xs font-bold text-app-muted">
                               {formatDateLabel(message.created_at)}
                             </span>
                           </div>
                         )}
                         <div
-                          className={`flex ${
-                            isMine ? "justify-end" : "justify-start"
+                          className={`chat-message-row flex ${
+                            isMine ? "is-mine justify-end" : "is-other justify-start"
                           }`}
                         >
                           {!isMine && (
@@ -818,18 +856,14 @@ export default function ChatPage() {
                             </Link>
                           )}
                           <div
-                            className={`max-w-[min(34rem,80%)] rounded-2xl px-4 py-3 shadow-sm ${
-                              isMine
-                                ? "rounded-br-md bg-primary text-white"
-                                : "rounded-bl-md bg-white text-app-text"
+                            className={`chat-message-bubble max-w-[min(34rem,80%)] px-4 py-3 ${
+                              isMine ? "is-mine" : "is-other"
                             }`}
                           >
                             {message.reply_to_message_id && (
                               <div
-                                className={`mb-2 rounded-lg border-l-4 px-3 py-2 text-xs ${
-                                  isMine
-                                    ? "border-white/60 bg-white/10 text-white/80"
-                                    : "border-primary/40 bg-primary-fixed/40 text-app-muted"
+                                className={`chat-reply-quote mb-2 px-3 py-2 text-xs ${
+                                  isMine ? "is-mine" : "is-other"
                                 }`}
                               >
                                 <p className="font-bold">{replyAuthor}</p>
@@ -849,7 +883,7 @@ export default function ChatPage() {
                                   if (isImageAttachment(attachment.mime_type)) {
                                     return (
                                       <a
-                                        className="block overflow-hidden rounded-xl border border-white/20 bg-black/5"
+                                        className="chat-image-attachment block overflow-hidden border border-white/20 bg-black/5"
                                         href={attachmentUrl}
                                         key={attachment.id}
                                         rel="noreferrer"
@@ -866,10 +900,8 @@ export default function ChatPage() {
 
                                   return (
                                     <a
-                                      className={`flex items-center gap-3 rounded-xl border px-3 py-2 text-sm transition-colors ${
-                                        isMine
-                                          ? "border-white/20 bg-white/10 text-white hover:bg-white/15"
-                                          : "border-surface-variant bg-surface-low text-app-text hover:bg-primary-fixed/40"
+                                      className={`chat-file-attachment flex items-center gap-3 border px-3 py-2 text-sm ${
+                                        isMine ? "is-mine" : "is-other"
                                       }`}
                                       href={attachmentUrl}
                                       key={attachment.id}
@@ -900,11 +932,11 @@ export default function ChatPage() {
                               </div>
                             )}
                             {message.body && (
-                              <p className="whitespace-pre-wrap text-sm leading-6">
+                              <p className="chat-message-body whitespace-pre-wrap text-sm leading-6">
                                 {message.body}
                               </p>
                             )}
-                            <div className="mt-2 flex items-center justify-between gap-3">
+                            <div className="chat-message-meta mt-2 flex items-center justify-between gap-3">
                               <p
                                 className={`text-[11px] font-semibold ${
                                   isMine ? "text-white/70" : "text-app-muted"
@@ -920,10 +952,8 @@ export default function ChatPage() {
                                 )}
                               </p>
                               <button
-                                className={`text-[11px] font-bold transition-colors ${
-                                  isMine
-                                    ? "text-white/70 hover:text-white"
-                                    : "text-primary hover:text-primary-container"
+                                className={`chat-message-reply text-[11px] font-bold ${
+                                  isMine ? "is-mine" : "is-other"
                                 }`}
                                 onClick={() => setReplyingTo(message)}
                                 type="button"
@@ -941,11 +971,11 @@ export default function ChatPage() {
               </div>
 
               <form
-                className="border-t border-surface-variant bg-white p-4"
+                className="chat-composer border-t border-surface-variant bg-white p-4"
                 onSubmit={handleSendMessage}
               >
                 {replyingTo && (
-                  <div className="mb-3 flex items-start justify-between gap-3 rounded-lg border border-primary/20 bg-primary-fixed/30 px-4 py-3">
+                  <div className="chat-composer-reply mb-3 flex items-start justify-between gap-3 border border-primary/20 px-4 py-3">
                     <div className="min-w-0">
                       <p className="text-xs font-bold uppercase tracking-wide text-primary">
                         Replying to{" "}
@@ -959,7 +989,7 @@ export default function ChatPage() {
                     </div>
                     <button
                       aria-label="Cancel reply"
-                      className="shrink-0 rounded-md px-2 py-1 text-sm font-bold text-primary transition-colors hover:bg-white"
+                      className="chat-reply-cancel shrink-0 px-2 py-1 text-sm font-bold text-primary"
                       onClick={() => setReplyingTo(null)}
                       type="button"
                     >
@@ -971,7 +1001,7 @@ export default function ChatPage() {
                   <div className="mb-3 flex flex-wrap gap-2">
                     {selectedFiles.map((file, index) => (
                       <div
-                        className="flex max-w-full items-center gap-2 rounded-lg border border-surface-variant bg-surface-low px-3 py-2 text-sm text-app-text"
+                        className="chat-composer-file flex max-w-full items-center gap-2 border border-surface-variant px-3 py-2 text-sm text-app-text"
                         key={`${file.name}-${file.lastModified}-${index}`}
                       >
                         <Icon name="file" className="h-4 w-4 shrink-0" />
@@ -985,7 +1015,7 @@ export default function ChatPage() {
                         </span>
                         <button
                           aria-label={`Remove ${file.name}`}
-                          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-app-muted transition-colors hover:bg-white hover:text-app-danger"
+                          className="chat-file-remove flex h-6 w-6 shrink-0 items-center justify-center text-app-muted"
                           onClick={() => removeSelectedFile(index)}
                           type="button"
                         >
@@ -1005,7 +1035,7 @@ export default function ChatPage() {
                   />
                   <button
                     aria-label="Attach files"
-                    className="mb-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-surface-variant bg-white text-primary transition-colors hover:bg-primary-fixed"
+                    className="chat-tool-button mb-1 flex h-10 w-10 shrink-0 items-center justify-center border border-surface-variant bg-white text-primary"
                     onClick={() => fileInputRef.current?.click()}
                     type="button"
                   >
@@ -1014,7 +1044,7 @@ export default function ChatPage() {
                   <div className="relative flex min-w-0 flex-1 items-end gap-2">
                     {isEmojiPickerOpen && (
                       <div
-                        className="absolute bottom-14 right-0 z-20 w-[min(22rem,calc(100vw-3rem))] overflow-hidden rounded-2xl border border-surface-variant bg-white shadow-[0_22px_70px_rgba(15,23,42,0.22)]"
+                        className="chat-emoji-popover absolute bottom-14 right-0 z-20 w-[min(22rem,calc(100vw-3rem))] overflow-hidden border border-surface-variant bg-white"
                         ref={emojiPickerRef}
                       >
                         <Suspense
@@ -1039,7 +1069,7 @@ export default function ChatPage() {
                       </div>
                     )}
                     <textarea
-                      className="app-input min-h-12 flex-1 resize-none pr-12"
+                      className="app-input chat-draft-input min-h-12 flex-1 resize-none pr-12"
                       onChange={(event) => setDraft(event.target.value)}
                       onKeyDown={handleDraftKeyDown}
                       placeholder={
@@ -1054,7 +1084,7 @@ export default function ChatPage() {
                     <button
                       aria-expanded={isEmojiPickerOpen}
                       aria-label="Choose emoji"
-                      className="absolute bottom-2.5 right-3 flex h-7 w-7 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary-fixed"
+                      className="chat-emoji-button absolute bottom-2.5 right-3 flex h-7 w-7 items-center justify-center text-primary"
                       onClick={() =>
                         setIsEmojiPickerOpen((currentValue) => !currentValue)
                       }
@@ -1065,7 +1095,7 @@ export default function ChatPage() {
                     </button>
                   </div>
                   <button
-                    className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full bg-gradient-to-r from-primary to-secondary-container px-4 text-sm font-bold text-white shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-lg disabled:translate-y-0 disabled:cursor-not-allowed disabled:from-outline disabled:to-outline disabled:opacity-70"
+                    className="chat-send-button inline-flex h-10 shrink-0 items-center gap-2 px-4 text-sm font-bold"
                     disabled={
                       sendMessageMutation.isPending ||
                       (!draft.trim() && selectedFiles.length === 0)
@@ -1079,12 +1109,11 @@ export default function ChatPage() {
               </form>
             </>
           ) : (
-            <div className="flex flex-1 items-center justify-center p-8">
+            <div className="chat-select-empty flex flex-1 items-center justify-center p-8">
               <div className="max-w-md text-center">
-                <Icon
-                  name="message"
-                  className="mx-auto h-10 w-10 text-primary"
-                />
+                <span className="chat-select-icon">
+                  <Icon name="message" className="h-7 w-7" />
+                </span>
                 <h2 className="mt-4 text-2xl font-bold text-app-text">
                   Select a chat
                 </h2>

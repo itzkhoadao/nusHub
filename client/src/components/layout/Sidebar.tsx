@@ -186,13 +186,17 @@ export default function Sidebar({ onCreatePost }) {
   }, [chatUnreadCount]);
 
   return (
-    <aside className="hidden w-72 shrink-0 border-r border-surface-variant bg-white px-5 py-6 lg:block">
-      <Link to="/" className="mb-8 block">
-        <Logo />
+    <aside className="app-sidebar hidden w-72 shrink-0 border-r border-surface-variant bg-white px-5 py-6 lg:block">
+      <Link to="/" className="app-sidebar-brand mb-8 block">
+        <Logo
+          className="flex items-center gap-3"
+          iconClassName="app-sidebar-logo-mark h-10 w-10"
+          textClassName="app-sidebar-wordmark"
+        />
       </Link>
 
-      <nav className="space-y-1">
-        <p className="mb-3 px-3 text-xs font-bold uppercase tracking-wide text-app-muted">
+      <nav className="app-sidebar-nav space-y-1">
+        <p className="app-sidebar-eyebrow mb-3 px-3 text-xs font-bold uppercase text-app-muted">
           Navigation
         </p>
         {NAV_ITEMS.map((item) => {
@@ -203,14 +207,14 @@ export default function Sidebar({ onCreatePost }) {
             <Link
               key={item.label}
               to={item.to}
-              className={`relative flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-colors ${
-                isActive
-                  ? "bg-primary-fixed text-primary"
-                  : "text-app-muted hover:bg-surface-low hover:text-primary"
+              className={`app-sidebar-link relative flex items-center gap-3 px-3 py-3 text-sm font-semibold ${
+                isActive ? "is-active" : ""
               }`}
             >
-              <Icon name={item.icon} />
-              {item.label}
+              <span className="app-sidebar-link-icon">
+                <Icon name={item.icon} />
+              </span>
+              <span>{item.label}</span>
               {item.label === "Chat" && chatUnreadCount > 0 && (
                 <span
                   className={`app-notification-badge ml-auto ${
@@ -226,7 +230,7 @@ export default function Sidebar({ onCreatePost }) {
       </nav>
 
       <button
-        className="app-button-secondary mt-8 w-full py-3"
+        className="app-sidebar-create mt-8 w-full py-3"
         onClick={onCreatePost}
         type="button"
       >

@@ -177,7 +177,7 @@ export default function Topbar({
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b border-surface-variant bg-white/95 backdrop-blur">
+    <header className="app-topbar sticky top-0 z-40 border-b border-surface-variant bg-white/95 backdrop-blur">
       <div className="app-container flex h-16 items-center gap-4">
         {hasSearch ? (
           <form className="relative flex-1" onSubmit={handleSubmit}>
@@ -219,8 +219,9 @@ export default function Topbar({
         <div className="relative" ref={notificationsRef}>
           <button
             aria-expanded={notificationsOpen}
+            aria-haspopup="menu"
             aria-label="Notifications"
-            className="relative rounded-full p-2 text-app-muted transition-colors hover:bg-surface-low hover:text-primary"
+            className="topbar-icon-button relative p-2 text-app-muted"
             onClick={openNotifications}
             type="button"
           >
@@ -239,8 +240,8 @@ export default function Topbar({
           </button>
 
           {notificationsOpen && (
-            <div className="absolute right-0 top-12 z-50 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-surface-variant bg-white shadow-[0_24px_70px_rgba(15,23,42,0.22)]">
-              <div className="flex items-center justify-between border-b border-surface-variant px-4 py-3">
+            <div className="topbar-notification-panel absolute right-0 top-12 z-50 w-[min(24rem,calc(100vw-2rem))] overflow-hidden border border-surface-variant bg-white">
+              <div className="topbar-popover-header flex items-center justify-between border-b border-surface-variant px-4 py-3">
                 <div>
                   <h2 className="text-sm font-bold text-app-text">
                     Notifications
@@ -256,7 +257,7 @@ export default function Topbar({
                 )}
               </div>
 
-              <div className="max-h-96 overflow-y-auto py-2">
+              <div className="topbar-notification-list max-h-96 overflow-y-auto p-2">
                 {notificationsQuery.isLoading ? (
                   <p className="px-4 py-6 text-center text-sm font-semibold text-app-muted">
                     Loading notifications...
@@ -268,17 +269,15 @@ export default function Topbar({
                 ) : (
                   notifications.map((notification) => (
                     <Link
-                      className={`block border-l-4 px-4 py-3 transition-colors hover:bg-primary-fixed/30 ${
-                        notification.read_at
-                          ? "border-transparent"
-                          : "border-secondary-container bg-orange-50/50"
+                      className={`topbar-notification-row block px-3 py-3 ${
+                        notification.read_at ? "" : "is-unread"
                       }`}
                       key={notification.id}
                       onClick={() => setNotificationsOpen(false)}
                       to={notification.link_path}
                     >
                       <div className="flex gap-3">
-                        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-primary">
+                        <span className="topbar-notification-icon mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center">
                           <Icon
                             name={
                               notification.type.includes("upvote")
@@ -292,7 +291,7 @@ export default function Topbar({
                           <p className="line-clamp-2 text-sm font-semibold leading-5 text-app-text">
                             {notification.message}
                           </p>
-                          <p className="mt-1 text-xs font-semibold text-app-muted">
+                          <p className="topbar-notification-time mt-1 text-xs font-semibold text-app-muted">
                             {new Date(notification.created_at).toLocaleString(
                               [],
                               {
@@ -316,8 +315,9 @@ export default function Topbar({
         <div className="relative" ref={accountMenuRef}>
           <button
             aria-expanded={accountOpen}
+            aria-haspopup="menu"
             aria-label="Open account menu"
-            className="rounded-full transition-opacity hover:opacity-90"
+            className="topbar-account-trigger"
             onClick={() => setAccountOpen(!accountOpen)}
             type="button"
           >
@@ -330,9 +330,9 @@ export default function Topbar({
           </button>
 
           {accountOpen && (
-            <div className="absolute right-0 top-12 z-50 w-44 overflow-hidden rounded-xl border border-surface-variant bg-white shadow-raised">
+            <div className="topbar-account-menu absolute right-0 top-12 z-50 w-48 overflow-hidden border border-surface-variant bg-white p-1.5">
               <button
-                className="block w-full px-4 py-3 text-left text-sm font-semibold text-app-text transition-colors hover:bg-surface-low hover:text-primary"
+                className="topbar-account-action flex w-full items-center justify-between px-3 py-3 text-left text-sm font-semibold text-app-text"
                 onClick={() => {
                   setAccountOpen(false);
                   navigate("/profile");
@@ -342,7 +342,7 @@ export default function Topbar({
                 My Profile
               </button>
               <button
-                className="block w-full px-4 py-3 text-left text-sm font-semibold text-app-danger transition-colors hover:bg-red-50"
+                className="topbar-account-action is-danger flex w-full items-center justify-between px-3 py-3 text-left text-sm font-semibold text-app-danger"
                 onClick={handleSignOut}
                 type="button"
               >
