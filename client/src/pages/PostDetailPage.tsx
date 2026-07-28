@@ -9,6 +9,7 @@ import VoteBlock from "../components/ui/VoteBlock";
 import ContentActionMenu from "../components/ui/ContentActionMenu";
 import { API_URL, apiUrl } from "../utils/api";
 import { getAuthToken, getStoredUser } from "../utils/authStorage";
+import { getRecentActivity } from "../utils/recentActivity";
 
 function formatFileSize(size: number) {
   if (size < 1024 * 1024) {
@@ -43,8 +44,9 @@ export default function PostDetailPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [recentItems, setRecentItems] = useState([]);
   const postActionClass =
-    "flex h-10 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 text-sm font-bold text-app-muted shadow-sm ring-1 ring-slate-900/5 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:bg-primary-fixed/40 hover:text-primary";
+    "post-detail-action flex h-10 items-center gap-1.5 px-4 text-sm font-bold";
 
   const user = getStoredUser(); // gets the saved user from the browser
 
@@ -97,6 +99,20 @@ export default function PostDetailPage() {
     fetchPost();
     fetchComments();
   }, [id]);
+
+  // Keep the right sidebar in sync with the forum home's recent activity.
+  useEffect(() => {
+    const fetchRecentItems = async () => {
+      setRecentItems(await getRecentActivity());
+    };
+
+    fetchRecentItems();
+    window.addEventListener("focus", fetchRecentItems);
+
+    return () => {
+      window.removeEventListener("focus", fetchRecentItems);
+    };
+  }, [user?.id]);
 
   // send typed comment text to backend
   // If successful, it clears the form and reloads comments
@@ -309,10 +325,10 @@ export default function PostDetailPage() {
     const depthColor = depth % 3 === 1 ? "border-l-primary/25" : "border-l-orange-200";
     const avatarSize = isNested ? "h-9 w-9 text-xs" : "h-10 w-10 text-sm";
     const wrapperIndent = isNested
-      ? `ml-4 border-l-2 ${depthColor} pl-4 sm:ml-6`
+      ? `post-detail-reply-branch ml-4 border-l-2 ${depthColor} pl-4 sm:ml-6`
       : ""; // later recursive calls, bigger depth => more indent levels
     const actionClass =
-      "flex h-10 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 text-xs font-bold text-app-muted shadow-sm ring-1 ring-slate-900/5 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:bg-primary-fixed/40 hover:text-primary";
+      "post-detail-action flex h-10 items-center gap-1.5 px-4 text-xs font-bold";
     const avatar = (
       <UserAvatar
         avatarUrl={comment.avatar_url}
@@ -336,14 +352,16 @@ export default function PostDetailPage() {
     };
 
     return (
-      <div className={`${wrapperIndent} space-y-3`} key={comment.id}>
+      <div
+        className={`post-detail-comment-branch ${wrapperIndent} space-y-3`}
+        key={comment.id}
+      >
         <article
-          className={`relative overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.05)] ring-1 ring-slate-900/5 transition-all hover:-translate-y-0.5 hover:border-primary/20 hover:shadow-[0_16px_38px_rgba(0,39,84,0.09)] ${
+          className={`post-detail-comment-card relative overflow-hidden border border-slate-200 bg-white ${
             isNested ? "p-4" : "p-5"
           }`}
         >
-          <div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-primary-fixed via-white to-secondary-fixed opacity-80" />
-          <div className="mb-4 flex min-w-0 items-center gap-3">
+          <div className="post-detail-comment-author mb-4 flex min-w-0 items-center gap-3">
             {canOpenProfile ? (
               <Link
                 aria-label={`View ${comment.username}'s profile`}
@@ -383,6 +401,7 @@ export default function PostDetailPage() {
               active={comment.upvoted}
               count={comment.upvotes}
               onUpvote={() => handleCommentUpvote(comment.id)}
+              variant="detail"
             />
             <button
               className={actionClass}
@@ -402,9 +421,9 @@ export default function PostDetailPage() {
           </div>
         </article>
         {isReplying && (
-          <div className="rounded-lg border border-primary/15 bg-white p-4 shadow-[0_12px_28px_rgba(0,39,84,0.07)] ring-1 ring-primary/10">
+          <div className="post-detail-reply-editor border border-primary/15 bg-white p-4">
             <textarea
-              className="app-input min-h-16 resize-none bg-white py-2 text-sm shadow-inner"
+              className="app-input post-detail-textarea min-h-16 resize-none bg-white py-2 text-sm"
               onChange={(event) => setReplyContent(event.target.value)}
               onKeyDown={(event) => handleReplyKeyDown(event, comment.id)}
               placeholder={`Reply to ${comment.username}...`}
@@ -414,7 +433,7 @@ export default function PostDetailPage() {
               <label className="flex cursor-pointer select-none items-center gap-3">
                 <button
                   aria-pressed={replyIsAnonymous}
-                  className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                  className={`post-detail-toggle relative h-6 w-11 shrink-0 rounded-full transition-colors ${
                     replyIsAnonymous ? "bg-primary" : "bg-surface-highest"
                   }`}
                   onClick={() => setReplyIsAnonymous(!replyIsAnonymous)}
@@ -433,7 +452,7 @@ export default function PostDetailPage() {
 
               <div className="flex gap-2">
                 <button
-                  className="app-button-ghost"
+                  className="post-detail-button-secondary"
                   onClick={() => {
                     setReplyingTo(null);
                     setReplyContent("");
@@ -444,7 +463,7 @@ export default function PostDetailPage() {
                   Cancel
                 </button>
                 <button
-                  className="app-button-primary"
+                  className="post-detail-button-primary"
                   disabled={submitting}
                   onClick={() => handleSubmitReply(comment.id)}
                   type="button"
@@ -475,41 +494,47 @@ export default function PostDetailPage() {
   return (
     <AppShell
       contextualPlaceholder="Search post..."
+      sidebarSize="compact"
       sidebar={
-        <div className="space-y-4">
+        <div className="forum-sidebar-stack post-detail-sidebar space-y-4">
           <AiAssistantCard
             description="Summarize this thread, find related discussions, or ask for study tips."
             title="Ask About This Thread"
           />
 
-          {/* Related posts are UI-only for now. Later they can come from a backend endpoint. */}
-          <section className="app-card p-5">
+          {/* Same recent activity panel used on the forum home page. */}
+          <section className="app-section-card forum-recent-panel">
             <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-app-muted">
-              Related Posts
+              Recent
             </h2>
-            <div className="space-y-3">
-              {[
-                "Cheatsheet for Heap Sort and Priority Queues",
-                "Is it worth using Tries for the next Problem Set?",
-                "Mid-term venue allocations are out!",
-              ].map((title) => (
-                <Link
-                  className="block rounded-lg border border-surface-variant bg-white p-3 text-sm font-semibold transition-colors hover:border-primary hover:text-primary"
-                  key={title}
-                  to="/"
-                >
-                  {title}
-                </Link>
-              ))}
-            </div>
+            {recentItems.length > 0 ? (
+              <div className="space-y-3 text-sm font-semibold text-app-text">
+                {recentItems.map((item) => (
+                  <Link
+                    className="forum-recent-link group block rounded-lg border border-slate-200 bg-white p-3 shadow-sm ring-1 ring-slate-900/5"
+                    key={`${item.type}-${item.id}`}
+                    to={item.path}
+                  >
+                    <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-app-muted">
+                      {item.type === "group" ? "Group" : "Post"}
+                    </span>
+                    {item.title}
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-app-muted">
+                Open a post or study group to see it here.
+              </p>
+            )}
           </section>
         </div>
       }
       user={user}
     >
-      <div className="space-y-6">
+      <div className="post-detail-refresh space-y-6">
         <Link
-          className="inline-flex w-fit items-center gap-2 rounded-full border border-primary bg-white px-5 py-2.5 text-sm font-bold text-primary shadow-sm transition-all hover:-translate-y-0.5 hover:bg-primary-fixed focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
+          className="post-detail-back inline-flex w-fit items-center gap-2 px-4 py-2.5 text-sm font-bold text-primary focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20"
           to="/"
         >
           <Icon name="arrowLeft" className="h-4 w-4 shrink-0" />
@@ -518,9 +543,8 @@ export default function PostDetailPage() {
 
         {/* Main post card */}
         {post && (
-          <article className="relative overflow-hidden rounded-lg border border-slate-200 bg-white p-5 shadow-[0_18px_48px_rgba(15,23,42,0.07)] ring-1 ring-slate-900/5 md:p-6">
-            <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-primary via-primary-fixed to-secondary-container" />
-            <div className="mb-5 flex items-start justify-between gap-3">
+          <article className="post-detail-main relative overflow-hidden border border-slate-200 bg-white p-5 md:p-6">
+            <div className="post-detail-author mb-5 flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
                 {post.is_anonymous || !post.user_id ? (
                   <UserAvatar
@@ -570,12 +594,12 @@ export default function PostDetailPage() {
               </div>
             </div>
 
-            <h1 className="text-2xl font-bold leading-tight text-app-text md:text-3xl">
+            <h1 className="post-detail-title text-2xl font-bold leading-tight text-app-text md:text-3xl">
               {post.title}
             </h1>
 
             {post.content && (
-              <p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-app-muted md:text-base">
+              <p className="post-detail-content mt-4 whitespace-pre-wrap text-sm leading-7 text-app-muted md:text-base">
                 {post.content}
               </p>
             )}
@@ -588,7 +612,7 @@ export default function PostDetailPage() {
 
                   return (
                     <a
-                      className="group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-900/5 transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+                      className="post-detail-attachment group overflow-hidden border border-slate-200 bg-white"
                       href={attachmentUrl}
                       key={attachment.id || attachment.storage_key}
                       rel="noreferrer"
@@ -635,11 +659,12 @@ export default function PostDetailPage() {
               </div>
             )}
 
-            <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-surface-variant pt-4 text-sm font-semibold text-app-muted">
+            <div className="post-detail-actions mt-6 flex flex-wrap items-center gap-3 border-t border-surface-variant pt-4 text-sm font-semibold text-app-muted">
               <VoteBlock
                 active={post.upvoted}
                 count={post.upvotes}
                 onUpvote={handlePostUpvote}
+                variant="detail"
               />
               <button
                 className={postActionClass}
@@ -667,7 +692,7 @@ export default function PostDetailPage() {
         )}
 
         {/* Comment input */}
-        <section className="app-card p-5">
+        <section className="app-card post-detail-composer p-5">
           <h2 className="mb-4 text-lg font-bold text-app-text">
             {comments.length} Comment{comments.length !== 1 ? "s" : ""}
           </h2>
@@ -679,7 +704,7 @@ export default function PostDetailPage() {
           )}
 
           <textarea
-            className="app-input min-h-28 resize-none"
+            className="app-input post-detail-textarea min-h-28 resize-none"
             onChange={(e) => setNewComment(e.target.value)}
             onKeyDown={handleCommentKeyDown}
             placeholder="What are your thoughts?"
@@ -690,7 +715,7 @@ export default function PostDetailPage() {
             <label className="flex cursor-pointer select-none items-center gap-3">
               <button
                 aria-pressed={isAnonymous}
-                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                className={`post-detail-toggle relative h-6 w-11 shrink-0 rounded-full transition-colors ${
                   isAnonymous ? "bg-primary" : "bg-surface-highest"
                 }`}
                 onClick={() => setIsAnonymous(!isAnonymous)}
@@ -709,7 +734,7 @@ export default function PostDetailPage() {
 
             <div className="flex gap-2">
               <button
-                className="app-button-ghost"
+                className="post-detail-button-secondary"
                 onClick={() => {
                   setNewComment("");
                   setIsAnonymous(false);
@@ -720,7 +745,7 @@ export default function PostDetailPage() {
                 Cancel
               </button>
               <button
-                className="app-button-primary"
+                className="post-detail-button-primary"
                 disabled={submitting}
                 onClick={handleSubmitComment}
                 type="button"
@@ -733,11 +758,11 @@ export default function PostDetailPage() {
 
         {/* Comments list */}
         {comments.length === 0 ? (
-          <section className="app-card p-8 text-center text-sm text-app-muted">
+          <section className="app-card post-detail-empty p-8 text-center text-sm text-app-muted">
             No comments yet. Be the first!
           </section>
         ) : (
-          <div className="space-y-4">
+          <div className="post-detail-thread space-y-4">
             {topLevelComments.map((comment) => renderCommentCard(comment))}
           </div>
         )}

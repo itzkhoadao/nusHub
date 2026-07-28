@@ -1,9 +1,49 @@
-export default function VoteBlock({ count = 0, onUpvote, active = false }) {
+export default function VoteBlock({
+  count = 0,
+  onUpvote,
+  active = false,
+  variant = "default",
+}) {
   const handleClick = (event) => {
     event.preventDefault();
     event.stopPropagation();
     onUpvote?.();
   };
+
+  if (variant === "detail") {
+    return (
+      <button
+        aria-label={active ? "Remove upvote" : "Upvote"}
+        aria-pressed={active}
+        className={`vote-block vote-block-detail group inline-flex shrink-0 self-start ${
+          active ? "is-active" : ""
+        }`}
+        onClick={handleClick}
+        type="button"
+      >
+        <span className="vote-block-detail-surface">
+          <span className="vote-block-detail-icon">
+            <svg
+              aria-hidden="true"
+              fill="currentColor"
+              height="14"
+              viewBox="0 0 12 12"
+              width="14"
+            >
+              <path d="M6 1L11 7H7V11H5V7H1L6 1Z" />
+            </svg>
+          </span>
+          <span className="vote-block-detail-copy">
+            <span className="vote-block-detail-label">
+              {active ? "Upvoted" : "Upvote"}
+            </span>
+            <span className="vote-block-detail-count">{count}</span>
+          </span>
+          <span aria-hidden="true" className="vote-block-detail-pulse" />
+        </span>
+      </button>
+    );
+  }
 
   return (
     <button

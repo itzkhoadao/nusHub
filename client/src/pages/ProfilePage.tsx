@@ -49,14 +49,18 @@ const FACULTY_ABBREVIATIONS: Record<string, string> = {
 
 function StatTile({ label, value, helper }) {
   return (
-    <div className="app-stat-card">
-      <div className="text-3xl font-bold tracking-tight text-primary">
+    <div className="app-stat-card profile-stat-tile">
+      <div className="profile-stat-value text-3xl font-bold tracking-tight text-primary">
         {value}
       </div>
-      <div className="mt-1 text-xs font-bold uppercase tracking-wide text-app-muted">
+      <div className="profile-stat-label mt-1 text-xs font-bold uppercase tracking-wide text-app-muted">
         {label}
       </div>
-      {helper && <p className="mt-2 text-xs text-app-muted">{helper}</p>}
+      {helper && (
+        <p className="profile-stat-helper mt-2 text-xs text-app-muted">
+          {helper}
+        </p>
+      )}
     </div>
   );
 }
@@ -72,7 +76,7 @@ function BadgePill({ label, title = undefined, tone = "blue" }) {
 
   return (
     <span
-      className={`rounded-full px-3 py-1 text-xs font-bold ${tones[tone]}`}
+      className={`profile-badge-ticket px-3 py-1 text-xs font-bold ${tones[tone]}`}
       title={title}
     >
       {label}
@@ -82,7 +86,7 @@ function BadgePill({ label, title = undefined, tone = "blue" }) {
 
 function EmptyState({ title, body, action = null }) {
   return (
-    <section className="app-empty-state">
+    <section className="app-empty-state profile-empty-state">
       <h2 className="text-xl font-bold text-app-text">{title}</h2>
       <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-app-muted">
         {body}
@@ -493,13 +497,13 @@ export default function ProfilePage() {
 
   return (
     <AppShell user={shellUser}>
-      <div className="mx-auto max-w-6xl space-y-8">
-        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_20px_50px_rgba(15,23,42,0.08)] ring-1 ring-slate-900/5">
-          <div className="relative h-44 overflow-hidden bg-primary">
+      <div className="profile-refresh mx-auto max-w-6xl space-y-8">
+        <section className="profile-identity-card overflow-hidden border border-slate-200 bg-white">
+          <div className="profile-cover relative h-44 overflow-hidden bg-primary">
             {profileUser.cover_url ? (
               <img
                 alt={`${profileUser.username}'s cover`}
-                className="absolute inset-0 h-full w-full object-cover"
+                className="profile-cover-image absolute inset-0 h-full w-full object-cover"
                 src={profileUser.cover_url}
               />
             ) : (
@@ -511,16 +515,16 @@ export default function ProfilePage() {
             <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-black/30 to-transparent" />
           </div>
 
-          <div className="px-6 py-6 md:px-8">
+          <div className="profile-identity-content px-6 py-6 md:px-8">
             <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
               <div className="flex min-w-0 flex-col gap-5 md:flex-row md:items-start">
-                <div className="relative shrink-0">
+                <div className="profile-avatar-stage relative shrink-0">
                   <ProfileAvatar user={profileUser} />
                 </div>
 
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-3">
-                    <h1 className="break-words text-3xl font-bold tracking-tight text-primary md:text-4xl">
+                    <h1 className="profile-username break-words text-3xl font-bold tracking-tight text-primary md:text-4xl">
                       {profileUser.username}
                     </h1>
                     {profileBadges.map((badge) => (
@@ -533,7 +537,7 @@ export default function ProfilePage() {
                     ))}
                   </div>
                   {profileUser.bio ? (
-                    <p className="mt-3 max-w-2xl whitespace-pre-wrap text-sm leading-6 text-app-muted">
+                    <p className="profile-bio mt-3 max-w-2xl whitespace-pre-wrap text-sm leading-6 text-app-muted">
                       {profileUser.bio}
                     </p>
                   ) : isOwnProfile ? (
@@ -548,10 +552,10 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              <div className="flex shrink-0 flex-wrap gap-3">
+              <div className="profile-actions flex shrink-0 flex-wrap gap-3">
                 {isOwnProfile && (
                   <button
-                    className="app-button-primary px-5 py-3"
+                    className="profile-action-primary px-5 py-3"
                     onClick={() => setIsEditProfileModalOpen(true)}
                     type="button"
                   >
@@ -561,7 +565,7 @@ export default function ProfilePage() {
                 {!isOwnProfile && (
                   <button
                     aria-label={`Chat with ${profileUser.username}`}
-                    className="flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-primary shadow-sm ring-1 ring-slate-900/5 transition-all hover:-translate-y-0.5 hover:bg-primary hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    className="profile-action-secondary flex h-11 items-center justify-center gap-2 px-4 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-60"
                     disabled={startingChat}
                     onClick={handleStartChat} // click on button => start chat
                     type="button"
@@ -572,7 +576,7 @@ export default function ProfilePage() {
                 )}
                 <button
                   aria-label="Share profile"
-                  className="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 bg-white text-primary shadow-sm ring-1 ring-slate-900/5 transition-all hover:-translate-y-0.5 hover:bg-primary hover:text-white"
+                  className="profile-action-icon flex h-11 w-11 items-center justify-center"
                   type="button"
                 >
                   <Icon name="share" className="h-5 w-5" />
@@ -586,7 +590,7 @@ export default function ProfilePage() {
               </div>
             )}
 
-            <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="profile-stats-grid mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <StatTile
                 helper="Posts started"
                 label="Threads"
@@ -613,14 +617,12 @@ export default function ProfilePage() {
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <div className="space-y-6">
-            <section className="rounded-lg border border-slate-200 bg-white p-1.5 shadow-sm ring-1 ring-slate-900/5">
+            <section className="profile-tab-shell">
               <div className="grid gap-1 sm:grid-cols-4">
                 {tabs.map((tab) => (
                   <button
-                    className={`rounded-xl px-4 py-3 text-sm font-bold transition-colors ${
-                      activeTab === tab.id
-                        ? "bg-primary text-white shadow-sm"
-                        : "text-app-muted hover:bg-primary-fixed/40 hover:text-primary"
+                    className={`profile-tab-button px-4 py-3 text-sm font-bold ${
+                      activeTab === tab.id ? "is-active" : ""
                     }`}
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
@@ -647,7 +649,7 @@ export default function ProfilePage() {
                 <div className="space-y-4">
                   {posts.map((post) => (
                     <Link
-                      className="group block rounded-lg border border-slate-200 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.06)] ring-1 ring-slate-900/5 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-[0_18px_44px_rgba(0,39,84,0.10)]"
+                      className="profile-contribution-card group block border border-slate-200 bg-white p-5"
                       key={post.id}
                       to={`/posts/${post.id}`}
                     >
@@ -665,7 +667,7 @@ export default function ProfilePage() {
                               : post.title}
                           </h2>
                         </div>
-                        <div className="flex shrink-0 flex-col items-center rounded-2xl bg-primary-fixed px-3 py-2 text-primary">
+                        <div className="profile-score-chip flex shrink-0 flex-col items-center px-3 py-2 text-primary">
                           <Icon name="chevronUp" className="h-4 w-4" />
                           <span className="text-sm font-bold">
                             {post.upvotes}
@@ -687,7 +689,7 @@ export default function ProfilePage() {
                 <div className="space-y-4">
                   {comments.map((comment) => (
                     <Link
-                      className="group block rounded-lg border border-slate-200 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.06)] ring-1 ring-slate-900/5 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-[0_18px_44px_rgba(0,39,84,0.10)]"
+                      className="profile-contribution-card group block border border-slate-200 bg-white p-5"
                       key={comment.id}
                       to={`/posts/${comment.post_id}`}
                     >
@@ -730,7 +732,7 @@ export default function ProfilePage() {
                 <div className="space-y-4">
                   {groups.map((group) => (
                     <Link
-                      className="group block rounded-lg border border-slate-200 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.06)] ring-1 ring-slate-900/5 transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-[0_18px_44px_rgba(0,39,84,0.10)]"
+                      className="profile-contribution-card group block border border-slate-200 bg-white p-5"
                       key={group.id}
                       to={`/groups/${group.id}`}
                     >
@@ -756,7 +758,7 @@ export default function ProfilePage() {
                             </p>
                           )}
                         </div>
-                        <div className="flex shrink-0 items-center gap-2 rounded-2xl bg-primary-fixed px-3 py-2 text-sm font-bold text-primary">
+                        <div className="profile-score-chip flex shrink-0 items-center gap-2 px-3 py-2 text-sm font-bold text-primary">
                           <Icon name="groups" className="h-4 w-4" />
                           {group.member_count} member
                           {Number(group.member_count) !== 1 ? "s" : ""}
@@ -776,7 +778,7 @@ export default function ProfilePage() {
           </div>
 
           <aside className="space-y-4">
-            <section className="app-section-card">
+            <section className="app-section-card profile-side-card">
               <h2 className="text-sm font-bold uppercase tracking-wide text-app-muted">
                 Community Badges
               </h2>
@@ -787,7 +789,7 @@ export default function ProfilePage() {
               </div>
             </section>
 
-            <section className="app-section-card">
+            <section className="app-section-card profile-side-card">
               <h2 className="text-sm font-bold uppercase tracking-wide text-app-muted">
                 Activity Mix
               </h2>
@@ -797,9 +799,9 @@ export default function ProfilePage() {
                     <span>Posts</span>
                     <span>{posts.length}</span>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-surface-low">
+                  <div className="profile-activity-track h-2 overflow-hidden bg-surface-low">
                     <div
-                      className="h-full rounded-full bg-primary"
+                      className="profile-activity-fill h-full bg-primary"
                       style={{
                         width: `${contributions ? (posts.length / contributions) * 100 : 0}%`,
                       }}
@@ -811,9 +813,9 @@ export default function ProfilePage() {
                     <span>Comments</span>
                     <span>{comments.length}</span>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-surface-low">
+                  <div className="profile-activity-track h-2 overflow-hidden bg-surface-low">
                     <div
-                      className="h-full rounded-full bg-secondary-container"
+                      className="profile-activity-fill h-full bg-secondary-container"
                       style={{
                         width: `${contributions ? (comments.length / contributions) * 100 : 0}%`,
                       }}
