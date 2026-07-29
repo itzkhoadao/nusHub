@@ -5,6 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch index.ts",
+    "eval:ai": "tsx evaluation/runCli.ts",
     "build": "tsc && node scripts/copy-migrations.mjs",
     "start": "node dist/index.js",
     "check": "npm run lint && npm test && npm run build",
