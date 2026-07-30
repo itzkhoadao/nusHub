@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import Icon from "../Icon";
 import UserAvatar from "../ui/UserAvatar";
+import LoadingState, { LoadingLabel } from "../ui/LoadingState";
 import { clearAuthSession } from "../../utils/authStorage";
 import {
   getNotifications,
@@ -250,18 +251,20 @@ export default function Topbar({
                     Upvotes, comments, and replies
                   </p>
                 </div>
-                {notificationsQuery.isFetching && (
+                {notificationsQuery.isFetching &&
+                  !notificationsQuery.isLoading && (
                   <span className="text-xs font-semibold text-app-muted">
-                    Updating...
+                    <LoadingLabel>Updating</LoadingLabel>
                   </span>
-                )}
+                  )}
               </div>
 
               <div className="topbar-notification-list max-h-96 overflow-y-auto p-2">
                 {notificationsQuery.isLoading ? (
-                  <p className="px-4 py-6 text-center text-sm font-semibold text-app-muted">
-                    Loading notifications...
-                  </p>
+                  <LoadingState
+                    label="Loading notifications"
+                    variant="panel"
+                  />
                 ) : notifications.length === 0 ? (
                   <p className="px-4 py-6 text-center text-sm font-semibold text-app-muted">
                     No notifications yet.

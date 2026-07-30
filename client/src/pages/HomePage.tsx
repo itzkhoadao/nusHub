@@ -7,6 +7,7 @@ import { Link, useNavigate } from "react-router-dom";
 import AppShell from "../components/layout/AppShell";
 import AiAssistantCard from "../components/ui/AiAssistantCard";
 import DiscussionCard from "../components/ui/DiscussionCard";
+import LoadingState from "../components/ui/LoadingState";
 import { apiUrl } from "../utils/api";
 import { getAuthToken, getStoredUser } from "../utils/authStorage";
 import { getRecentActivity } from "../utils/recentActivity";
@@ -244,15 +245,12 @@ export default function HomePage() {
 
         {/* Posts */}
         {loading ? (
-          <div className="forum-card-list space-y-4">
-            {[1, 2, 3].map((item) => (
-              <div className="app-card animate-pulse p-5" key={item}>
-                <div className="mb-4 h-4 w-24 rounded bg-surface-high" />
-                <div className="mb-3 h-5 w-3/4 rounded bg-surface-high" />
-                <div className="h-4 w-1/2 rounded bg-surface-high" />
-              </div>
-            ))}
-          </div>
+          <LoadingState
+            detail="Refreshing the latest campus conversations."
+            label="Loading discussions"
+            rows={3}
+            variant="feed"
+          />
         ) : posts.length === 0 ? (
           <section className="app-empty-state">
             <h2 className="text-xl font-bold text-app-text">No posts yet</h2>

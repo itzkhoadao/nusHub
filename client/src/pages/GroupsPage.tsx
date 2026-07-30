@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import AppShell from "../components/layout/AppShell";
 import Icon from "../components/Icon";
 import AiAssistantCard from "../components/ui/AiAssistantCard";
+import LoadingState, { LoadingLabel } from "../components/ui/LoadingState";
 import { apiUrl } from "../utils/api";
 import { getAuthToken, getStoredUser } from "../utils/authStorage";
 
@@ -233,7 +234,11 @@ export default function GroupsPage() {
                 onClick={handleCreateGroup}
                 type="button"
               >
-                {creating ? "Creating..." : "Create Group"}
+                {creating ? (
+                  <LoadingLabel>Creating group</LoadingLabel>
+                ) : (
+                  "Create Group"
+                )}
               </button>
               <button
                 className="groups-secondary-button"
@@ -248,15 +253,12 @@ export default function GroupsPage() {
 
         {/* Groups list */}
         {loading ? (
-          <div className="groups-loading space-y-4">
-            {[1, 2].map((item) => (
-              <div className="group-feed-skeleton animate-pulse p-5" key={item}>
-                <div className="mb-4 h-4 w-20 rounded bg-surface-high" />
-                <div className="mb-3 h-5 w-1/2 rounded bg-surface-high" />
-                <div className="h-4 w-2/3 rounded bg-surface-high" />
-              </div>
-            ))}
-          </div>
+          <LoadingState
+            detail="Finding active groups and study partners."
+            label="Loading study groups"
+            rows={2}
+            variant="feed"
+          />
         ) : groups.length === 0 ? (
           <section className="app-empty-state groups-empty-state">
             <h2 className="text-xl font-bold text-app-text">No groups yet</h2>

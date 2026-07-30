@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
 import AppShell from "../components/layout/AppShell";
 import UserAvatar from "../components/ui/UserAvatar";
+import { LoadingLabel } from "../components/ui/LoadingState";
 import { apiUrl } from "../utils/api";
 import { getAuthToken, getStoredUser } from "../utils/authStorage";
 import {
@@ -436,7 +437,11 @@ export default function CreatePostPage() {
                 type="button"
               >
                 <Icon name="plus" className="h-5 w-5" />
-                {loading ? "Publishing..." : "Publish post"}
+                {loading ? (
+                  <LoadingLabel>Publishing</LoadingLabel>
+                ) : (
+                  "Publish post"
+                )}
               </button>
             </div>
           </div>

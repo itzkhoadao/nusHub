@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AuthLayout from "../components/auth/AuthLayout";
+import { LoadingLabel } from "../components/ui/LoadingState";
 import { apiUrl } from "../utils/api";
 import { setAuthSession } from "../utils/authStorage";
 
@@ -197,7 +198,11 @@ export default function RegisterPage() {
           onClick={handleRegister}
           type="button"
         >
-          {loading ? "Creating account..." : "Create account"}
+          {loading ? (
+            <LoadingLabel>Creating account</LoadingLabel>
+          ) : (
+            "Create account"
+          )}
         </button>
 
         <div className="my-5 flex items-center gap-3">
@@ -212,7 +217,7 @@ export default function RegisterPage() {
           <div className="flex justify-center" ref={googleButtonRef} />
           {googleLoading && (
             <p className="mt-2 text-center text-xs font-semibold text-app-muted">
-              Signing in with Google...
+              <LoadingLabel>Signing in with Google</LoadingLabel>
             </p>
           )}
         </div>
