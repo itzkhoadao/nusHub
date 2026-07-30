@@ -15,6 +15,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import AppShell from "../components/layout/AppShell";
 import Icon from "../components/Icon";
 import UserAvatar from "../components/ui/UserAvatar";
+import LoadingState, { LoadingLabel } from "../components/ui/LoadingState";
 import { API_URL } from "../utils/api";
 import { getStoredUser } from "../utils/authStorage";
 
@@ -656,9 +657,10 @@ export default function ChatPage() {
 
           <div className="chat-conversation-scroll min-h-0 flex-1 overflow-y-auto p-3">
             {conversationsQuery.isLoading ? (
-              <p className="p-3 text-sm font-semibold text-app-muted">
-                Loading conversations...
-              </p>
+              <LoadingState
+                label="Loading conversations"
+                variant="panel"
+              />
             ) : conversations.length === 0 ? (
               <div className="chat-list-empty border border-dashed border-surface-variant bg-white p-4 text-sm text-app-muted">
                 No conversations yet. Open another user's profile and start a
@@ -798,9 +800,11 @@ export default function ChatPage() {
 
               <div className="chat-message-scroll min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-5">
                 {messagesQuery.isLoading ? (
-                  <p className="text-sm font-semibold text-app-muted">
-                    Loading messages...
-                  </p>
+                  <LoadingState
+                    detail="Syncing the latest messages."
+                    label="Loading conversation"
+                    variant="panel"
+                  />
                 ) : messages.length === 0 ? (
                   <div className="chat-thread-empty mx-auto mt-16 max-w-sm border border-dashed border-surface-variant bg-white p-6 text-center">
                     <Icon
@@ -1049,8 +1053,11 @@ export default function ChatPage() {
                       >
                         <Suspense
                           fallback={
-                            <div className="flex h-64 items-center justify-center text-sm font-semibold text-app-muted">
-                              Loading emojis...
+                            <div className="flex h-64 items-center justify-center">
+                              <LoadingState
+                                label="Loading emoji"
+                                variant="panel"
+                              />
                             </div>
                           }
                         >
@@ -1102,8 +1109,14 @@ export default function ChatPage() {
                     }
                     type="submit"
                   >
-                    Send
-                    <Icon name="send" className="h-4 w-4 shrink-0" />
+                    {sendMessageMutation.isPending ? (
+                      <LoadingLabel>Sending</LoadingLabel>
+                    ) : (
+                      <>
+                        Send
+                        <Icon name="send" className="h-4 w-4 shrink-0" />
+                      </>
+                    )}
                   </button>
                 </div>
               </form>

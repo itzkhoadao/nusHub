@@ -4,6 +4,7 @@ import AppShell from "../components/layout/AppShell";
 import Icon from "../components/Icon";
 import AiAssistantCard from "../components/ui/AiAssistantCard";
 import UserAvatar from "../components/ui/UserAvatar";
+import LoadingState, { LoadingLabel } from "../components/ui/LoadingState";
 import { apiUrl } from "../utils/api";
 import { getAuthToken, getStoredUser } from "../utils/authStorage";
 
@@ -78,9 +79,10 @@ export default function GroupDetailPage() {
   if (loading) {
     return (
       <AppShell contextualPlaceholder="Search groups..." user={user}>
-        <div className="group-detail-loading p-10 text-center text-app-muted">
-          Loading group...
-        </div>
+        <LoadingState
+          detail="Preparing the group overview and member roster."
+          label="Loading study group"
+        />
       </AppShell>
     );
   }
@@ -169,7 +171,15 @@ export default function GroupDetailPage() {
               type="button"
             >
               <Icon name="groups" className="h-4 w-4" />
-              {joining ? "..." : isMember ? "Leave group" : "Join group"}
+              {joining ? (
+                <LoadingLabel>
+                  {isMember ? "Leaving" : "Joining"}
+                </LoadingLabel>
+              ) : isMember ? (
+                "Leave group"
+              ) : (
+                "Join group"
+              )}
             </button>
           </div>
         </section>

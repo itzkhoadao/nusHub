@@ -5,6 +5,7 @@ import AppShell from "../components/layout/AppShell";
 import Icon from "../components/Icon";
 import TopicBadge from "../components/ui/TopicBadge";
 import UserAvatar from "../components/ui/UserAvatar";
+import LoadingState, { LoadingLabel } from "../components/ui/LoadingState";
 import { apiUrl } from "../utils/api";
 import {
   getAuthToken,
@@ -194,9 +195,10 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <AppShell user={user}>
-        <div className="rounded-3xl border border-surface-variant bg-white p-10 text-center text-app-muted shadow-soft">
-          Loading profile...
-        </div>
+        <LoadingState
+          detail="Gathering contributions, groups, and community activity."
+          label="Loading profile"
+        />
       </AppShell>
     );
   }
@@ -570,8 +572,14 @@ export default function ProfilePage() {
                     onClick={handleStartChat} // click on button => start chat
                     type="button"
                   >
-                    <Icon name="message" className="h-5 w-5" />
-                    <span>{startingChat ? "Opening..." : "Chat"}</span>
+                    {startingChat ? (
+                      <LoadingLabel>Opening chat</LoadingLabel>
+                    ) : (
+                      <>
+                        <Icon name="message" className="h-5 w-5" />
+                        <span>Chat</span>
+                      </>
+                    )}
                   </button>
                 )}
                 <button
@@ -1034,8 +1042,14 @@ export default function ProfilePage() {
                 onClick={handleSaveProfileField}
                 type="button"
               >
-                <span>{profileFieldSaving ? "Saving..." : "Save changes"}</span>
-                <Icon name="send" className="h-4 w-4" />
+                {profileFieldSaving ? (
+                  <LoadingLabel>Saving changes</LoadingLabel>
+                ) : (
+                  <>
+                    <span>Save changes</span>
+                    <Icon name="send" className="h-4 w-4" />
+                  </>
+                )}
               </button>
             </div>
           </section>
@@ -1143,8 +1157,14 @@ export default function ProfilePage() {
                   onClick={handleSaveAvatar}
                   type="button"
                 >
-                  <span>{avatarSaving ? "Saving..." : "Save photo"}</span>
-                  <Icon name="send" className="h-4 w-4" />
+                  {avatarSaving ? (
+                    <LoadingLabel>Saving photo</LoadingLabel>
+                  ) : (
+                    <>
+                      <span>Save photo</span>
+                      <Icon name="send" className="h-4 w-4" />
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -1249,8 +1269,14 @@ export default function ProfilePage() {
                   onClick={handleSaveCover}
                   type="button"
                 >
-                  <span>{coverSaving ? "Saving..." : "Save cover"}</span>
-                  <Icon name="send" className="h-4 w-4" />
+                  {coverSaving ? (
+                    <LoadingLabel>Saving cover</LoadingLabel>
+                  ) : (
+                    <>
+                      <span>Save cover</span>
+                      <Icon name="send" className="h-4 w-4" />
+                    </>
+                  )}
                 </button>
               </div>
             </div>

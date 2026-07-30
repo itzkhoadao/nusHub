@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import AuthLayout from "../components/auth/AuthLayout";
+import { LoadingLabel } from "../components/ui/LoadingState";
 import { apiUrl } from "../utils/api";
 import { setAuthSession } from "../utils/authStorage";
 import { disconnectChatSocket } from "../utils/socket";
@@ -99,7 +100,7 @@ export default function LoginPage() {
           onClick={handleLogin}
           type="button"
         >
-          {loading ? "Logging in..." : "Log in"}
+          {loading ? <LoadingLabel>Logging in</LoadingLabel> : "Log in"}
         </button>
 
         <div className="mt-6 rounded-lg border border-slate-200 bg-surface-low px-4 py-3 text-center text-sm font-semibold text-app-muted shadow-sm">

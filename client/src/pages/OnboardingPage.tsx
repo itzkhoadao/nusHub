@@ -500,8 +500,8 @@ export default function OnboardingPage() {
                 <span>
                   {saving
                     ? isEditing
-                      ? "Saving changes..."
-                      : "Creating your profile..."
+                      ? "Saving changes"
+                      : "Creating your profile"
                     : step === STEPS.length - 1
                       ? isEditing
                         ? "Save changes"

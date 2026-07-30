@@ -7,6 +7,7 @@ import TopicBadge from "../components/ui/TopicBadge";
 import UserAvatar from "../components/ui/UserAvatar";
 import VoteBlock from "../components/ui/VoteBlock";
 import ContentActionMenu from "../components/ui/ContentActionMenu";
+import LoadingState, { LoadingLabel } from "../components/ui/LoadingState";
 import { API_URL, apiUrl } from "../utils/api";
 import { getAuthToken, getStoredUser } from "../utils/authStorage";
 import { getRecentActivity } from "../utils/recentActivity";
@@ -468,7 +469,11 @@ export default function PostDetailPage() {
                   onClick={() => handleSubmitReply(comment.id)}
                   type="button"
                 >
-                  {submitting ? "Replying..." : "Reply"}
+                  {submitting ? (
+                    <LoadingLabel>Replying</LoadingLabel>
+                  ) : (
+                    "Reply"
+                  )}
                 </button>
               </div>
             </div>
@@ -484,9 +489,10 @@ export default function PostDetailPage() {
   if (loading) {
     return (
       <AppShell contextualPlaceholder="Search post..." user={user}>
-        <div className="app-card p-10 text-center text-app-muted">
-          Loading post...
-        </div>
+        <LoadingState
+          detail="Preparing the discussion, attachments, and replies."
+          label="Loading discussion"
+        />
       </AppShell>
     );
   }
@@ -750,7 +756,11 @@ export default function PostDetailPage() {
                 onClick={handleSubmitComment}
                 type="button"
               >
-                {submitting ? "Posting..." : "Comment"}
+                {submitting ? (
+                  <LoadingLabel>Posting</LoadingLabel>
+                ) : (
+                  "Comment"
+                )}
               </button>
             </div>
           </div>

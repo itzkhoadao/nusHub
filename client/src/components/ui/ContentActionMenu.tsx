@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import Icon from "../Icon";
+import { LoadingLabel } from "./LoadingState";
 
 type ContentActionMenuProps = {
   isAuthor: boolean;
@@ -155,7 +156,11 @@ export default function ContentActionMenu({
                   onClick={deleteContent}
                   type="button"
                 >
-                  {deleting ? "Removing…" : "Delete"}
+                  {deleting ? (
+                    <LoadingLabel>Removing</LoadingLabel>
+                  ) : (
+                    "Delete"
+                  )}
                 </button>
               </div>
             </div>
