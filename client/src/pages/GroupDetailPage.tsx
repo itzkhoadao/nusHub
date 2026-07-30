@@ -78,7 +78,7 @@ export default function GroupDetailPage() {
   if (loading) {
     return (
       <AppShell contextualPlaceholder="Search groups..." user={user}>
-        <div className="app-card p-10 text-center text-app-muted">
+        <div className="group-detail-loading p-10 text-center text-app-muted">
           Loading group...
         </div>
       </AppShell>
@@ -90,32 +90,35 @@ export default function GroupDetailPage() {
   return (
     <AppShell
       contextualPlaceholder="Search groups..."
+      sidebarSize="compact"
       sidebar={
-        <div className="space-y-4">
+        <div className="forum-sidebar-stack group-detail-sidebar space-y-4">
           <AiAssistantCard
             description="Ask for a study plan, summarize shared goals, or draft questions for your next session."
             title="Group Study Assistant"
           />
 
-          <section className="app-section-card">
+          <section className="app-section-card forum-recent-panel group-detail-snapshot">
             <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-app-muted">
               Group Snapshot
             </h2>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="app-stat-card text-center">
-                <div className="text-2xl font-bold text-primary">
-                  {members.length}
-                </div>
-                <div className="text-xs font-semibold text-app-muted">
-                  Members
+            <div className="space-y-3">
+              <div className="group-detail-snapshot-row">
+                <span className="group-detail-snapshot-icon">
+                  <Icon name="groups" className="h-4 w-4" />
+                </span>
+                <div>
+                  <strong>{members.length}</strong>
+                  <span>Members</span>
                 </div>
               </div>
-              <div className="app-stat-card text-center">
-                <div className="text-2xl font-bold text-primary">
-                  {group.module_code || "-"}
-                </div>
-                <div className="text-xs font-semibold text-app-muted">
-                  Module
+              <div className="group-detail-snapshot-row">
+                <span className="group-detail-snapshot-icon">
+                  <Icon name="post" className="h-4 w-4" />
+                </span>
+                <div>
+                  <strong>{group.module_code || "General"}</strong>
+                  <span>Module</span>
                 </div>
               </div>
             </div>
@@ -124,43 +127,42 @@ export default function GroupDetailPage() {
       }
       user={user}
     >
-      <div className="space-y-6">
+      <div className="group-detail-refresh space-y-6">
         <Link
-          className="inline-flex items-center text-sm font-semibold text-app-muted hover:text-primary"
+          className="group-detail-back inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold"
           to="/groups"
         >
-          Back to groups
+          <Icon name="arrowLeft" className="h-4 w-4" />
+          <span>Back to groups</span>
         </Link>
 
         {/* Group info card */}
-        <section className="app-hero">
+        <section className="app-hero group-detail-hero">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
               {group.module_code && (
-                <span className="app-badge bg-white/15 text-white">
+                <span className="group-detail-module-ticket">
                   {group.module_code}
                 </span>
               )}
-              <h1 className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">
+              <h1 className="group-detail-title mt-3 text-3xl font-bold tracking-tight md:text-4xl">
                 {group.name}
               </h1>
               {group.description && (
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-white/80">
+                <p className="group-detail-description mt-3 max-w-3xl text-sm leading-6 text-white/80">
                   {group.description}
                 </p>
               )}
-              <p className="mt-4 text-xs font-semibold text-primary-fixed-dim">
-                Created by {group.creator_name || "Anonymous"} -{" "}
-                {members.length} member{members.length !== 1 ? "s" : ""}
-              </p>
+              <div className="group-detail-meta mt-5 flex flex-wrap items-center gap-3 text-xs font-semibold">
+                <span>Created by {group.creator_name || "Anonymous"}</span>
+                <span>{members.length} member{members.length !== 1 ? "s" : ""}</span>
+              </div>
             </div>
 
             {/* Join/Leave button */}
             <button
-              className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-bold shadow-sm transition-all hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-50 ${
-                isMember
-                  ? "bg-white text-app-danger hover:bg-red-50"
-                  : "bg-secondary-container text-white hover:opacity-90"
+              className={`group-detail-membership-button inline-flex shrink-0 items-center justify-center gap-2 px-4 py-2 text-sm font-bold ${
+                isMember ? "is-member" : ""
               }`}
               disabled={joining}
               onClick={handleJoinLeave}
@@ -173,24 +175,28 @@ export default function GroupDetailPage() {
         </section>
 
         {/* Members list */}
-        <section className="app-card overflow-hidden">
-          <div className="border-b border-surface-variant px-5 py-4">
+        <section className="group-detail-members overflow-hidden">
+          <div className="group-detail-members-heading flex items-center justify-between gap-4 border-b border-surface-variant px-5 py-4">
             <h2 className="text-lg font-bold text-app-text">
-              Members ({members.length})
+              Members
             </h2>
+            <span>{members.length}</span>
           </div>
 
-          <div className="divide-y divide-surface-variant">
+          <div className="group-detail-member-list">
             {members.map((member) => {
               const profilePath =
                 member.id === user.id ? "/profile" : `/users/${member.id}`;
 
               return (
-                <div className="flex items-center gap-3 p-4 transition-colors hover:bg-primary-fixed/20" key={member.id}>
+                <div
+                  className="group-detail-member-row flex items-center gap-3 p-4"
+                  key={member.id}
+                >
                   {/* Avatar circle */}
                   <Link
                     aria-label={`View ${member.username}'s profile`}
-                    className="transition-all hover:-translate-y-0.5"
+                    className="group-detail-member-avatar"
                     to={profilePath}
                   >
                     <UserAvatar
@@ -210,12 +216,12 @@ export default function GroupDetailPage() {
                       {member.username}
                     </Link>
                     {member.id === group.creator_id && (
-                      <span className="app-badge bg-amber-50 text-amber-700">
+                      <span className="group-detail-role-badge is-creator">
                         Creator
                       </span>
                     )}
                     {member.id === user.id && (
-                      <span className="app-badge bg-primary-fixed text-primary">
+                      <span className="group-detail-role-badge is-you">
                         You
                       </span>
                     )}
@@ -224,6 +230,9 @@ export default function GroupDetailPage() {
                     Joined {new Date(member.joined_at).toLocaleDateString()}
                   </p>
                 </div>
+                  <span className="group-detail-member-status">
+                    {member.id === group.creator_id ? "Group lead" : "Member"}
+                  </span>
                 </div>
               );
             })}
