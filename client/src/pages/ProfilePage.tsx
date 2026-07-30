@@ -101,7 +101,7 @@ function ProfileAvatar({ user, className = "h-24 w-24 text-4xl" }) {
   return (
     <UserAvatar
       avatarUrl={user.avatar_url}
-      className={`${className} shadow-raised ring-4`}
+      className={`${className} shadow-raised`}
       name={user.username}
       rounded="3xl"
       userId={user.id}
@@ -115,18 +115,25 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [startingChat, setStartingChat] = useState(false);
   const [chatError, setChatError] = useState("");
+  const [isAvatarViewerOpen, setIsAvatarViewerOpen] = useState(false);
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState("");
   const [avatarError, setAvatarError] = useState("");
   const [avatarSaving, setAvatarSaving] = useState(false);
+  const [avatarAction, setAvatarAction] = useState<"save" | "remove" | null>(
+    null,
+  );
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const [isCoverModalOpen, setIsCoverModalOpen] = useState(false);
   const [selectedCoverFile, setSelectedCoverFile] = useState<File | null>(null);
   const [coverPreviewUrl, setCoverPreviewUrl] = useState("");
   const [coverError, setCoverError] = useState("");
   const [coverSaving, setCoverSaving] = useState(false);
+  const [coverAction, setCoverAction] = useState<"save" | "remove" | null>(
+    null,
+  );
   const coverInputRef = useRef<HTMLInputElement | null>(null);
   const [profileFieldEditor, setProfileFieldEditor] = useState<
     "username" | "bio" | null
@@ -191,6 +198,23 @@ export default function ProfilePage() {
       if (coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl);
     };
   }, [coverPreviewUrl]);
+
+  useEffect(() => {
+    if (!isAvatarViewerOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsAvatarViewerOpen(false);
+    };
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isAvatarViewerOpen]);
 
   if (loading) {
     return (
@@ -309,6 +333,7 @@ export default function ProfilePage() {
     }
 
     setAvatarSaving(true);
+    setAvatarAction("save");
     setAvatarError("");
 
     try {
@@ -321,6 +346,7 @@ export default function ProfilePage() {
       );
     } finally {
       setAvatarSaving(false);
+      setAvatarAction(null);
     }
   };
 
@@ -330,6 +356,7 @@ export default function ProfilePage() {
     }
 
     setAvatarSaving(true);
+    setAvatarAction("remove");
     setAvatarError("");
 
     try {
@@ -342,6 +369,7 @@ export default function ProfilePage() {
       );
     } finally {
       setAvatarSaving(false);
+      setAvatarAction(null);
     }
   };
 
@@ -377,6 +405,7 @@ export default function ProfilePage() {
   const handleSaveCover = async () => {
     if (!selectedCoverFile || coverSaving) return;
     setCoverSaving(true);
+    setCoverAction("save");
     setCoverError("");
     try {
       const result = await updateProfileCover(selectedCoverFile);
@@ -388,12 +417,14 @@ export default function ProfilePage() {
       );
     } finally {
       setCoverSaving(false);
+      setCoverAction(null);
     }
   };
 
   const handleRemoveCover = async () => {
     if (coverSaving) return;
     setCoverSaving(true);
+    setCoverAction("remove");
     setCoverError("");
     try {
       const result = await removeProfileCover();
@@ -405,6 +436,7 @@ export default function ProfilePage() {
       );
     } finally {
       setCoverSaving(false);
+      setCoverAction(null);
     }
   };
 
@@ -521,7 +553,18 @@ export default function ProfilePage() {
             <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
               <div className="flex min-w-0 flex-col gap-5 md:flex-row md:items-start">
                 <div className="profile-avatar-stage relative shrink-0">
-                  <ProfileAvatar user={profileUser} />
+                  <button
+                    aria-label={`View ${profileUser.username}'s profile photo`}
+                    className="profile-avatar-trigger"
+                    onClick={() => setIsAvatarViewerOpen(true)}
+                    type="button"
+                  >
+                    <ProfileAvatar user={profileUser} />
+                    <span className="profile-avatar-view-hint" aria-hidden="true">
+                      <Icon name="camera" className="h-4 w-4" />
+                      View
+                    </span>
+                  </button>
                 </div>
 
                 <div className="min-w-0">
@@ -836,132 +879,225 @@ export default function ProfilePage() {
         </div>
       </div>
 
+      {isAvatarViewerOpen && (
+        <div
+          className="profile-avatar-lightbox"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setIsAvatarViewerOpen(false);
+            }
+          }}
+          role="presentation"
+        >
+          <section
+            aria-label={`${profileUser.username}'s profile photo`}
+            aria-modal="true"
+            className="profile-avatar-lightbox-dialog"
+            role="dialog"
+          >
+            <button
+              aria-label="Close profile photo"
+              autoFocus
+              className="profile-avatar-lightbox-close"
+              onClick={() => setIsAvatarViewerOpen(false)}
+              type="button"
+            >
+              <Icon name="x" className="h-6 w-6" />
+            </button>
+
+            <div className="profile-avatar-lightbox-media">
+              {profileUser.avatar_url ? (
+                <img
+                  alt={`${profileUser.username}'s profile photo`}
+                  src={profileUser.avatar_url}
+                />
+              ) : (
+                <div className="profile-avatar-lightbox-fallback">
+                  {profileUser.username.charAt(0).toUpperCase()}
+                </div>
+              )}
+            </div>
+
+            <p className="profile-avatar-lightbox-caption">
+              @{profileUser.username}
+            </p>
+          </section>
+        </div>
+      )}
+
       {isEditProfileModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6 backdrop-blur-sm">
-          <section className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
-            <div className="flex items-start justify-between gap-4">
+        <div className="profile-editor-overlay">
+          <section
+            aria-labelledby="profile-editor-title"
+            aria-modal="true"
+            className="profile-editor-shell profile-editor-shell--hub"
+            role="dialog"
+          >
+            <div className="profile-editor-ambient" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </div>
+
+            <header className="profile-editor-header">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-secondary">
-                  Profile settings
-                </p>
-                <h2 className="mt-1 text-2xl font-bold tracking-tight text-primary">
-                  Edit profile
+                <p className="profile-editor-eyebrow">Profile studio</p>
+                <h2 className="profile-editor-title" id="profile-editor-title">
+                  Shape how NUSHub sees you.
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-app-muted">
-                  Choose what you want to update.
+                <p className="profile-editor-copy">
+                  Fine-tune your identity, story, and campus details.
                 </p>
               </div>
               <button
                 aria-label="Close profile editor"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 text-app-muted transition-colors hover:bg-slate-50 hover:text-primary"
+                className="profile-editor-close"
                 onClick={() => setIsEditProfileModalOpen(false)}
                 type="button"
               >
                 <Icon name="x" className="h-5 w-5" />
               </button>
-            </div>
+            </header>
 
-            <div className="mt-6 space-y-3">
+            <div className="profile-editor-choices">
               <button
-                className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary-fixed/30"
+                className="profile-editor-choice is-1"
                 onClick={openAvatarEditor}
                 type="button"
               >
-                <span>
-                  <span className="block text-sm font-bold text-app-text">
-                    Change Avatar
-                  </span>
-                  <span className="mt-1 block text-sm text-app-muted">
-                    Upload or remove your profile photo.
-                  </span>
+                <span className="profile-editor-choice-index">01</span>
+                <span className="profile-editor-choice-icon">
+                  <Icon name="camera" className="h-5 w-5" />
                 </span>
-                <Icon name="camera" className="h-5 w-5 text-primary" />
+                <span className="profile-editor-choice-copy">
+                  <strong>Avatar</strong>
+                  <small>Refresh or remove your profile photo.</small>
+                </span>
+                <span className="profile-editor-choice-action">
+                  Open
+                  <Icon name="chevronDown" className="h-4 w-4" />
+                </span>
               </button>
 
               <button
-                className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary-fixed/30"
+                className="profile-editor-choice is-2"
                 onClick={openCoverEditor}
                 type="button"
               >
-                <span>
-                  <span className="block text-sm font-bold text-app-text">
-                    Change Cover Picture
-                  </span>
-                  <span className="mt-1 block text-sm text-app-muted">
-                    Upload or remove your profile cover.
-                  </span>
+                <span className="profile-editor-choice-index">02</span>
+                <span className="profile-editor-choice-icon">
+                  <Icon name="camera" className="h-5 w-5" />
                 </span>
-                <Icon name="camera" className="h-5 w-5 text-primary" />
+                <span className="profile-editor-choice-copy">
+                  <strong>Cover picture</strong>
+                  <small>Set the visual mood of your profile.</small>
+                </span>
+                <span className="profile-editor-choice-action">
+                  Open
+                  <Icon name="chevronDown" className="h-4 w-4" />
+                </span>
               </button>
 
               <button
-                className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary-fixed/30"
+                className="profile-editor-choice is-3"
                 onClick={() => openProfileFieldEditor("username")}
                 type="button"
               >
-                <span>
-                  <span className="block text-sm font-bold text-app-text">
-                    Change Username
-                  </span>
-                  <span className="mt-1 block text-sm text-app-muted">
-                    Choose a unique name for your profile.
-                  </span>
+                <span className="profile-editor-choice-index">03</span>
+                <span className="profile-editor-choice-icon">
+                  <Icon name="post" className="h-5 w-5" />
                 </span>
-                <Icon name="post" className="h-5 w-5 text-primary" />
+                <span className="profile-editor-choice-copy">
+                  <strong>Username</strong>
+                  <small>Choose the name attached to your voice.</small>
+                </span>
+                <span className="profile-editor-choice-action">
+                  Open
+                  <Icon name="chevronDown" className="h-4 w-4" />
+                </span>
               </button>
 
               <button
-                className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary-fixed/30"
+                className="profile-editor-choice is-4"
                 onClick={() => openProfileFieldEditor("bio")}
                 type="button"
               >
-                <span>
-                  <span className="block text-sm font-bold text-app-text">
-                    Change Bio
-                  </span>
-                  <span className="mt-1 block text-sm text-app-muted">
-                    Tell the community a little about yourself.
-                  </span>
+                <span className="profile-editor-choice-index">04</span>
+                <span className="profile-editor-choice-icon">
+                  <Icon name="message" className="h-5 w-5" />
                 </span>
-                <Icon name="message" className="h-5 w-5 text-primary" />
+                <span className="profile-editor-choice-copy">
+                  <strong>Bio</strong>
+                  <small>Give the community a quick introduction.</small>
+                </span>
+                <span className="profile-editor-choice-action">
+                  Open
+                  <Icon name="chevronDown" className="h-4 w-4" />
+                </span>
               </button>
 
               <button
-                className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary-fixed/30"
+                className="profile-editor-choice is-5"
                 onClick={() => navigate("/onboarding?mode=edit")}
                 type="button"
               >
-                <span>
-                  <span className="block text-sm font-bold text-app-text">
-                    Change Basic Information
-                  </span>
-                  <span className="mt-1 block text-sm text-app-muted">
-                    Update your year, roles, faculties, and campus details.
-                  </span>
+                <span className="profile-editor-choice-index">05</span>
+                <span className="profile-editor-choice-icon">
+                  <Icon name="groups" className="h-5 w-5" />
                 </span>
-                <Icon name="groups" className="h-5 w-5 text-primary" />
+                <span className="profile-editor-choice-copy">
+                  <strong>Campus details</strong>
+                  <small>Update your year, roles, faculties, and residence.</small>
+                </span>
+                <span className="profile-editor-choice-action">
+                  Open
+                  <Icon name="chevronDown" className="h-4 w-4" />
+                </span>
               </button>
             </div>
+
+            <footer className="profile-editor-hub-footer">
+              <span className="profile-editor-live-mark" aria-hidden="true" />
+              Changes appear on your public profile as soon as they are saved.
+              <span className="profile-editor-handle">
+                @{profileUser.username}
+              </span>
+            </footer>
           </section>
         </div>
       )}
 
       {profileFieldEditor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6 backdrop-blur-sm">
-          <section className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
-            <div className="flex items-start justify-between gap-4">
+        <div className="profile-editor-overlay">
+          <section
+            aria-labelledby="profile-field-editor-title"
+            aria-modal="true"
+            className="profile-editor-shell profile-editor-shell--compact"
+            role="dialog"
+          >
+            <div className="profile-editor-ambient" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </div>
+            <header className="profile-editor-header">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-secondary">
-                  Profile details
-                </p>
-                <h2 className="mt-1 text-2xl font-bold tracking-tight text-primary">
+                <p className="profile-editor-eyebrow">
                   {profileFieldEditor === "username"
-                    ? "Change username"
+                    ? "Your NUSHub identity"
+                    : "In your own words"}
+                </p>
+                <h2
+                  className="profile-editor-title"
+                  id="profile-field-editor-title"
+                >
+                  {profileFieldEditor === "username"
+                    ? "Make your name memorable."
                     : profileUser.bio
-                      ? "Edit your bio"
-                      : "Add a bio"}
+                      ? "Refine your introduction."
+                      : "Introduce yourself."}
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-app-muted">
+                <p className="profile-editor-copy">
                   {profileFieldEditor === "username"
                     ? "Use 3–24 letters, numbers, or underscores."
                     : "Share a short introduction in up to 160 characters."}
@@ -969,37 +1105,60 @@ export default function ProfilePage() {
               </div>
               <button
                 aria-label={`Close ${profileFieldEditor} editor`}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 text-app-muted transition-colors hover:bg-slate-50 hover:text-primary"
+                className="profile-editor-close"
                 disabled={profileFieldSaving}
                 onClick={closeProfileFieldEditor}
                 type="button"
               >
-                <Icon name="x" className="h-5 w-5" />
+                  <Icon name="x" className="h-5 w-5" />
               </button>
-            </div>
+            </header>
 
-            <div className="mt-6">
+            <div className="profile-editor-field-surface">
               {profileFieldEditor === "username" ? (
-                <input
-                  autoComplete="off"
-                  autoFocus
-                  className="app-input h-12 font-semibold"
-                  maxLength={24}
-                  onChange={(event) => {
-                    setProfileFieldValue(event.target.value);
-                    setProfileFieldError("");
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") handleSaveProfileField();
-                  }}
-                  placeholder="Your username"
-                  value={profileFieldValue}
-                />
+                <>
+                  <label
+                    className="profile-editor-field-label"
+                    htmlFor="profile-username-field"
+                  >
+                    Public username
+                    <span>3–24 characters</span>
+                  </label>
+                  <div className="profile-editor-username-input">
+                    <span aria-hidden="true">@</span>
+                    <input
+                      autoComplete="off"
+                      autoFocus
+                      id="profile-username-field"
+                      maxLength={24}
+                      onChange={(event) => {
+                        setProfileFieldValue(event.target.value);
+                        setProfileFieldError("");
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") handleSaveProfileField();
+                      }}
+                      placeholder="your_username"
+                      value={profileFieldValue}
+                    />
+                  </div>
+                  <p className="profile-editor-field-note">
+                    Your profile link and every conversation will carry this
+                    name.
+                  </p>
+                </>
               ) : (
                 <>
+                  <label
+                    className="profile-editor-field-label"
+                    htmlFor="profile-bio-field"
+                  >
+                    Short introduction
+                    <span>{profileFieldValue.length}/160</span>
+                  </label>
                   <textarea
                     autoFocus
-                    className="app-input min-h-32 resize-none py-3 leading-6"
+                    id="profile-bio-field"
                     maxLength={160}
                     onChange={(event) => {
                       setProfileFieldValue(event.target.value);
@@ -1008,22 +1167,22 @@ export default function ProfilePage() {
                     placeholder="A little about you..."
                     value={profileFieldValue}
                   />
-                  <p className="mt-2 text-right text-xs font-semibold text-app-muted">
-                    {profileFieldValue.length}/160
+                  <p className="profile-editor-field-note">
+                    A good bio gives people a reason to start a conversation.
                   </p>
                 </>
               )}
             </div>
 
             {profileFieldError && (
-              <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-app-danger">
+              <div className="profile-editor-error" role="alert">
                 {profileFieldError}
               </div>
             )}
 
-            <div className="mt-5 flex justify-end gap-3">
+            <footer className="profile-editor-actions profile-editor-actions--end">
               <button
-                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-primary transition-colors hover:bg-slate-50 disabled:opacity-60"
+                className="profile-editor-button profile-editor-button--quiet"
                 disabled={profileFieldSaving}
                 onClick={closeProfileFieldEditor}
                 type="button"
@@ -1031,7 +1190,7 @@ export default function ProfilePage() {
                 Cancel
               </button>
               <button
-                className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-primary to-secondary px-5 py-2 text-sm font-bold text-white shadow-sm transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                className="profile-editor-button profile-editor-button--primary"
                 disabled={
                   profileFieldSaving ||
                   (profileFieldEditor === "username" &&
@@ -1051,51 +1210,62 @@ export default function ProfilePage() {
                   </>
                 )}
               </button>
-            </div>
+            </footer>
           </section>
         </div>
       )}
 
       {isAvatarModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6 backdrop-blur-sm">
-          <section className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
-            <div className="flex items-start justify-between gap-4">
+        <div className="profile-editor-overlay">
+          <section
+            aria-labelledby="avatar-editor-title"
+            aria-modal="true"
+            className="profile-editor-shell profile-editor-shell--media"
+            role="dialog"
+          >
+            <div className="profile-editor-ambient" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </div>
+            <header className="profile-editor-header">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-secondary">
-                  Profile photo
-                </p>
-                <h2 className="mt-1 text-2xl font-bold tracking-tight text-primary">
-                  Update your avatar
+                <p className="profile-editor-eyebrow">Profile photo</p>
+                <h2 className="profile-editor-title" id="avatar-editor-title">
+                  Put a face to your voice.
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-app-muted">
-                  Use a JPEG, PNG, or WEBP image up to 5 MB. It will be
-                  optimized before upload.
+                <p className="profile-editor-copy">
+                  JPEG, PNG, or WEBP · up to 5 MB · optimized on upload.
                 </p>
               </div>
               <button
                 aria-label="Close avatar editor"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 text-app-muted transition-colors hover:bg-slate-50 hover:text-primary"
+                className="profile-editor-close"
                 disabled={avatarSaving}
                 onClick={resetAvatarModal}
                 type="button"
               >
-                <Icon name="x" className="h-5 w-5" />
+                  <Icon name="x" className="h-5 w-5" />
               </button>
-            </div>
+            </header>
 
-            <div className="mt-6 flex flex-col items-center gap-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-5">
-              {avatarPreviewUrl ? (
-                <img
-                  alt="Selected avatar preview"
-                  className="h-28 w-28 rounded-3xl object-cover shadow-raised ring-4 ring-white"
-                  src={avatarPreviewUrl}
-                />
-              ) : (
-                <ProfileAvatar
-                  className="h-28 w-28 text-5xl"
-                  user={profileUser}
-                />
-              )}
+            <div className="profile-editor-media-workbench profile-editor-avatar-workbench">
+              <div className="profile-editor-avatar-preview">
+                {avatarPreviewUrl ? (
+                  <img
+                    alt="Selected avatar preview"
+                    src={avatarPreviewUrl}
+                  />
+                ) : (
+                  <ProfileAvatar
+                    className="h-full w-full text-5xl"
+                    user={profileUser}
+                  />
+                )}
+              </div>
+              <p className="profile-editor-preview-label">
+                {avatarPreviewUrl ? "New photo preview" : "Current profile photo"}
+              </p>
 
               <input
                 accept="image/jpeg,image/png,image/webp"
@@ -1108,43 +1278,59 @@ export default function ProfilePage() {
               />
 
               <button
-                className="inline-flex items-center gap-2 rounded-full border border-primary bg-white px-5 py-2.5 text-sm font-bold text-primary transition-colors hover:bg-primary-fixed"
+                className="profile-editor-upload-button"
                 disabled={avatarSaving}
                 onClick={() => avatarInputRef.current?.click()}
                 type="button"
               >
-                <Icon name="camera" className="h-4 w-4" />
-                Choose image
+                <span className="profile-editor-upload-icon">
+                  <Icon name="camera" className="h-5 w-5" />
+                </span>
+                <span>
+                  <strong>
+                    {selectedAvatarFile ? "Choose another" : "Choose an image"}
+                  </strong>
+                  <small>Square images work best</small>
+                </span>
               </button>
 
               {selectedAvatarFile && (
-                <p className="max-w-full truncate text-xs font-semibold text-app-muted">
-                  {selectedAvatarFile.name} ·{" "}
-                  {(selectedAvatarFile.size / 1024 / 1024).toFixed(2)} MB
-                  {" "}original
-                </p>
+                <div className="profile-editor-file-chip">
+                  <Icon name="file" className="h-4 w-4" />
+                  <span>{selectedAvatarFile.name}</span>
+                  <small>
+                    {(selectedAvatarFile.size / 1024 / 1024).toFixed(2)} MB
+                  </small>
+                </div>
               )}
             </div>
 
             {avatarError && (
-              <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-app-danger">
+              <div className="profile-editor-error" role="alert">
                 {avatarError}
               </div>
             )}
 
-            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <footer className="profile-editor-actions">
               <button
-                className="rounded-full px-4 py-2 text-sm font-bold text-app-muted transition-colors hover:bg-slate-100 hover:text-app-text disabled:cursor-not-allowed disabled:opacity-60"
+                className="profile-editor-button profile-editor-button--danger"
                 disabled={avatarSaving || !profileUser.avatar_url}
                 onClick={handleRemoveAvatar}
                 type="button"
               >
-                Remove photo
+                {avatarAction === "remove" ? (
+                  <LoadingLabel>Removing photo</LoadingLabel>
+                ) : (
+                  <>
+                    <Icon name="trash" className="h-4 w-4" />
+                    <span>Remove photo</span>
+                  </>
+                )}
               </button>
 
-              <div className="flex gap-3">
+              <div className="profile-editor-action-pair">
                 <button
-                  className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-primary transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="profile-editor-button profile-editor-button--quiet"
                   disabled={avatarSaving}
                   onClick={resetAvatarModal}
                   type="button"
@@ -1152,12 +1338,12 @@ export default function ProfilePage() {
                   Cancel
                 </button>
                 <button
-                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-primary to-secondary px-5 py-2 text-sm font-bold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(253,134,20,0.25)] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="profile-editor-button profile-editor-button--primary"
                   disabled={!selectedAvatarFile || avatarSaving}
                   onClick={handleSaveAvatar}
                   type="button"
                 >
-                  {avatarSaving ? (
+                  {avatarAction === "save" ? (
                     <LoadingLabel>Saving photo</LoadingLabel>
                   ) : (
                     <>
@@ -1167,50 +1353,60 @@ export default function ProfilePage() {
                   )}
                 </button>
               </div>
-            </div>
+            </footer>
           </section>
         </div>
       )}
 
       {isCoverModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6 backdrop-blur-sm">
-          <section className="w-full max-w-xl rounded-lg border border-slate-200 bg-white p-5 shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
-            <div className="flex items-start justify-between gap-4">
+        <div className="profile-editor-overlay">
+          <section
+            aria-labelledby="cover-editor-title"
+            aria-modal="true"
+            className="profile-editor-shell profile-editor-shell--cover"
+            role="dialog"
+          >
+            <div className="profile-editor-ambient" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </div>
+            <header className="profile-editor-header">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-secondary">
-                  Cover picture
-                </p>
-                <h2 className="mt-1 text-2xl font-bold tracking-tight text-primary">
-                  Update your cover
+                <p className="profile-editor-eyebrow">Profile atmosphere</p>
+                <h2 className="profile-editor-title" id="cover-editor-title">
+                  Set the scene.
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-app-muted">
-                  Use a JPEG, PNG, or WEBP image up to 8 MB. Wide images work
-                  best.
+                <p className="profile-editor-copy">
+                  JPEG, PNG, or WEBP · up to 8 MB · wide images work best.
                 </p>
               </div>
               <button
                 aria-label="Close cover picture editor"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 text-app-muted transition-colors hover:bg-slate-50 hover:text-primary"
+                className="profile-editor-close"
                 disabled={coverSaving}
                 onClick={resetCoverModal}
                 type="button"
               >
-                <Icon name="x" className="h-5 w-5" />
+                  <Icon name="x" className="h-5 w-5" />
               </button>
-            </div>
+            </header>
 
-            <div className="mt-6 flex flex-col items-center gap-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-5">
-              <div className="relative aspect-[3/1] w-full overflow-hidden rounded-lg bg-primary shadow-sm">
+            <div className="profile-editor-media-workbench profile-editor-cover-workbench">
+              <div className="profile-editor-cover-preview">
                 {coverPreviewUrl || profileUser.cover_url ? (
                   <img
                     alt="Cover picture preview"
-                    className="h-full w-full object-cover"
                     src={coverPreviewUrl || profileUser.cover_url}
                   />
                 ) : (
-                  <div className="h-full w-full bg-[linear-gradient(135deg,_#002754_0%,_#003d7c_45%,_#fd8614_140%)]" />
+                  <div className="profile-editor-cover-fallback" />
                 )}
-                <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/20 to-transparent" />
+                <div className="profile-editor-cover-shade" />
+                <span className="profile-editor-cover-caption">
+                  <strong>@{profileUser.username}</strong>
+                  {coverPreviewUrl ? "New cover preview" : "Profile cover"}
+                </span>
               </div>
 
               <input
@@ -1223,40 +1419,57 @@ export default function ProfilePage() {
                 type="file"
               />
               <button
-                className="inline-flex items-center gap-2 rounded-full border border-primary bg-white px-5 py-2.5 text-sm font-bold text-primary transition-colors hover:bg-primary-fixed"
+                className="profile-editor-upload-button"
                 disabled={coverSaving}
                 onClick={() => coverInputRef.current?.click()}
                 type="button"
               >
-                <Icon name="camera" className="h-4 w-4" />
-                Choose image
+                <span className="profile-editor-upload-icon">
+                  <Icon name="camera" className="h-5 w-5" />
+                </span>
+                <span>
+                  <strong>
+                    {selectedCoverFile ? "Choose another" : "Choose an image"}
+                  </strong>
+                  <small>A 3:1 landscape crop is ideal</small>
+                </span>
               </button>
               {selectedCoverFile && (
-                <p className="max-w-full truncate text-xs font-semibold text-app-muted">
-                  {selectedCoverFile.name} ·{" "}
-                  {(selectedCoverFile.size / 1024 / 1024).toFixed(2)} MB original
-                </p>
+                <div className="profile-editor-file-chip">
+                  <Icon name="file" className="h-4 w-4" />
+                  <span>{selectedCoverFile.name}</span>
+                  <small>
+                    {(selectedCoverFile.size / 1024 / 1024).toFixed(2)} MB
+                  </small>
+                </div>
               )}
             </div>
 
             {coverError && (
-              <div className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-app-danger">
+              <div className="profile-editor-error" role="alert">
                 {coverError}
               </div>
             )}
 
-            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <footer className="profile-editor-actions">
               <button
-                className="rounded-full px-4 py-2 text-sm font-bold text-app-muted transition-colors hover:bg-slate-100 hover:text-app-text disabled:cursor-not-allowed disabled:opacity-60"
+                className="profile-editor-button profile-editor-button--danger"
                 disabled={coverSaving || !profileUser.cover_url}
                 onClick={handleRemoveCover}
                 type="button"
               >
-                Remove cover
+                {coverAction === "remove" ? (
+                  <LoadingLabel>Removing cover</LoadingLabel>
+                ) : (
+                  <>
+                    <Icon name="trash" className="h-4 w-4" />
+                    <span>Remove cover</span>
+                  </>
+                )}
               </button>
-              <div className="flex gap-3">
+              <div className="profile-editor-action-pair">
                 <button
-                  className="rounded-full border border-slate-200 px-4 py-2 text-sm font-bold text-primary transition-colors hover:bg-slate-50 disabled:opacity-60"
+                  className="profile-editor-button profile-editor-button--quiet"
                   disabled={coverSaving}
                   onClick={resetCoverModal}
                   type="button"
@@ -1264,12 +1477,12 @@ export default function ProfilePage() {
                   Cancel
                 </button>
                 <button
-                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-primary to-secondary px-5 py-2 text-sm font-bold text-white shadow-sm transition-all hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="profile-editor-button profile-editor-button--primary"
                   disabled={!selectedCoverFile || coverSaving}
                   onClick={handleSaveCover}
                   type="button"
                 >
-                  {coverSaving ? (
+                  {coverAction === "save" ? (
                     <LoadingLabel>Saving cover</LoadingLabel>
                   ) : (
                     <>
@@ -1279,7 +1492,7 @@ export default function ProfilePage() {
                   )}
                 </button>
               </div>
-            </div>
+            </footer>
           </section>
         </div>
       )}
