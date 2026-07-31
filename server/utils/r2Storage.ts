@@ -11,6 +11,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { env } from "../config/env";
 
 export const MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024;
+export const MAX_GROUP_POST_ATTACHMENT_SIZE_BYTES = 15 * 1024 * 1024;
 export const MAX_ATTACHMENTS_PER_MESSAGE = 5;
 export const MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024;
 export const MAX_COVER_SIZE_BYTES = 8 * 1024 * 1024;
@@ -108,13 +109,20 @@ export function validateAttachmentMetadata(file: {
   file_size: number;
   mime_type: string;
   original_name: string;
-}) {
+}, options: {
+  maxFileSizeBytes?: number;
+  maxFileSizeLabel?: string;
+} = {}) {
+  const maxFileSizeBytes =
+    options.maxFileSizeBytes ?? MAX_ATTACHMENT_SIZE_BYTES;
+  const maxFileSizeLabel = options.maxFileSizeLabel ?? "10 MB";
+
   if (!file.original_name.trim()) {
     throw new Error("File name is required");
   }
 
-  if (file.file_size > MAX_ATTACHMENT_SIZE_BYTES) {
-    throw new Error("Each file must be 10 MB or smaller");
+  if (file.file_size > maxFileSizeBytes) {
+    throw new Error(`Each file must be ${maxFileSizeLabel} or smaller`);
   }
 
   if (!ALLOWED_ATTACHMENT_TYPES.has(file.mime_type)) {
@@ -312,6 +320,7 @@ export async function createCoverUploadUrl({
 }
 
 // for frontend to send with messages
+// returns permanent public URL when public R2 access is configured
 export async function createDownloadUrl(storageKey: string) {
   const publicUrl = getPublicFileUrl(storageKey);
 
@@ -319,6 +328,18 @@ export async function createDownloadUrl(storageKey: string) {
     return publicUrl;
   }
 
+  return getSignedUrl(
+    getR2Client(),
+    new GetObjectCommand({
+      Bucket: getR2BucketName(),
+      Key: storageKey,
+    }),
+    { expiresIn: 60 * 60 },
+  );
+}
+
+// returns temporary signed URL valid for one hour, starting when when the server generates the URL
+export async function createSignedDownloadUrl(storageKey: string) {
   return getSignedUrl(
     getR2Client(),
     new GetObjectCommand({

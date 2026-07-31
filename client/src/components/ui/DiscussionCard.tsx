@@ -23,7 +23,18 @@ function resolveAttachmentUrl(fileUrl = "") {
   return fileUrl.startsWith("http") ? fileUrl : `${API_URL}${fileUrl}`;
 }
 
-export default function DiscussionCard({ post, onDelete, onUpvote }) {
+export default function DiscussionCard({
+  articleId = undefined,
+  children = null,
+  commentLabel = "replies",
+  onCommentsClick = undefined,
+  onDelete,
+  onPostLinkClick = undefined,
+  onUpvote,
+  post,
+  postHref = undefined,
+  topicContent = null,
+}) {
   const user = getStoredUser();
   const canOpenProfile = !post.is_anonymous && post.user_id;
   const profilePath = canOpenProfile ? `/users/${post.user_id}` : null;
@@ -43,6 +54,7 @@ export default function DiscussionCard({ post, onDelete, onUpvote }) {
   const shouldShowFileSummary = attachmentCount > 0 && !shouldPreviewSingleMedia;
   const actionClass =
     "forum-card-action flex h-10 items-center gap-1.5 border bg-white px-4 text-xs font-bold text-app-muted";
+  const resolvedPostHref = postHref || `/posts/${post.id}`;
   const authorAvatar = (
     <UserAvatar
       avatarUrl={post.avatar_url}
@@ -52,7 +64,10 @@ export default function DiscussionCard({ post, onDelete, onUpvote }) {
   );
 
   return (
-    <article className="forum-discussion-card group relative overflow-hidden border bg-white p-5">
+    <article
+      className="forum-discussion-card group relative overflow-hidden border bg-white p-5"
+      id={articleId}
+    >
       <div className="forum-card-accent absolute inset-x-0 top-0 h-1" />
       <div className="min-w-0">
         <div className="mb-4 flex items-start justify-between gap-3">
@@ -90,12 +105,13 @@ export default function DiscussionCard({ post, onDelete, onUpvote }) {
           </div>
 
           <div className="forum-card-topic shrink-0">
-            <TopicBadge topic={post.topic} />
+            {topicContent || <TopicBadge topic={post.topic} />}
           </div>
         </div>
 
         <Link
-          to={`/posts/${post.id}`}
+          onClick={onPostLinkClick}
+          to={resolvedPostHref}
           className="forum-card-title block text-lg font-bold leading-snug text-app-text"
         >
           {post.title}
@@ -111,7 +127,8 @@ export default function DiscussionCard({ post, onDelete, onUpvote }) {
           <Link
             aria-label={`Open ${onlyAttachment.original_name}`}
             className="forum-card-media mt-4 flex min-h-56 items-center justify-center overflow-hidden border border-slate-200 bg-slate-950"
-            to={`/posts/${post.id}`}
+            onClick={onPostLinkClick}
+            to={resolvedPostHref}
           >
             {isVideoAttachment(onlyAttachment.mime_type) ? (
               <video
@@ -138,7 +155,8 @@ export default function DiscussionCard({ post, onDelete, onUpvote }) {
               attachmentCount === 1 ? "" : "s"
             }`}
             className="forum-card-files mt-4 flex items-center gap-4 border border-primary/25 bg-primary-fixed px-5 py-4 text-primary"
-            to={`/posts/${post.id}`}
+            onClick={onPostLinkClick}
+            to={resolvedPostHref}
           >
             <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white/80 shadow-sm">
               <Icon name="paperclip" className="h-7 w-7" />
@@ -160,13 +178,22 @@ export default function DiscussionCard({ post, onDelete, onUpvote }) {
             count={post.upvotes}
             onUpvote={() => onUpvote?.(post.id)}
           />
-          <Link
-            to={`/posts/${post.id}`}
-            className={actionClass}
-          >
-            <Icon name="message" className="h-4 w-4" />
-            {post.comment_count || 0} replies
-          </Link>
+          {onCommentsClick ? (
+            <button
+              aria-expanded={Boolean(children)}
+              className={actionClass}
+              onClick={onCommentsClick}
+              type="button"
+            >
+              <Icon name="message" className="h-4 w-4" />
+              {post.comment_count || 0} {commentLabel}
+            </button>
+          ) : (
+            <Link to={resolvedPostHref} className={actionClass}>
+              <Icon name="message" className="h-4 w-4" />
+              {post.comment_count || 0} {commentLabel}
+            </Link>
+          )}
           <button
             className={actionClass}
             type="button"
@@ -182,6 +209,7 @@ export default function DiscussionCard({ post, onDelete, onUpvote }) {
             targetId={post.id}
           />
         </div>
+        {children}
       </div>
     </article>
   );

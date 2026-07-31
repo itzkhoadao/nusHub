@@ -11,7 +11,7 @@ test("loads the repository migrations in a continuous, checksummed order", async
 
   assert.deepEqual(
     migrations.map((migration) => migration.version),
-    [1, 2, 3, 4, 5, 6, 7, 8],
+    [1, 2, 3, 4, 5, 6, 7, 8, 9],
   );
 
   for (const migration of migrations) {

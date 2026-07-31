@@ -10,6 +10,11 @@ import { respondWithCaughtError } from "../middleware/errorHandler";
 import { createNotification } from "../utils/notificationSchema";
 import { addResolvedAvatarUrl, addResolvedAvatarUrls } from "../utils/userAvatar";
 import {
+  canViewPost,
+  getGroupPostAccess,
+  postLinkPath,
+} from "../utils/groupPostAccess";
+import {
   MAX_ATTACHMENTS_PER_MESSAGE,
   createDownloadUrl,
   createPostAttachmentUploadUrl,
@@ -101,7 +106,7 @@ router.get("/", async (req, res) => {
       LEFT JOIN users u ON p.user_id = u.id
       LEFT JOIN comments c ON c.post_id = p.id
       LEFT JOIN post_attachments pa ON pa.post_id = p.id
-      WHERE 1=1
+      WHERE p.group_id IS NULL
     `;
 
     if (topic && topic !== "All") {
@@ -273,6 +278,11 @@ router.post("/:id/upvote", authenticate, async (req, res) => {
   try {
     const id = req.params.id as string;
     const userId = req.user.id;
+    const access = await getGroupPostAccess(id, userId);
+
+    if (!canViewPost(access)) {
+      return res.status(404).json({ error: "Post not found" });
+    }
 
     const existing = await pool.query(
       "SELECT 1 FROM post_upvotes WHERE user_id=$1 AND post_id=$2",
@@ -300,7 +310,7 @@ router.post("/:id/upvote", authenticate, async (req, res) => {
 
       // send notification to the user whose post is being upvoted
       const notificationTarget = await pool.query(
-        `SELECT p.user_id, p.title, u.username AS actor_username
+        `SELECT p.user_id, p.title, p.group_id, u.username AS actor_username
          FROM posts p
          JOIN users u ON u.id = $1
          WHERE p.id = $2`,
@@ -310,7 +320,7 @@ router.post("/:id/upvote", authenticate, async (req, res) => {
 
       await createNotification({
         actorId: userId,
-        linkPath: `/posts/${id}`,
+        linkPath: postLinkPath(id, target.group_id),
         message: `${target.actor_username} upvoted your post "${target.title}"`,
         postId: id,
         recipientId: target.user_id,
@@ -376,7 +386,7 @@ router.get("/:id", async (req, res) => {
         ${upvotedSelect} as upvoted
        FROM posts p
        LEFT JOIN users u ON p.user_id = u.id
-       WHERE p.id = $1`,
+       WHERE p.id = $1 AND p.group_id IS NULL`,
       params,
     );
 
