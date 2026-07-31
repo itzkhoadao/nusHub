@@ -1,7 +1,6 @@
 ALTER TABLE group_members
   ADD COLUMN IF NOT EXISTS role VARCHAR(10) NOT NULL DEFAULT 'member';
 
--- group_members.role
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -42,7 +41,6 @@ BEGIN
       );
   END IF;
 
-  -- post in groups cannot be anonymous
   IF NOT EXISTS (
     SELECT 1
     FROM pg_constraint
