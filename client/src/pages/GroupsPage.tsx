@@ -10,6 +10,7 @@ import { getAuthToken, getStoredUser } from "../utils/authStorage";
 export default function GroupsPage() {
   const [groups, setGroups] = useState([]);
   const [search, setSearch] = useState("");
+  const [scope, setScope] = useState("all");
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newGroup, setNewGroup] = useState({
@@ -33,13 +34,14 @@ export default function GroupsPage() {
       setLoading(true);
 
       try {
-        let url = apiUrl("/api/groups");
-        if (search) {
-          url += `?search=${search}`;
-        }
-        const res = await fetch(url); // ask for GET request from backend
+        const params = new URLSearchParams({ scope });
+        if (search.trim()) params.set("search", search.trim());
+        const token = getAuthToken();
+        const res = await fetch(apiUrl(`/api/groups?${params}`), {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
         const data = await res.json(); // extract JSON from response
-        setGroups(data);
+        setGroups(res.ok && Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Failed to fetch groups:", err);
       } finally {
@@ -48,7 +50,7 @@ export default function GroupsPage() {
     };
 
     fetchGroups();
-  }, [search]);
+  }, [search, scope]);
 
   const handleCreateGroup = async () => {
     if (!newGroup.name.trim()) {
@@ -166,6 +168,37 @@ export default function GroupsPage() {
           </div>
         </section>
 
+        <section className="app-section-card groups-filter-panel">
+          <div>
+            <h2 className="text-sm font-bold uppercase tracking-wide text-app-muted">
+              Browse groups
+            </h2>
+            <p className="mt-1 text-sm text-app-muted">
+              Switch between the full community directory and groups you joined.
+            </p>
+          </div>
+          <div
+            aria-label="Group filter"
+            className="groups-scope-control"
+            role="group"
+          >
+            {[
+              ["all", "All groups"],
+              ["mine", "My groups"],
+            ].map(([value, label]) => (
+              <button
+                aria-pressed={scope === value}
+                className={scope === value ? "is-active" : ""}
+                key={value}
+                onClick={() => setScope(value)}
+                type="button"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </section>
+
         {/* Create group form */}
         {showCreateForm && (
           <section className="groups-create-panel">
@@ -261,9 +294,13 @@ export default function GroupsPage() {
           />
         ) : groups.length === 0 ? (
           <section className="app-empty-state groups-empty-state">
-            <h2 className="text-xl font-bold text-app-text">No groups yet</h2>
+            <h2 className="text-xl font-bold text-app-text">
+              {scope === "mine" ? "You haven’t joined a group yet" : "No groups yet"}
+            </h2>
             <p className="mt-2 text-sm text-app-muted">
-              Create the first one and invite your classmates.
+              {scope === "mine"
+                ? "Explore all groups or create one for your classmates."
+                : "Create the first one and invite your classmates."}
             </p>
             <button
               className="groups-primary-button mt-5"

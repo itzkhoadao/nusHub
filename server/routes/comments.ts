@@ -7,6 +7,12 @@ import { pool } from "../db";
 import { respondWithCaughtError } from "../middleware/errorHandler";
 import { createNotification } from "../utils/notificationSchema";
 import { addResolvedAvatarUrls } from "../utils/userAvatar";
+import {
+  canCommentOnPost,
+  canViewPost,
+  getGroupPostAccess,
+  postLinkPath,
+} from "../utils/groupPostAccess";
 
 function getOptionalUserId(req) {
   return getOptionalAuthenticatedUser(req.headers.authorization)?.id ?? null;
@@ -17,6 +23,12 @@ router.get("/", async (req, res) => {
   try {
     const postId = (req.params as any).postId as string;
     const userId = getOptionalUserId(req);
+    const access = await getGroupPostAccess(postId, userId);
+
+    if (!canViewPost(access)) {
+      return res.status(404).json({ error: "Post not found" });
+    }
+
     const params = [postId];
 
     const upvotedSelect = userId
@@ -63,6 +75,20 @@ router.post("/", authenticate, async (req, res) => {
   try {
     const postId = (req.params as any).postId as string;
     const { content, is_anonymous, parent_comment_id } = req.body;
+    const access = await getGroupPostAccess(postId, req.user.id);
+
+    if (!access) {
+      return res.status(404).json({ error: "Post not found" });
+    }
+
+    if (!canCommentOnPost(access)) {
+      return res
+        .status(403)
+        .json({ error: "Join this group to comment or reply" });
+    }
+
+    // if commenting in a group post => anonymous = false
+    const effectiveAnonymous = access.group_id ? false : Boolean(is_anonymous);
 
     if (!content || !content.trim()) {
       return res.status(400).json({ error: "Comment cannot be empty" });
@@ -90,7 +116,13 @@ router.post("/", authenticate, async (req, res) => {
       `INSERT INTO comments (post_id, user_id, content, is_anonymous, parent_comment_id)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [postId, req.user.id, content, is_anonymous || false, parent_comment_id || null],
+      [
+        postId,
+        req.user.id,
+        content,
+        effectiveAnonymous,
+        parent_comment_id || null,
+      ],
     );
 
     // get the username of the person causing notification (who submits comment/reply)
@@ -98,16 +130,17 @@ router.post("/", authenticate, async (req, res) => {
       "SELECT username FROM users WHERE id = $1",
       [req.user.id],
     );
-    const actorName = is_anonymous
+    const actorName = effectiveAnonymous
       ? "Anonymous"
       : actorResult.rows[0]?.username || "Someone";
+    const linkPath = postLinkPath(postId, access.group_id);
 
     // if its a reply, send notification to the person whose comment is being replied to
     if (parentComment) {
       await createNotification({
         actorId: req.user.id,
         commentId: result.rows[0].id,
-        linkPath: `/posts/${postId}`,
+        linkPath,
         message: `${actorName} replied to your comment on "${parentComment.title}"`,
         postId,
         recipientId: parentComment.user_id,
@@ -124,7 +157,7 @@ router.post("/", authenticate, async (req, res) => {
       await createNotification({
         actorId: req.user.id,
         commentId: result.rows[0].id,
-        linkPath: `/posts/${postId}`,
+        linkPath,
         message: `${actorName} commented on your post "${post.title}"`,
         postId,
         recipientId: post.user_id,
@@ -143,6 +176,21 @@ router.post("/:commentId/upvote", authenticate, async (req, res) => {
   try {
     const commentId = req.params.commentId as string;
     const userId = req.user.id;
+    const accessResult = await pool.query(
+      `SELECT p.id
+       FROM comments c
+       JOIN posts p ON p.id = c.post_id
+       WHERE c.id = $1`,
+      [commentId],
+    );
+    const postId = accessResult.rows[0]?.id;
+    const access = postId
+      ? await getGroupPostAccess(postId, userId)
+      : null;
+
+    if (!canViewPost(access)) {
+      return res.status(404).json({ error: "Comment not found" });
+    }
 
     const existing = await pool.query(
       "SELECT 1 FROM comment_upvotes WHERE user_id=$1 AND comment_id=$2",
@@ -173,7 +221,12 @@ router.post("/:commentId/upvote", authenticate, async (req, res) => {
 
       // send notification to the user whose comment is being upvoted
       const notificationTarget = await pool.query(
-        `SELECT c.user_id, c.post_id, p.title, u.username AS actor_username
+        `SELECT
+           c.user_id,
+           c.post_id,
+           p.title,
+           p.group_id,
+           u.username AS actor_username
          FROM comments c
          JOIN posts p ON p.id = c.post_id
          JOIN users u ON u.id = $1
@@ -185,7 +238,7 @@ router.post("/:commentId/upvote", authenticate, async (req, res) => {
       await createNotification({
         actorId: userId,
         commentId,
-        linkPath: `/posts/${target.post_id}`,
+        linkPath: postLinkPath(target.post_id, target.group_id),
         message: `${target.actor_username} upvoted your comment on "${target.title}"`,
         postId: target.post_id,
         recipientId: target.user_id,
