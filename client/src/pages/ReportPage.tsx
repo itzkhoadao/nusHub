@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
 import UserAvatar from "../components/ui/UserAvatar";
-import { apiUrl } from "../utils/api";
+import { apiUrl, mutationFetch } from "../utils/api";
 import { getAuthToken, getStoredUser } from "../utils/authStorage";
 
 const REASONS = [
@@ -76,6 +76,7 @@ export default function ReportPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const user = getStoredUser();
+  const userId = user?.id;
   const type = searchParams.get("type");
   const targetId = searchParams.get("id");
   const postId = searchParams.get("postId");
@@ -103,7 +104,7 @@ export default function ReportPage() {
       : "comment";
 
   useEffect(() => {
-    if (!user) {
+    if (!userId) {
       navigate("/login");
       return;
     }
@@ -156,7 +157,7 @@ export default function ReportPage() {
     };
 
     loadTarget();
-  }, [navigate, postId, targetId, type, user?.id]);
+  }, [navigate, postId, targetId, type, userId]);
 
   const goToStep = (next: number) => {
     setDirection(next > step ? "forward" : "back");
@@ -171,7 +172,7 @@ export default function ReportPage() {
     setError("");
 
     try {
-      const res = await fetch(apiUrl("/api/reports"), {
+      const res = await mutationFetch(apiUrl("/api/reports"), {
         method: "POST",
         headers: {
           Authorization: `Bearer ${getAuthToken()}`,

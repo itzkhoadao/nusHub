@@ -11,6 +11,7 @@ import {
   notFound,
 } from "./middleware/errorHandler";
 import { requestId } from "./middleware/requestId";
+import { idempotency } from "./middleware/idempotency";
 import authRoutes from "./routes/auth";
 import commentRoutes from "./routes/comments";
 import conversationRoutes from "./routes/conversations";
@@ -34,6 +35,7 @@ export function createApp() {
   app.use(apiCors);
   app.use(express.json({ limit: env.REQUEST_BODY_LIMIT })); // default limit: 1MB
   app.use("/api", apiRateLimiter);
+  app.use("/api", idempotency);
 
   app.use("/api/auth", authRateLimiter, authRoutes);
   app.use("/api/posts", postRoutes);

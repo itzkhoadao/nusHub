@@ -1,4 +1,4 @@
-import { apiUrl } from "./api";
+import { apiUrl, mutationFetch } from "./api";
 import { getAuthToken } from "./authStorage";
 
 export const MAX_POST_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024;
@@ -47,7 +47,7 @@ async function readJsonResponse<T>(response: Response): Promise<T> {
 
 // asks backend to generate temp R2 upload URL
 async function createPostAttachmentUploadUrls(files: File[]) {
-  const response = await fetch(apiUrl("/api/posts/attachments/presign"), {
+  const response = await mutationFetch(apiUrl("/api/posts/attachments/presign"), {
     method: "POST",
     headers: {
       ...getAuthHeaders(),
@@ -73,7 +73,7 @@ async function createGroupPostAttachmentUploadUrls(
   groupId: string,
   files: File[],
 ) {
-  const response = await fetch(
+  const response = await mutationFetch(
     apiUrl(`/api/groups/${groupId}/posts/attachments/presign`),
     {
       method: "POST",

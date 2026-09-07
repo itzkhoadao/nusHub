@@ -1,4 +1,4 @@
-import { apiUrl } from "./api";
+import { apiUrl, mutationFetch } from "./api";
 import { getAuthToken } from "./authStorage";
 
 const MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024;
@@ -178,7 +178,7 @@ export async function updateProfileAvatar(file: File) {
   const uploadFile = await optimizeAvatarFile(file); // file to be uploaded
 
   // request a presigned upload URL
-  const presignResponse = await fetch(apiUrl("/api/users/me/avatar/presign"), {
+  const presignResponse = await mutationFetch(apiUrl("/api/users/me/avatar/presign"), {
     method: "POST",
     headers: {
       ...getAuthHeaders(),
@@ -206,7 +206,7 @@ export async function updateProfileAvatar(file: File) {
   }
 
   // asks backend to confirm/validate
-  const confirmResponse = await fetch(apiUrl("/api/users/me/avatar/confirm"), {
+  const confirmResponse = await mutationFetch(apiUrl("/api/users/me/avatar/confirm"), {
     method: "POST",
     headers: {
       ...getAuthHeaders(),
@@ -224,7 +224,7 @@ export async function updateProfileAvatar(file: File) {
 }
 
 export async function removeProfileAvatar() {
-  const response = await fetch(apiUrl("/api/users/me/avatar"), {
+  const response = await mutationFetch(apiUrl("/api/users/me/avatar"), {
     method: "DELETE",
     headers: getAuthHeaders(),
   });
@@ -235,7 +235,7 @@ export async function removeProfileAvatar() {
 export async function updateProfileCover(file: File) {
   validateCoverFile(file);
   const uploadFile = await optimizeCoverFile(file);
-  const presignResponse = await fetch(apiUrl("/api/users/me/cover/presign"), {
+  const presignResponse = await mutationFetch(apiUrl("/api/users/me/cover/presign"), {
     method: "POST",
     headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -258,7 +258,7 @@ export async function updateProfileCover(file: File) {
     throw new Error("Failed to upload cover picture");
   }
 
-  const confirmResponse = await fetch(apiUrl("/api/users/me/cover/confirm"), {
+  const confirmResponse = await mutationFetch(apiUrl("/api/users/me/cover/confirm"), {
     method: "POST",
     headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -273,7 +273,7 @@ export async function updateProfileCover(file: File) {
 }
 
 export async function removeProfileCover() {
-  const response = await fetch(apiUrl("/api/users/me/cover"), {
+  const response = await mutationFetch(apiUrl("/api/users/me/cover"), {
     method: "DELETE",
     headers: getAuthHeaders(),
   });
@@ -284,7 +284,7 @@ export async function updateProfileDetails(changes: {
   bio?: string;
   username?: string;
 }) {
-  const response = await fetch(apiUrl("/api/users/me/profile"), {
+  const response = await mutationFetch(apiUrl("/api/users/me/profile"), {
     method: "PATCH",
     headers: {
       ...getAuthHeaders(),

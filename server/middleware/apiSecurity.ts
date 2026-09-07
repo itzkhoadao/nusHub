@@ -9,6 +9,7 @@ const allowedClientOrigin = new URL(env.CLIENT_URL).origin; // accepts browser r
 
 export const corsOptions: CorsOptions = {
   credentials: true,
+  exposedHeaders: ["Idempotency-Replayed", "Idempotency-Status", "Retry-After"],
   origin(origin, callback) {
     // allow requests without origin (same-origin/server-to-server clients)
     if (!origin || origin === allowedClientOrigin) {

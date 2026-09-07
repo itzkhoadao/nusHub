@@ -118,6 +118,20 @@ have been applied; create the next numbered file for every schema change.
 
 The API will run at `http://localhost:5000` by default.
 
+### Mutation idempotency
+
+Every `POST`, `PUT`, `PATCH`, and `DELETE` request under `/api` must include an
+`Idempotency-Key` header containing 8-128 URL-safe characters. Generate one
+high-entropy key for each logical user action and reuse that same key whenever
+the request is retried; do not reuse it for a different method, path, or body.
+
+The API keeps the first JSON response for 24 hours. A matching retry receives
+that response with `Idempotency-Replayed: true`. Reusing a key for a different
+request returns `409 IDEMPOTENCY_KEY_REUSED`; a concurrent request with the same
+key returns `409 IDEMPOTENCY_REQUEST_IN_PROGRESS` and `Retry-After`. The web
+client's `mutationFetch` helper implements this contract and performs bounded
+retries for transport errors and transient gateway responses.
+
 ### 3. Configure the Frontend
 
 Open a second terminal, then install the client dependencies:

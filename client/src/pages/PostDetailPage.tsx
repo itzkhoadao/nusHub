@@ -1,4 +1,4 @@
-import { useEffect, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useState, type KeyboardEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import AppShell from "../components/layout/AppShell";
 import Icon from "../components/Icon";
@@ -8,7 +8,7 @@ import UserAvatar from "../components/ui/UserAvatar";
 import VoteBlock from "../components/ui/VoteBlock";
 import ContentActionMenu from "../components/ui/ContentActionMenu";
 import LoadingState, { LoadingLabel } from "../components/ui/LoadingState";
-import { API_URL, apiUrl } from "../utils/api";
+import { API_URL, apiUrl, mutationFetch } from "../utils/api";
 import { getAuthToken, getStoredUser } from "../utils/authStorage";
 import { getRecentActivity } from "../utils/recentActivity";
 
@@ -50,9 +50,10 @@ export default function PostDetailPage() {
     "post-detail-action flex h-10 items-center gap-1.5 px-4 text-sm font-bold";
 
   const user = getStoredUser(); // gets the saved user from the browser
+  const userId = user?.id;
 
   // asks the backend for one post using id
-  const fetchPost = async () => {
+  const fetchPost = useCallback(async () => {
     try {
       const token = getAuthToken();
       const res = await fetch(apiUrl(`/api/posts/${id}`), {
@@ -71,10 +72,10 @@ export default function PostDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, navigate]);
 
   // asks the backend for all comments belonging to this post
-  const fetchComments = async () => {
+  const fetchComments = useCallback(async () => {
     try {
       const token = getAuthToken();
       const res = await fetch(
@@ -88,10 +89,10 @@ export default function PostDetailPage() {
     } catch (err) {
       console.error("Failed to fetch comments:", err);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
-    if (!user) {
+    if (!userId) {
       navigate("/login");
       return;
     }
@@ -99,7 +100,7 @@ export default function PostDetailPage() {
     // runs when the page loads or whenever id changes
     fetchPost();
     fetchComments();
-  }, [id]);
+  }, [fetchComments, fetchPost, navigate, userId]);
 
   // Keep the right sidebar in sync with the forum home's recent activity.
   useEffect(() => {
@@ -113,7 +114,7 @@ export default function PostDetailPage() {
     return () => {
       window.removeEventListener("focus", fetchRecentItems);
     };
-  }, [user?.id]);
+  }, [userId]);
 
   // send typed comment text to backend
   // If successful, it clears the form and reloads comments
@@ -130,7 +131,7 @@ export default function PostDetailPage() {
       // token is needed because adding a comment requires authentication
       const token = getAuthToken();
 
-      const res = await fetch(
+      const res = await mutationFetch(
         apiUrl(`/api/posts/${id}/comments`),
         {
           method: "POST",
@@ -176,7 +177,7 @@ export default function PostDetailPage() {
     try {
       const token = getAuthToken(); // only logged in users can reply
 
-      const res = await fetch(
+      const res = await mutationFetch(
         apiUrl(`/api/posts/${id}/comments`),
         {
           method: "POST",
@@ -236,7 +237,7 @@ export default function PostDetailPage() {
   const handleCommentUpvote = async (commentId) => {
     const token = getAuthToken(); // gets user's authentication token
 
-    const res = await fetch(
+    const res = await mutationFetch(
       apiUrl(`/api/posts/${id}/comments/${commentId}/upvote`),
       {
         method: "POST",
@@ -262,7 +263,7 @@ export default function PostDetailPage() {
   const handlePostUpvote = async () => {
     const token = getAuthToken();
 
-    const res = await fetch(apiUrl(`/api/posts/${id}/upvote`), {
+    const res = await mutationFetch(apiUrl(`/api/posts/${id}/upvote`), {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     }); // go to toggle upvote route
@@ -276,7 +277,7 @@ export default function PostDetailPage() {
   };
 
   const deletePost = async () => {
-    const res = await fetch(apiUrl(`/api/posts/${id}`), {
+    const res = await mutationFetch(apiUrl(`/api/posts/${id}`), {
       method: "DELETE",
       headers: { Authorization: `Bearer ${getAuthToken()}` },
     });
@@ -286,7 +287,7 @@ export default function PostDetailPage() {
   };
 
   const deleteComment = async (commentId) => {
-    const res = await fetch(
+    const res = await mutationFetch(
       apiUrl(`/api/posts/${id}/comments/${commentId}`),
       {
         method: "DELETE",

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
 import Logo from "../components/Logo";
-import { apiUrl } from "../utils/api";
+import { apiUrl, mutationFetch } from "../utils/api";
 import {
   getAuthToken,
   getStoredUser,
@@ -219,7 +219,7 @@ export default function OnboardingPage() {
     setSaving(true);
     setError("");
     try {
-      const response = await fetch(apiUrl("/api/users/me/background"), {
+      const response = await mutationFetch(apiUrl("/api/users/me/background"), {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${getAuthToken()}`,

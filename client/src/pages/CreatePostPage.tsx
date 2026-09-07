@@ -4,7 +4,7 @@ import Icon from "../components/Icon";
 import AppShell from "../components/layout/AppShell";
 import UserAvatar from "../components/ui/UserAvatar";
 import { LoadingLabel } from "../components/ui/LoadingState";
-import { apiUrl } from "../utils/api";
+import { apiUrl, mutationFetch } from "../utils/api";
 import { getAuthToken, getStoredUser } from "../utils/authStorage";
 import {
   MAX_POST_ATTACHMENTS,
@@ -121,7 +121,7 @@ export default function CreatePostPage() {
       const token = getAuthToken();
       const uploadedAttachments = await uploadPostAttachments(selectedFiles);
 
-      const res = await fetch(apiUrl("/api/posts"), {
+      const res = await mutationFetch(apiUrl("/api/posts"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

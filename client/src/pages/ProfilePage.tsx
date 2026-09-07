@@ -146,11 +146,12 @@ export default function ProfilePage() {
   const { userId } = useParams();
 
   const user = getStoredUser();
-  const isOwnProfile = !userId || String(user?.id) === String(userId);
+  const currentUserId = user?.id;
+  const isOwnProfile = !userId || String(currentUserId) === String(userId);
 
   // tell user to log in if they have not, if logged in, show their profile page
   useEffect(() => {
-    if (!user) {
+    if (!currentUserId) {
       navigate("/login");
       return;
     }
@@ -183,7 +184,7 @@ export default function ProfilePage() {
     };
 
     fetchProfile();
-  }, [userId]);
+  }, [currentUserId, isOwnProfile, navigate, userId]);
 
   useEffect(() => {
     return () => {

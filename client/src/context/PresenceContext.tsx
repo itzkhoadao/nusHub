@@ -1,6 +1,4 @@
 import {
-  createContext,
-  useContext,
   useEffect,
   useMemo,
   useState,
@@ -11,8 +9,7 @@ import {
   getAuthToken,
 } from "../utils/authStorage";
 import { getChatSocket } from "../utils/socket";
-
-const PresenceContext = createContext<Set<string>>(new Set());
+import { PresenceContext } from "./presence";
 
 export function PresenceProvider({ children }: { children: ReactNode }) {
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
@@ -69,9 +66,4 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
       {children}
     </PresenceContext.Provider>
   );
-}
-
-export function useIsUserOnline(userId?: string | number | null) {
-  const onlineUserIds = useContext(PresenceContext);
-  return userId != null && onlineUserIds.has(String(userId));
 }

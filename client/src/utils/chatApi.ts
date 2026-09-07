@@ -1,5 +1,5 @@
 // THIS FILE CONTAINS HTTPS API FUNCTIONS FOR CHAT
-import { API_URL } from "./api";
+import { API_URL, mutationFetch } from "./api";
 import { getAuthToken, getStoredUser } from "./authStorage";
 
 // base URLs
@@ -122,7 +122,7 @@ export async function getConversations() {
 }
 
 export async function startDirectConversation(userId: string) {
-  const response = await fetch(`${CONVERSATIONS_URL}/direct/${userId}`, {
+  const response = await mutationFetch(`${CONVERSATIONS_URL}/direct/${userId}`, {
     method: "POST",
     headers: getAuthHeaders(),
   });
@@ -142,7 +142,7 @@ export async function getMessages(conversationId: string) {
 
 // asks backend to create temporary upload permissions
 async function createAttachmentUploadUrls(conversationId: string, files: File[]) {
-  const response = await fetch(
+  const response = await mutationFetch(
     `${CONVERSATIONS_URL}/${conversationId}/attachments/presign`,
     {
       method: "POST",
@@ -209,7 +209,7 @@ export async function sendMessage(
     })); // preparing permanent attachment metadata
   }
 
-  const response = await fetch(`${CONVERSATIONS_URL}/${conversationId}/messages`, {
+  const response = await mutationFetch(`${CONVERSATIONS_URL}/${conversationId}/messages`, {
     method: "POST",
     headers: {
       ...getAuthHeaders(),
@@ -226,7 +226,7 @@ export async function sendMessage(
 }
 
 export async function markConversationRead(conversationId: string) {
-  const response = await fetch(`${CONVERSATIONS_URL}/${conversationId}/read`, {
+  const response = await mutationFetch(`${CONVERSATIONS_URL}/${conversationId}/read`, {
     method: "POST",
     headers: getAuthHeaders(),
   });

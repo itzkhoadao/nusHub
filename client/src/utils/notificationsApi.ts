@@ -1,4 +1,4 @@
-import { apiUrl } from "./api";
+import { apiUrl, mutationFetch } from "./api";
 import { getAuthToken } from "./authStorage";
 
 export type AppNotification = {
@@ -61,7 +61,7 @@ export async function getNotifications() {
 
 // mark all noti as read
 export async function markNotificationsRead() {
-  const response = await fetch(apiUrl("/api/notifications/read-all"), {
+  const response = await mutationFetch(apiUrl("/api/notifications/read-all"), {
     method: "POST",
     headers: getAuthHeaders(),
   });

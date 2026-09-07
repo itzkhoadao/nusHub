@@ -10,6 +10,7 @@ import {
   markNotificationsRead,
   notificationsKey,
   type AppNotification,
+  type NotificationsResponse,
 } from "../../utils/notificationsApi";
 import { disconnectChatSocket } from "../../utils/socket";
 import { getChatSocket } from "../../utils/socket";
@@ -89,7 +90,7 @@ export default function Topbar({
     const handleNewNotification = (notification: AppNotification) => {
       queryClient.setQueryData(
         notificationsKey(user.id),
-        (currentData: any) => {
+        (currentData: NotificationsResponse | undefined) => {
           if (!currentData) {
             return {
               notifications: [notification],
@@ -145,7 +146,7 @@ export default function Topbar({
         .then(() => {
           queryClient.setQueryData(
             notificationsKey(user.id),
-            (currentData: any) =>
+            (currentData: NotificationsResponse | undefined) =>
               currentData
                 ? {
                     ...currentData,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useIsUserOnline } from "../../context/PresenceContext";
+import { useIsUserOnline } from "../../context/presence";
 
 type UserAvatarProps = {
   avatarUrl?: string | null;

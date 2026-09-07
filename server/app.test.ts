@@ -55,6 +55,15 @@ test("returns stable errors for unknown routes and malformed JSON", async () => 
   assert.equal(typeof malformed.body.request_id, "string");
 });
 
+test("enforces idempotency keys at the API boundary", async () => {
+  const response = await request(createApp())
+    .post("/api/auth/login")
+    .send({ email: "student@example.com", password: "not-used" })
+    .expect(400);
+
+  assert.equal(response.body.code, "IDEMPOTENCY_KEY_REQUIRED");
+});
+
 test("rejects oversized JSON bodies before they reach a route", async () => {
   const response = await request(createApp())
     .post("/api/auth/login")

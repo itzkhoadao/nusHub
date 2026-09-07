@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Icon from "../Icon";
 import DiscussionCard from "../ui/DiscussionCard";
 import TopicBadge from "../ui/TopicBadge";
 import UserAvatar from "../ui/UserAvatar";
 import VoteBlock from "../ui/VoteBlock";
-import { apiUrl } from "../../utils/api";
+import { apiUrl, mutationFetch } from "../../utils/api";
 import { getAuthToken } from "../../utils/authStorage";
 
 function authHeaders() {
@@ -48,7 +48,7 @@ export default function GroupPostCard({
     [comments],
   );
 
-  const fetchComments = async () => {
+  const fetchComments = useCallback(async () => {
     setCommentsLoading(true);
     setError("");
 
@@ -65,11 +65,11 @@ export default function GroupPostCard({
     } finally {
       setCommentsLoading(false);
     }
-  };
+  }, [post.id]);
 
   useEffect(() => {
     if (open) fetchComments();
-  }, [open, post.id]);
+  }, [fetchComments, open]);
 
   const requireUser = () => {
     if (user) return true;
@@ -80,7 +80,7 @@ export default function GroupPostCard({
   const togglePostUpvote = async () => {
     if (!requireUser()) return;
 
-    const response = await fetch(apiUrl(`/api/posts/${post.id}/upvote`), {
+    const response = await mutationFetch(apiUrl(`/api/posts/${post.id}/upvote`), {
       method: "POST",
       headers: authHeaders(),
     });
@@ -99,7 +99,7 @@ export default function GroupPostCard({
   };
 
   const deletePost = async () => {
-    const response = await fetch(apiUrl(`/api/posts/${post.id}`), {
+    const response = await mutationFetch(apiUrl(`/api/posts/${post.id}`), {
       method: "DELETE",
       headers: authHeaders(),
     });
@@ -121,7 +121,7 @@ export default function GroupPostCard({
     setError("");
 
     try {
-      const response = await fetch(
+      const response = await mutationFetch(
         apiUrl(`/api/posts/${post.id}/comments`),
         {
           method: "POST",
@@ -156,7 +156,7 @@ export default function GroupPostCard({
   const toggleCommentUpvote = async (comment) => {
     if (!requireUser()) return;
 
-    const response = await fetch(
+    const response = await mutationFetch(
       apiUrl(`/api/posts/${post.id}/comments/${comment.id}/upvote`),
       { method: "POST", headers: authHeaders() },
     );

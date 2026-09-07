@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import GroupPostCard from "../components/groups/GroupPostCard";
 import AppShell from "../components/layout/AppShell";
@@ -6,7 +6,7 @@ import Icon from "../components/Icon";
 import AiAssistantCard from "../components/ui/AiAssistantCard";
 import UserAvatar from "../components/ui/UserAvatar";
 import LoadingState, { LoadingLabel } from "../components/ui/LoadingState";
-import { apiUrl } from "../utils/api";
+import { apiUrl, mutationFetch } from "../utils/api";
 import { getAuthToken, getStoredUser } from "../utils/authStorage";
 import {
   MAX_POST_ATTACHMENTS,
@@ -45,7 +45,7 @@ export default function GroupDetailPage() {
     privacy: "private",
   });
 
-  const fetchGroup = async () => {
+  const fetchGroup = useCallback(async () => {
     const response = await fetch(apiUrl(`/api/groups/${id}`), {
       headers: authHeaders(),
     });
@@ -57,9 +57,9 @@ export default function GroupDetailPage() {
 
     setGroupData(data);
     return data;
-  };
+  }, [id]);
 
-  const fetchPosts = async () => {
+  const fetchPosts = useCallback(async () => {
     setPostsLoading(true);
 
     try {
@@ -72,7 +72,7 @@ export default function GroupDetailPage() {
     } finally {
       setPostsLoading(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     let active = true;
@@ -88,7 +88,7 @@ export default function GroupDetailPage() {
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [fetchGroup, fetchPosts]);
 
   useEffect(() => {
     if (!postsLoading && highlightedPostId) {
@@ -151,7 +151,7 @@ export default function GroupDetailPage() {
     setPageError("");
 
     try {
-      const response = await fetch(apiUrl(`/api/groups/${id}/join`), {
+      const response = await mutationFetch(apiUrl(`/api/groups/${id}/join`), {
         method: "POST",
         headers: authHeaders(),
       });
@@ -171,7 +171,7 @@ export default function GroupDetailPage() {
     setPageError("");
 
     try {
-      const response = await fetch(
+      const response = await mutationFetch(
         apiUrl(`/api/groups/${id}/members/${member.id}/admin`),
         {
           method: "PATCH",
@@ -204,7 +204,7 @@ export default function GroupDetailPage() {
     setPageError("");
 
     try {
-      const response = await fetch(
+      const response = await mutationFetch(
         apiUrl(`/api/groups/${id}/members/${member.id}`),
         {
           method: "DELETE",
@@ -234,7 +234,7 @@ export default function GroupDetailPage() {
         id,
         selectedFiles,
       );
-      const response = await fetch(apiUrl(`/api/groups/${id}/posts`), {
+      const response = await mutationFetch(apiUrl(`/api/groups/${id}/posts`), {
         method: "POST",
         headers: {
           ...authHeaders(),

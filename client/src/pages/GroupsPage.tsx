@@ -4,7 +4,7 @@ import AppShell from "../components/layout/AppShell";
 import Icon from "../components/Icon";
 import AiAssistantCard from "../components/ui/AiAssistantCard";
 import LoadingState, { LoadingLabel } from "../components/ui/LoadingState";
-import { apiUrl } from "../utils/api";
+import { apiUrl, mutationFetch } from "../utils/api";
 import { getAuthToken, getStoredUser } from "../utils/authStorage";
 
 export default function GroupsPage() {
@@ -23,9 +23,10 @@ export default function GroupsPage() {
   const navigate = useNavigate();
 
   const user = getStoredUser();
+  const userId = user?.id;
 
   useEffect(() => {
-    if (!user) {
+    if (!userId) {
       navigate("/login");
       return;
     }
@@ -50,7 +51,7 @@ export default function GroupsPage() {
     };
 
     fetchGroups();
-  }, [search, scope]);
+  }, [navigate, search, scope, userId]);
 
   const handleCreateGroup = async () => {
     if (!newGroup.name.trim()) {
@@ -70,7 +71,7 @@ export default function GroupsPage() {
       const token = getAuthToken();
 
       // HTTP post request
-      const res = await fetch(apiUrl("/api/groups"), {
+      const res = await mutationFetch(apiUrl("/api/groups"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

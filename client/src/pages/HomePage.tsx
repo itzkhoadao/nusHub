@@ -2,13 +2,13 @@
 // fetch() sends data requests to your Express backend.
 // localStorage remembers the logged-in user after refresh.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AppShell from "../components/layout/AppShell";
 import AiAssistantCard from "../components/ui/AiAssistantCard";
 import DiscussionCard from "../components/ui/DiscussionCard";
 import LoadingState from "../components/ui/LoadingState";
-import { apiUrl } from "../utils/api";
+import { apiUrl, mutationFetch } from "../utils/api";
 import { getAuthToken, getStoredUser } from "../utils/authStorage";
 import { getRecentActivity } from "../utils/recentActivity";
 
@@ -32,10 +32,16 @@ export default function HomePage() {
   const navigate = useNavigate();
 
   const user = getStoredUser();
+  const userId = user?.id;
+  const searchRef = useRef(search);
+
+  useEffect(() => {
+    searchRef.current = search;
+  }, [search]);
 
   // asks the backend for posts
   // URLSearchParams safely builds query strings
-  const fetchPosts = async (searchText = search) => {
+  const fetchPosts = useCallback(async (searchText = searchRef.current) => {
     setLoading(true);
 
     try {
@@ -60,18 +66,18 @@ export default function HomePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [sort, topic]);
 
   // Redirect to login if not logged in
   // If logged in, fetch posts whenever topic or sort changes
   useEffect(() => {
-    if (!user) {
+    if (!userId) {
       navigate("/login");
       return;
     }
 
     fetchPosts();
-  }, [topic, sort]);
+  }, [fetchPosts, navigate, userId]);
 
   // reads user's 3 most recently opened posts/groups from the database
   useEffect(() => {
@@ -90,7 +96,7 @@ export default function HomePage() {
     return () => {
       window.removeEventListener("focus", handleFocus);
     };
-  }, [user?.id]);
+  }, [userId]);
 
   // handleSearch runs whenenever user searches
   const handleSearch = (searchText = search) => {
@@ -107,7 +113,7 @@ export default function HomePage() {
   // refreshes posts so upvote count is shown
   const handleUpvote = async (postId) => {
     const token = getAuthToken();
-    const res = await fetch(apiUrl(`/api/posts/${postId}/upvote`), {
+    const res = await mutationFetch(apiUrl(`/api/posts/${postId}/upvote`), {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -127,7 +133,7 @@ export default function HomePage() {
   };
 
   const handleDeletePost = async (postId) => {
-    const res = await fetch(apiUrl(`/api/posts/${postId}`), {
+    const res = await mutationFetch(apiUrl(`/api/posts/${postId}`), {
       method: "DELETE",
       headers: { Authorization: `Bearer ${getAuthToken()}` },
     });

@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AuthLayout from "../components/auth/AuthLayout";
 import { LoadingLabel } from "../components/ui/LoadingState";
-import { apiUrl } from "../utils/api";
+import { apiUrl, mutationFetch } from "../utils/api";
 import { setAuthSession } from "../utils/authStorage";
 
 export default function RegisterPage() {
@@ -24,7 +24,7 @@ export default function RegisterPage() {
 
     try {
       // Send the form data to your backend
-      const res = await fetch(apiUrl("/api/auth/register"), {
+      const res = await mutationFetch(apiUrl("/api/auth/register"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, email, password }),
@@ -49,12 +49,12 @@ export default function RegisterPage() {
     }
   };
 
-  const handleGoogleCredential = async (response) => {
+  const handleGoogleCredential = useCallback(async (response: { credential: string }) => {
     setGoogleLoading(true);
     setError("");
 
     try { // send Google credentials data to backend
-      const res = await fetch(apiUrl("/api/auth/google"), {
+      const res = await mutationFetch(apiUrl("/api/auth/google"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ credential: response.credential }),
@@ -75,7 +75,7 @@ export default function RegisterPage() {
     } finally {
       setGoogleLoading(false);
     }
-  };
+  }, [navigate]);
 
   useEffect(() => {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -128,7 +128,7 @@ export default function RegisterPage() {
     script.defer = true;
     script.onload = renderGoogleButton;
     document.body.appendChild(script);
-  }, []);
+  }, [handleGoogleCredential]);
 
   return (
     <AuthLayout>

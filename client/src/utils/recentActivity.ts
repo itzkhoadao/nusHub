@@ -1,5 +1,5 @@
 // FRONTEND API HELPER
-import { apiUrl } from "./api";
+import { apiUrl, mutationFetch } from "./api";
 import { getAuthToken } from "./authStorage";
 
 const RECENT_ACTIVITY_URL = apiUrl("/api/recent");
@@ -47,7 +47,7 @@ export async function saveRecentActivity(item) {
   }
 
   try {
-    const res = await fetch(RECENT_ACTIVITY_URL, {
+    const res = await mutationFetch(RECENT_ACTIVITY_URL, {
       method: "POST",
       headers: {
         ...headers,
