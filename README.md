@@ -25,6 +25,16 @@ The assistant is not implemented or available to users yet. It will remain
 disabled until authentication, privacy, source-governance, evaluation, cost,
 and safety release gates are complete.
 
+The server-side provider proof of concept is now in place. It isolates Gemini
+behind an internal interface, validates structured responses, forces stateless
+provider requests, and records content-free metrics. It does not expose a chat
+endpoint or send normal application traffic to Gemini.
+
+To check safe AI configuration while the server is running, call the
+authenticated `GET /api/ai/health` endpoint. To make a real server-only
+connectivity probe in development, set `AI_ENABLED=true` and `GEMINI_API_KEY`
+in `server/.env`, then run `npm run ai:probe` from `server/`.
+
 ## Tech Stack
 
 - **Frontend:** React, TypeScript, Vite, Tailwind CSS, React Query

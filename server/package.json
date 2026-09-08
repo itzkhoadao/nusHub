@@ -5,6 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch index.ts",
+    "ai:probe": "tsx ai/probeCli.ts",
     "eval:ai": "tsx evaluation/runCli.ts",
     "build": "tsc && node scripts/copy-migrations.mjs",
     "start": "node dist/index.js",
@@ -19,6 +20,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1085.0",
     "@aws-sdk/s3-request-presigner": "^3.1085.0",
+    "@google/genai": "^2.21.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",

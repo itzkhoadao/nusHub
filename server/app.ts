@@ -21,6 +21,7 @@ import postRoutes from "./routes/posts";
 import recentRoutes from "./routes/recent";
 import reportRoutes from "./routes/reports";
 import userRoutes from "./routes/users";
+import aiRoutes from "./routes/ai";
 
 export function createApp() {
   const app = express();
@@ -46,6 +47,7 @@ export function createApp() {
   app.use("/api/recent", recentRoutes);
   app.use("/api/notifications", notificationRoutes);
   app.use("/api/reports", reportRoutes);
+  app.use("/api/ai", aiRoutes);
 
   app.get("/", (_req, res) => {
     res.json({ message: "NUSHub API is running!" });
