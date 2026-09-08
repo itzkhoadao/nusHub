@@ -5,7 +5,7 @@ import { getOptionalAuthenticatedUser } from "../auth/tokens";
 import { pool } from "../db";
 import { AppError } from "../errors/AppError";
 
-const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/;
+export const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/;
 const REPLAY_TTL_MS = 24 * 60 * 60 * 1_000;
 const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
@@ -179,6 +179,37 @@ export function requestFingerprint(req: Request) {
     .digest("hex");
 }
 
+export function readRequiredIdempotencyKey(req: Request) {
+  const key = req.get("Idempotency-Key")?.trim();
+
+  if (!key) {
+    throw new AppError(
+      400,
+      "IDEMPOTENCY_KEY_REQUIRED",
+      "Idempotency-Key is required for mutation requests.",
+    );
+  }
+
+  if (!IDEMPOTENCY_KEY_PATTERN.test(key)) {
+    throw new AppError(
+      400,
+      "INVALID_IDEMPOTENCY_KEY",
+      "Idempotency-Key must be 8 to 128 URL-safe characters.",
+    );
+  }
+
+  return key;
+}
+
+function isAiMessageStream(req: Request) {
+  const path = req.originalUrl.split("?", 1)[0];
+  return (
+    req.method === "POST" &&
+    req.get("Accept")?.toLowerCase().includes("text/event-stream") === true &&
+    /^\/api\/ai\/conversations\/[0-9a-f-]{36}\/messages$/i.test(path)
+  );
+}
+
 function requestScope(req: Request) {
   const user = getOptionalAuthenticatedUser(req.headers.authorization);
 
@@ -207,26 +238,15 @@ export function createIdempotencyMiddleware(
       return next();
     }
 
-    const key = req.get("Idempotency-Key")?.trim();
+    // This one endpoint uses a database uniqueness constraint because SSE is
+    // not a replayable JSON response. Every other mutation uses this store.
+    if (isAiMessageStream(req)) return next();
 
-    if (!key) {
-      return next(
-        new AppError(
-          400,
-          "IDEMPOTENCY_KEY_REQUIRED",
-          "Idempotency-Key is required for mutation requests.",
-        ),
-      );
-    }
-
-    if (!IDEMPOTENCY_KEY_PATTERN.test(key)) {
-      return next(
-        new AppError(
-          400,
-          "INVALID_IDEMPOTENCY_KEY",
-          "Idempotency-Key must be 8 to 128 URL-safe characters.",
-        ),
-      );
+    let key: string;
+    try {
+      key = readRequiredIdempotencyKey(req);
+    } catch (error) {
+      return next(error);
     }
 
     const scope = requestScope(req);

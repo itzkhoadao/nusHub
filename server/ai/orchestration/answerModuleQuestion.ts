@@ -21,6 +21,8 @@ export type ModuleQuestion = {
   intent: ModuleQuestionIntent;
   moduleCode?: string;
   semester?: number;
+  signal?: AbortSignal;
+  unsafeInput?: boolean;
 };
 
 export type ModuleQuestionAnswer = {
@@ -35,6 +37,14 @@ export async function answerModuleQuestion(
   question: ModuleQuestion,
   tool: GetNusModuleTool,
 ): Promise<ModuleQuestionAnswer> {
+  throwIfCancelled(question.signal);
+  if (question.unsafeInput) {
+    return wrap(
+      null,
+      null,
+      refused("The request contains unsafe tool input and was rejected before any source lookup."),
+    );
+  }
   const intentResult = moduleQuestionIntentSchema.safeParse(question.intent);
   if (!intentResult.success) {
     return wrap(null, null, refused("That module question type is not supported."));
@@ -120,10 +130,14 @@ export async function answerModuleQuestion(
   }
 
   try {
-    const result = await tool.execute({
-      academicYear: academicYear.apiValue,
-      moduleCode,
-    });
+    const result = await tool.execute(
+      {
+        academicYear: academicYear.apiValue,
+        moduleCode,
+      },
+      { signal: question.signal },
+    );
+    throwIfCancelled(question.signal);
 
     if (result.status === "not_found") {
       if (result.suggestions.length > 0) {
@@ -156,6 +170,7 @@ export async function answerModuleQuestion(
     return wrap(academicYear.label, moduleCode, answer);
   } catch (error) {
     if (error instanceof NusModsError) {
+      if (error.code === "REQUEST_CANCELLED") throw error;
       return wrap(academicYear.label, moduleCode, {
         answer: `I could not verify ${moduleCode} for ${academicYear.label} because NUSMods is currently unavailable.`,
         citations: [],
@@ -165,6 +180,12 @@ export async function answerModuleQuestion(
     }
 
     throw error;
+  }
+}
+
+function throwIfCancelled(signal?: AbortSignal) {
+  if (signal?.aborted) {
+    throw new NusModsError("REQUEST_CANCELLED", "The module lookup was cancelled.");
   }
 }
 

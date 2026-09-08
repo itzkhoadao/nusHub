@@ -101,6 +101,24 @@ test("rejects injection-like module text before source retrieval", async () => {
   assert.equal(called, false);
 });
 
+test("rejects a raw query-router injection flag before asking for missing context", async () => {
+  let called = false;
+  const tool = {
+    execute: async () => {
+      called = true;
+      return foundResult;
+    },
+  } as unknown as GetNusModuleTool;
+
+  const result = await answerModuleQuestion(
+    { intent: "summary", unsafeInput: true },
+    tool,
+  );
+
+  assert.equal(result.groundedAnswer.status, "refused");
+  assert.equal(called, false);
+});
+
 test("answers summaries and prerequisite questions from one cited record", async () => {
   const tool = toolReturning(foundResult);
   const summary = await answerModuleQuestion(

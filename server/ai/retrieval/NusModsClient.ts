@@ -71,6 +71,7 @@ export class NusModsClient {
   async getModule(
     academicYear: string,
     moduleCode: string,
+    signal?: AbortSignal,
   ): Promise<NusModsModuleResult> {
     const canonicalAcademicYear = parseAcademicYear(academicYear).apiValue;
     const canonicalModuleCode = parseModuleCode(moduleCode);
@@ -84,7 +85,7 @@ export class NusModsClient {
     const key = `module:${academicYear}:${moduleCode}`;
     const endpoint = `${NUSMODS_BASE_URL}${academicYear}/modules/${moduleCode}.json`;
 
-    return this.getCachedOrFetch(key, "get_module", async () => {
+    const request = this.getCachedOrFetch<NusModsModuleResult>(key, "get_module", async () => {
       const response = await this.fetchJson(endpoint);
 
       if (response.status === 404) {
@@ -127,9 +128,13 @@ export class NusModsClient {
         status: "found",
       } as const;
     });
+    return awaitWithSignal(request, signal);
   }
 
-  async listModules(academicYear: string): Promise<ListResult> {
+  async listModules(
+    academicYear: string,
+    signal?: AbortSignal,
+  ): Promise<ListResult> {
     if (parseAcademicYear(academicYear).apiValue !== academicYear) {
       throw new TypeError("NUSMods client inputs must already be canonicalized");
     }
@@ -137,7 +142,7 @@ export class NusModsClient {
     const key = `list:${academicYear}`;
     const endpoint = `${NUSMODS_BASE_URL}${academicYear}/moduleList.json`;
 
-    return this.getCachedOrFetch(key, "list_modules", async () => {
+    const request = this.getCachedOrFetch<ListResult>(key, "list_modules", async () => {
       const response = await this.fetchJson(endpoint);
 
       if (!response.ok) {
@@ -170,6 +175,7 @@ export class NusModsClient {
         },
       };
     });
+    return awaitWithSignal(request, signal);
   }
 
   private async fetchJson(url: string): Promise<Response> {
@@ -375,4 +381,32 @@ function matchesAcademicYear(sourceValue: string, expectedApiValue: string) {
   } catch {
     return false;
   }
+}
+
+function awaitWithSignal<T>(request: Promise<T>, signal?: AbortSignal) {
+  if (!signal) return request;
+  if (signal.aborted) {
+    return Promise.reject(
+      new NusModsError("REQUEST_CANCELLED", "The module lookup was cancelled."),
+    );
+  }
+
+  return new Promise<T>((resolve, reject) => {
+    const cancel = () => {
+      reject(
+        new NusModsError("REQUEST_CANCELLED", "The module lookup was cancelled."),
+      );
+    };
+    signal.addEventListener("abort", cancel, { once: true });
+    void request.then(
+      (value) => {
+        signal.removeEventListener("abort", cancel);
+        resolve(value);
+      },
+      (error) => {
+        signal.removeEventListener("abort", cancel);
+        reject(error);
+      },
+    );
+  });
 }

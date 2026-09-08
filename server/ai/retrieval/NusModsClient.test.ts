@@ -182,3 +182,34 @@ test("rejects non-canonical path inputs before making a source request", async (
   );
   assert.equal(called, false);
 });
+
+test("cancelling one caller does not cancel a shared source request", async () => {
+  let releaseFetch: (() => void) | undefined;
+  const blocked = new Promise<void>((resolve) => {
+    releaseFetch = resolve;
+  });
+  let calls = 0;
+  const client = new NusModsClient({
+    fetch: async () => {
+      calls += 1;
+      await blocked;
+      return jsonResponse(moduleRecord);
+    },
+  });
+  const controller = new AbortController();
+  const cancelled = client.getModule("2026-2027", "CS2030S", controller.signal);
+  const surviving = client.getModule("2026-2027", "CS2030S");
+
+  controller.abort();
+  await assert.rejects(
+    cancelled,
+    (error) =>
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "REQUEST_CANCELLED",
+  );
+  releaseFetch?.();
+  assert.equal((await surviving).status, "found");
+  assert.equal(calls, 1);
+});

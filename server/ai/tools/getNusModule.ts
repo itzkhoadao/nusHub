@@ -6,6 +6,7 @@ import {
   type AcademicYear,
 } from "../domain/moduleInput";
 import type { NusModsClient } from "../retrieval/NusModsClient";
+import { NusModsError } from "../retrieval/NusModsError";
 import type {
   NusModsModule,
   NusModsSourceMetadata,
@@ -46,7 +47,10 @@ export class GetNusModuleTool {
 
   constructor(private readonly client: NusModsClient) {}
 
-  async execute(input: GetNusModuleInput): Promise<GetNusModuleResult> {
+  async execute(
+    input: GetNusModuleInput,
+    context: { signal?: AbortSignal } = {},
+  ): Promise<GetNusModuleResult> {
     const validatedInput = this.inputSchema.parse(input);
     const academicYear = parseAcademicYear(validatedInput.academicYear);
     let moduleCode: string;
@@ -66,10 +70,15 @@ export class GetNusModuleTool {
           academicYear.apiValue,
           candidate,
           false,
+          context.signal,
         ),
       };
     }
-    const result = await this.client.getModule(academicYear.apiValue, moduleCode);
+    const result = await this.client.getModule(
+      academicYear.apiValue,
+      moduleCode,
+      context.signal,
+    );
 
     if (result.status === "found") {
       return {
@@ -89,6 +98,7 @@ export class GetNusModuleTool {
         academicYear.apiValue,
         moduleCode,
         true,
+        context.signal,
       ),
     };
   }
@@ -97,9 +107,10 @@ export class GetNusModuleTool {
     academicYear: string,
     moduleCode: string,
     optional: boolean,
+    signal?: AbortSignal,
   ) {
     try {
-      const list = await this.client.listModules(academicYear);
+      const list = await this.client.listModules(academicYear, signal);
       return findClosestModuleCodes(
         moduleCode,
         list.modules.map((module) => module.moduleCode.toUpperCase()),
@@ -108,7 +119,12 @@ export class GetNusModuleTool {
       // Suggestions are optional and must never turn a definitive not-found
       // result into a source error. For a malformed candidate, however, the
       // module list is the only evidence and its failure must be surfaced.
-      if (!optional) throw error;
+      if (
+        !optional ||
+        (error instanceof NusModsError && error.code === "REQUEST_CANCELLED")
+      ) {
+        throw error;
+      }
       return [];
     }
   }

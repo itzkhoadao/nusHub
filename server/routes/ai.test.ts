@@ -15,9 +15,11 @@ function testApp(config: AiConfig) {
 }
 
 const enabledConfig: AiConfig = {
+  dailyRequestLimitPerUser: 50,
   enabled: true,
   generationModel: "stable-test-model",
   maxInputChars: 2_000,
+  maxConcurrentRequestsPerUser: 1,
   maxOutputTokens: 800,
   provider: "gemini",
   requestTimeoutMs: 20_000,
@@ -58,4 +60,3 @@ test("fails closed when AI is disabled", async () => {
   assert.equal(response.body.status, "disabled");
   assert.equal(response.body.enabled, false);
 });
-

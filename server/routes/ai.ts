@@ -1,8 +1,15 @@
 import express from "express";
 import { aiConfig, type AiConfig } from "../ai/config/aiConfig";
 import authenticate from "../middleware/authenticate";
+import {
+  createAiConversationRouter,
+  type AiConversationRouteDependencies,
+} from "./aiConversationRoutes";
 
-export function createAiRouter(config: AiConfig = aiConfig) {
+export function createAiRouter(
+  config: AiConfig = aiConfig,
+  dependencies: AiConversationRouteDependencies = {},
+) {
   const router = express.Router();
 
   // This endpoint is intentionally non-billable: it reports safe configuration
@@ -17,8 +24,13 @@ export function createAiRouter(config: AiConfig = aiConfig) {
     });
   });
 
+  router.use(
+    "/",
+    authenticate,
+    createAiConversationRouter(config, dependencies),
+  );
+
   return router;
 }
 
 export default createAiRouter();
-

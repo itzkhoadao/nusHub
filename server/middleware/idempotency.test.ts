@@ -86,6 +86,37 @@ test("requires a valid idempotency key for mutations", async () => {
   assert.equal(mutationCount(), 0);
 });
 
+test("delegates the exact AI SSE message route to its database idempotency", async () => {
+  let acquisitions = 0;
+  const store: IdempotencyStore = {
+    async acquire() {
+      acquisitions += 1;
+      return { kind: "acquired" };
+    },
+    async complete() {},
+  };
+  const app = express();
+  app.use(requestId);
+  app.use(express.json());
+  app.use(createIdempotencyMiddleware(store));
+  app.post(
+    "/api/ai/conversations/:conversationId/messages",
+    (_req, res) => res.status(202).json({ delegated: true }),
+  );
+
+  const response = await request(app)
+    .post(
+      "/api/ai/conversations/11111111-1111-4111-8111-111111111111/messages",
+    )
+    .set("Accept", "text/event-stream")
+    .set("Idempotency-Key", "12345678")
+    .send({ content: "question" })
+    .expect(202);
+
+  assert.equal(response.body.delegated, true);
+  assert.equal(acquisitions, 0);
+});
+
 test("replays a completed response without executing the mutation twice", async () => {
   const { app, mutationCount } = testApp();
   const key = "3dbbe7be-90e1-4472-9c18-19dc4f06b405";
