@@ -79,6 +79,11 @@ test("rolls back without messages when the atomic daily quota is exhausted", asy
     AiQuotaExceededError,
   );
   assert.ok(database.queries.includes("ROLLBACK"));
+  assert.ok(
+    database.queries.some((query) =>
+      query.includes("(NOW() AT TIME ZONE 'UTC')::date"),
+    ),
+  );
   assert.equal(
     database.queries.some((query) => query.includes("VALUES ($1, 'user'")),
     false,

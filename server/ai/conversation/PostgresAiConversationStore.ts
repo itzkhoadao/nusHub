@@ -157,7 +157,7 @@ export class PostgresAiConversationStore implements AiConversationStore {
 
       const usage = await client.query(
         `INSERT INTO ai_request_usage (user_id, usage_date, request_count)
-         VALUES ($1, CURRENT_DATE, 1)
+         VALUES ($1, (NOW() AT TIME ZONE 'UTC')::date, 1)
          ON CONFLICT (user_id, usage_date) DO UPDATE
          SET request_count = ai_request_usage.request_count + 1,
              updated_at = NOW()
