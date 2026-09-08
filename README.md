@@ -197,6 +197,23 @@ Run these commands from the relevant `client` or `server` directory.
 | `server` | `npm run migrate` | Apply pending database migrations without starting the server |
 | `server` | `npm start` | Run the compiled backend |
 
+## Automated Delivery
+
+Every pull request and push to `main` runs the client and server quality gates,
+full dependency audits, a dependency-diff review, secret scanning, and CodeQL
+analysis. Successful pushes publish checksummed build artifacts. Production
+deployments are handled by the existing Vercel and Render Git integrations and
+are followed by automated frontend and backend smoke checks.
+
+The backend exposes two unauthenticated, content-free operational probes:
+
+- `GET /health/live` confirms that the Node.js process can serve requests.
+- `GET /health/ready` confirms that the API can also query PostgreSQL.
+
+Provider configuration, branch protection, rollback guidance, and the exact
+delivery path are documented in
+[`.github/DEPLOYMENT.md`](.github/DEPLOYMENT.md).
+
 ## Project Structure
 
 ```text

@@ -1,0 +1,105 @@
+name: Production verification
+
+on:
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      frontend_url:
+        description: HTTPS frontend URL to verify (leave blank to use PRODUCTION_WEB_URL)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  deployments: read
+
+concurrency:
+  group: production-verification
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Production smoke tests
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' &&
+      github.event.deployment.environment == 'Production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: Production
+      url: ${{ steps.frontend-target.outputs.url }}
+    env:
+      EVENT_FRONTEND_URL: ${{ github.event.deployment_status.environment_url }}
+      INPUT_FRONTEND_URL: ${{ inputs.frontend_url }}
+      PRODUCTION_WEB_URL: ${{ vars.PRODUCTION_WEB_URL }}
+      PRODUCTION_API_URL: ${{ vars.PRODUCTION_API_URL }}
+
+    steps:
+      - name: Resolve and validate frontend target
+        id: frontend-target
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const configured = process.env.PRODUCTION_WEB_URL?.trim();
+          const raw = process.env.INPUT_FRONTEND_URL?.trim()
+            || process.env.EVENT_FRONTEND_URL?.trim()
+            || configured;
+
+          if (!raw) {
+            throw new Error("No frontend URL is available for verification.");
+          }
+
+          const target = new URL(raw);
+          const isVercel = target.hostname === "vercel.app"
+            || target.hostname.endsWith(".vercel.app");
+          const matchesConfigured = configured
+            ? target.origin === new URL(configured).origin
+            : false;
+
+          if (
+            target.protocol !== "https:" ||
+            target.username ||
+            target.password ||
+            target.port ||
+            (!isVercel && !matchesConfigured)
+          ) {
+            throw new Error(
+              "Frontend target must be HTTPS and use vercel.app or PRODUCTION_WEB_URL.",
+            );
+          }
+
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `url=${target.origin}\n`);
+          NODE
+
+      - name: Verify frontend is serving the application shell
+        env:
+          FRONTEND_URL: ${{ steps.frontend-target.outputs.url }}
+        shell: bash
+        run: |
+          curl --fail --silent --show-error --location \
+            --retry 5 --retry-delay 5 --retry-all-errors \
+            --connect-timeout 10 --max-time 30 \
+            --output "$RUNNER_TEMP/frontend.html" "$FRONTEND_URL/"
+          grep --fixed-strings --quiet '<div id="root"></div>' \
+            "$RUNNER_TEMP/frontend.html"
+
+      - name: Verify backend readiness
+        if: env.PRODUCTION_API_URL != ''
+        shell: bash
+        run: |
+          node <<'NODE'
+          const url = new URL(process.env.PRODUCTION_API_URL);
+          if (url.protocol !== "https:" || url.username || url.password) {
+            throw new Error("PRODUCTION_API_URL must be a credential-free HTTPS URL.");
+          }
+          NODE
+          curl --fail --silent --show-error --location \
+            --retry 5 --retry-delay 5 --retry-all-errors \
+            --connect-timeout 10 --max-time 30 \
+            --output "$RUNNER_TEMP/backend.json" \
+            "${PRODUCTION_API_URL%/}/health/ready"
+          node -e \
+            'const fs=require("node:fs"); const body=JSON.parse(fs.readFileSync(process.argv[1], "utf8")); if(body.status!=="ready") process.exit(1)' \
+            "$RUNNER_TEMP/backend.json"

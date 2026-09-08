@@ -16,6 +16,7 @@ import authRoutes from "./routes/auth";
 import commentRoutes from "./routes/comments";
 import conversationRoutes from "./routes/conversations";
 import groupRoutes from "./routes/groups";
+import { createHealthRouter } from "./routes/health";
 import notificationRoutes from "./routes/notifications";
 import postRoutes from "./routes/posts";
 import recentRoutes from "./routes/recent";
@@ -35,6 +36,7 @@ export function createApp() {
   app.use(helmet());
   app.use(apiCors);
   app.use(express.json({ limit: env.REQUEST_BODY_LIMIT })); // default limit: 1MB
+  app.use("/health", createHealthRouter());
   app.use("/api", apiRateLimiter);
   app.use("/api", idempotency);
 
