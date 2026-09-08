@@ -95,6 +95,11 @@ const environmentSchema = z
     AI_MAX_TOOL_CALLS: positiveInteger(3),
     AI_MAX_CONCURRENT_REQUESTS_PER_USER: positiveInteger(1),
     AI_DAILY_REQUEST_LIMIT_PER_USER: positiveInteger(50),
+    AI_NUSMODS_FETCH_TIMEOUT_MS: positiveInteger(15_000),
+    AI_NUSMODS_CACHE_TTL_MS: positiveInteger(24 * 60 * 60 * 1_000),
+    AI_NUSMODS_MAX_STALENESS_MS: positiveInteger(48 * 60 * 60 * 1_000),
+    AI_NUSMODS_MAX_DOCUMENT_BYTES: positiveInteger(1024 * 1024),
+    AI_NUSMODS_CACHE_MAX_ENTRIES: positiveInteger(500),
   })
   .superRefine((environment, context) => {
     if (
@@ -147,6 +152,18 @@ const environmentSchema = z
         message:
           "AI_INTERACTIONS_STORE must remain false unless a privacy review approves provider-side storage",
         path: ["AI_INTERACTIONS_STORE"],
+      });
+    }
+
+    if (
+      environment.AI_NUSMODS_MAX_STALENESS_MS <
+      environment.AI_NUSMODS_CACHE_TTL_MS
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "AI_NUSMODS_MAX_STALENESS_MS must be greater than or equal to AI_NUSMODS_CACHE_TTL_MS",
+        path: ["AI_NUSMODS_MAX_STALENESS_MS"],
       });
     }
   }); // ensure all environment variables are present and valid

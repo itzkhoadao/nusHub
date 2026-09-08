@@ -16,6 +16,9 @@ test("parses defaults and environment strings into typed configuration", () => {
   assert.equal(environment.AI_ENABLED, false);
   assert.equal(environment.AI_INTERACTIONS_STORE, false);
   assert.equal(environment.AI_REQUEST_TIMEOUT_MS, 20_000);
+  assert.equal(environment.AI_NUSMODS_FETCH_TIMEOUT_MS, 15_000);
+  assert.equal(environment.AI_NUSMODS_CACHE_TTL_MS, 86_400_000);
+  assert.equal(environment.AI_NUSMODS_MAX_STALENESS_MS, 172_800_000);
   assert.equal(environment.JWT_EXPIRES_IN, "7d");
   assert.equal(environment.REQUEST_BODY_LIMIT, "1mb");
   assert.equal(environment.TRUST_PROXY_HOPS, 0);
@@ -77,5 +80,17 @@ test("rejects malformed API safety limits", () => {
         API_RATE_LIMIT_MAX: "0",
       }),
     /REQUEST_BODY_LIMIT must use a value such as 100kb or 1mb/,
+  );
+});
+
+test("rejects a NUSMods stale window shorter than its cache TTL", () => {
+  assert.throws(
+    () =>
+      parseEnvironment({
+        ...validEnvironment,
+        AI_NUSMODS_CACHE_TTL_MS: "2000",
+        AI_NUSMODS_MAX_STALENESS_MS: "1000",
+      }),
+    /AI_NUSMODS_MAX_STALENESS_MS must be greater than or equal/,
   );
 });

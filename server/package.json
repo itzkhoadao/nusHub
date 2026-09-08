@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch index.ts",
     "ai:probe": "tsx ai/probeCli.ts",
+    "ai:module": "tsx ai/moduleCli.ts",
     "eval:ai": "tsx evaluation/runCli.ts",
     "build": "tsc && node scripts/copy-migrations.mjs",
     "start": "node dist/index.js",
