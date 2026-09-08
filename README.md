@@ -203,7 +203,8 @@ Every pull request and push to `main` runs the client and server quality gates,
 full dependency audits, a dependency-diff review, secret scanning, and CodeQL
 analysis. Successful pushes publish checksummed build artifacts. Production
 deployments are handled by the existing Vercel and Render Git integrations and
-are followed by automated frontend and backend smoke checks.
+can be followed by automated frontend and backend smoke checks once the
+protected production targets are configured.
 
 The backend exposes two unauthenticated, content-free operational probes:
 

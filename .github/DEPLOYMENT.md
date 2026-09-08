@@ -14,9 +14,9 @@ must wait for the stable `CI / Required` check before production promotion.
    client and server build artifacts retained for 14 days.
 4. Vercel and Render deploy the verified `main` revision through their Git
    integrations.
-5. A successful Vercel production deployment triggers `Production
-   verification`, which checks the frontend shell and, when configured, the
-   backend readiness endpoint.
+5. After production smoke testing is configured, a successful Vercel
+   production deployment triggers `Production verification`, which checks the
+   frontend shell and, when configured, the backend readiness endpoint.
 
 No production credentials are stored in the workflow. GitHub Actions has
 read-only repository permissions by default, and every third-party action is
@@ -38,6 +38,10 @@ In **Settings > Environments > Production**, restrict deployments to `main`.
 Add these repository variables in **Settings > Secrets and variables >
 Actions > Variables**:
 
+- `PRODUCTION_SMOKE_ENABLED`: set this to `true` only after the frontend target
+  is publicly reachable or the Vercel automation bypass secret below is set.
+  Until then, the production verification job is intentionally skipped rather
+  than reporting a false deployment failure.
 - `PRODUCTION_WEB_URL`: the canonical HTTPS frontend origin. This is optional
   for `*.vercel.app` deployments but required for a custom domain.
 - `PRODUCTION_API_URL`: the canonical HTTPS backend origin. When present, the
@@ -61,6 +65,13 @@ In the Vercel project settings:
 - keep `VITE_API_URL` and OAuth identifiers in Vercel environment settings;
 - do not expose backend credentials through `VITE_` variables because Vite
   embeds them in public browser assets.
+
+If Vercel Deployment Protection covers the generated deployment URL, create an
+automation bypass secret in Vercel and store the same value as the GitHub
+Actions secret `VERCEL_AUTOMATION_BYPASS_SECRET`. The smoke workflow sends it
+only in Vercel's protection-bypass header. Then set
+`PRODUCTION_SMOKE_ENABLED=true`. Prefer setting `PRODUCTION_WEB_URL` to the
+canonical production domain so the test also verifies domain promotion.
 
 Vercel may build a candidate immediately, but the Deployment Check prevents a
 failed revision from being promoted to production.

@@ -21,19 +21,18 @@ jobs:
   verify:
     name: Production smoke tests
     if: >-
-      github.event_name == 'workflow_dispatch' ||
+      vars.PRODUCTION_SMOKE_ENABLED == 'true' &&
+      (github.event_name == 'workflow_dispatch' ||
       (github.event.deployment_status.state == 'success' &&
-      github.event.deployment.environment == 'Production')
+      github.event.deployment.environment == 'Production'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment:
-      name: Production
-      url: ${{ steps.frontend-target.outputs.url }}
     env:
       EVENT_FRONTEND_URL: ${{ github.event.deployment_status.environment_url }}
       INPUT_FRONTEND_URL: ${{ inputs.frontend_url }}
       PRODUCTION_WEB_URL: ${{ vars.PRODUCTION_WEB_URL }}
       PRODUCTION_API_URL: ${{ vars.PRODUCTION_API_URL }}
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
 
     steps:
       - name: Resolve and validate frontend target
@@ -44,8 +43,8 @@ jobs:
           const fs = require("node:fs");
           const configured = process.env.PRODUCTION_WEB_URL?.trim();
           const raw = process.env.INPUT_FRONTEND_URL?.trim()
-            || process.env.EVENT_FRONTEND_URL?.trim()
-            || configured;
+            || configured
+            || process.env.EVENT_FRONTEND_URL?.trim();
 
           if (!raw) {
             throw new Error("No frontend URL is available for verification.");
@@ -78,7 +77,15 @@ jobs:
           FRONTEND_URL: ${{ steps.frontend-target.outputs.url }}
         shell: bash
         run: |
-          curl --fail --silent --show-error --location \
+          headers=()
+          if [[ -n "$VERCEL_AUTOMATION_BYPASS_SECRET" ]]; then
+            headers+=(
+              --header
+              "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET"
+            )
+          fi
+
+          curl --fail --silent --show-error --location "${headers[@]}" \
             --retry 5 --retry-delay 5 --retry-all-errors \
             --connect-timeout 10 --max-time 30 \
             --output "$RUNNER_TEMP/frontend.html" "$FRONTEND_URL/"
