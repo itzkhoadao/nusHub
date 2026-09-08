@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { label: "Forum", to: "/", icon: "home" },
   { label: "Study Groups", to: "/groups", icon: "groups" },
   { label: "Chat", to: "/chat", icon: "message" },
+  { label: "AI Assistant", to: "/assistant", icon: "bot" },
 ];
 
 function updateConversationPreview(

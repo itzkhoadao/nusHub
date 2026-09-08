@@ -171,6 +171,7 @@ class MemoryAiConversationStore implements AiConversationStore {
     const stored = await this.getMessage(input.messageId, input.userId);
     if (!stored || stored.role !== "assistant") return false;
     this.feedback.set(input.messageId, input.rating);
+    stored.feedback_rating = input.rating;
     return true;
   }
 
@@ -191,6 +192,7 @@ function message(role: "user" | "assistant", content: string): AiStoredMessage {
     created_at: now,
     delivery_status: "completed",
     error_code: null,
+    feedback_rating: null,
     follow_up_question: null,
     id: randomUUID(),
     module_code: null,
@@ -519,6 +521,53 @@ test("cancels in-flight work and marks the message interrupted on disconnect", a
   }
 });
 
+test("does not persist completion after a disconnect during answer delivery", async () => {
+  const store = new MemoryAiConversationStore();
+  const app = testApp(store, async () => ({
+    academicYear: "AY2026/27",
+    groundedAnswer: groundedAnswer("CS2030S ".repeat(20_000)),
+    moduleCode: "CS2030S",
+  }));
+  const conversation = await store.createConversation(firstUser, "Delivery test");
+  const server = app.listen(0);
+
+  try {
+    const address = server.address();
+    assert.ok(address && typeof address === "object");
+    const controller = new AbortController();
+    const response = await fetch(
+      `http://127.0.0.1:${address.port}/api/ai/conversations/${conversation.id}/messages`,
+      {
+        body: JSON.stringify({ content: "What is CS2030S in AY2026/27?" }),
+        headers: {
+          Accept: "text/event-stream",
+          Authorization: authorization(),
+          "Content-Type": "application/json",
+          "Idempotency-Key": randomUUID(),
+        },
+        method: "POST",
+        signal: controller.signal,
+      },
+    );
+    assert.equal(response.status, 200);
+    await response.body?.getReader().read();
+    controller.abort();
+
+    for (let attempt = 0; attempt < 50 && store.failed.length === 0; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    const stored = store.conversations.get(conversation.id)?.messages[1];
+    assert.equal(store.failed[0]?.interrupted, true);
+    assert.equal(stored?.delivery_status, "interrupted");
+    assert.equal(stored?.content, "");
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+});
+
 test("accepts feedback only for an owned assistant message", async () => {
   const store = new MemoryAiConversationStore();
   const app = testApp(store);
@@ -543,4 +592,10 @@ test("accepts feedback only for an owned assistant message", async () => {
     .send({ rating: "helpful" })
     .expect(200);
   assert.equal(store.feedback.get(assistantId), "helpful");
+
+  const conversation = await request(app)
+    .get(`/api/ai/conversations/${conversationId}`)
+    .set("Authorization", authorization())
+    .expect(200);
+  assert.equal(conversation.body.conversation.messages[1].feedback_rating, "helpful");
 });

@@ -14,26 +14,32 @@ The project was originally started as a two-person project. It is now maintained
 - Chat with other community members in real time
 - Upload images and attachments
 
-## Planned AI Assistant
+## AI Assistant
 
-NUSHub is preparing a grounded AI assistant for basic NUS information. The
-planned design uses the Gemini API for language generation, NUSMods for
-structured course data, and an approved set of official NUS sources for
-retrieval and citations.
+NUSHub includes a grounded module assistant backed by Gemini and structured
+NUSMods data. Signed-in users can ask module questions, receive streamed
+answers with citations and source-check dates, continue contextual
+conversations, rate answers, stop an in-progress response, and delete their
+saved conversation history.
 
-The assistant is not implemented or available to users yet. It will remain
-disabled until authentication, privacy, source-governance, evaluation, cost,
-and safety release gates are complete.
+The assistant is disabled by default and must remain disabled in production
+until the documented privacy, source-governance, evaluation, cost, and safety
+release gates are approved. When it is enabled, questions are sent to Google
+Gemini for processing. The product clearly discloses this and reminds users to
+verify important details against the cited sources.
 
-The server-side provider proof of concept is now in place. It isolates Gemini
-behind an internal interface, validates structured responses, forces stateless
-provider requests, and records content-free metrics. It does not expose a chat
-endpoint or send normal application traffic to Gemini.
+The AI boundary isolates Gemini behind an internal provider interface,
+validates structured responses, performs stateless provider requests, and
+records content-free operational metrics. Conversation ownership, quotas,
+concurrency limits, idempotency, cancellation, and feedback are enforced by
+the server rather than trusted to the browser.
 
 To check safe AI configuration while the server is running, call the
 authenticated `GET /api/ai/health` endpoint. To make a real server-only
 connectivity probe in development, set `AI_ENABLED=true` and `GEMINI_API_KEY`
-in `server/.env`, then run `npm run ai:probe` from `server/`.
+in `server/.env`, then run `npm run ai:probe` from `server/`. Apply the database
+migrations before using conversation history; migration `011` adds the AI
+conversation, message, citation, feedback, and usage records.
 
 ## Tech Stack
 

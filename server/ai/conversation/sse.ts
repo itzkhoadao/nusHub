@@ -38,6 +38,7 @@ export async function streamAnswerEvents(input: {
   academicYear: string | null;
   answer: GroundedAnswer;
   assistantMessageId: string;
+  includeCompletion?: boolean;
   moduleCode: string | null;
   requestId: string;
   res: Response;
@@ -50,16 +51,29 @@ export async function streamAnswerEvents(input: {
     await new Promise<void>((resolve) => setImmediate(resolve));
   }
   for (const citation of answer.citations) {
+    throwIfAborted(input.signal);
     writeEvent(res, requestId, "response.citation", { citation });
   }
   for (const warning of answer.warnings) {
+    throwIfAborted(input.signal);
     writeEvent(res, requestId, "response.warning", { warning });
   }
-  writeEvent(res, requestId, "response.completed", {
+  throwIfAborted(input.signal);
+  if (input.includeCompletion !== false) writeCompletionEvent(input);
+}
+
+export function writeCompletionEvent(input: {
+  academicYear: string | null;
+  answer: GroundedAnswer;
+  moduleCode: string | null;
+  requestId: string;
+  res: Response;
+}) {
+  return writeEvent(input.res, input.requestId, "response.completed", {
     academic_year: input.academicYear,
-    follow_up_question: answer.followUpQuestion ?? null,
+    follow_up_question: input.answer.followUpQuestion ?? null,
     module_code: input.moduleCode,
-    status: answer.status,
+    status: input.answer.status,
   });
 }
 

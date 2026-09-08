@@ -20,6 +20,7 @@ export type AiStoredMessage = {
   created_at: string;
   delivery_status: "processing" | "completed" | "failed" | "interrupted";
   error_code: string | null;
+  feedback_rating: "helpful" | "unhelpful" | null;
   follow_up_question: string | null;
   id: string;
   module_code: string | null;

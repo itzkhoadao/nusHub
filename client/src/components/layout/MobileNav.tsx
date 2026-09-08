@@ -5,7 +5,7 @@ const ITEMS = [
   { label: "Forum", to: "/", icon: "home" },
   { label: "Groups", to: "/groups", icon: "groups" },
   { label: "Post", to: "/create-post", icon: "plus", isAction: true },
-  { label: "AI", to: "/", icon: "bot" },
+  { label: "AI", to: "/assistant", icon: "bot" },
   { label: "Profile", to: "/profile", icon: "post" },
 ];
 

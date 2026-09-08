@@ -127,6 +127,34 @@ const ICON_PATHS = {
       <path d="M14 11v5" />
     </>
   ),
+  thumbsUp: (
+    <>
+      <path d="M7 10v12H3V10h4Z" />
+      <path d="M7 20h10.4a2 2 0 0 0 2-1.6l1.3-6A2 2 0 0 0 18.8 10H14l.7-3.3A3 3 0 0 0 12 3l-5 7v10Z" />
+    </>
+  ),
+  thumbsDown: (
+    <>
+      <path d="M7 14V2H3v12h4Z" />
+      <path d="M7 4h10.4a2 2 0 0 1 2 1.6l1.3 6a2 2 0 0 1-1.9 2.4H14l.7 3.3A3 3 0 0 1 12 21l-5-7V4Z" />
+    </>
+  ),
+  square: <rect x="6" y="6" width="12" height="12" rx="2" />,
+  refresh: (
+    <>
+      <path d="M20 7v5h-5" />
+      <path d="M4 17v-5h5" />
+      <path d="M6.1 9a7 7 0 0 1 11.6-2.6L20 12" />
+      <path d="m4 12 2.3 5.6A7 7 0 0 0 17.9 15" />
+    </>
+  ),
+  externalLink: (
+    <>
+      <path d="M15 3h6v6" />
+      <path d="m10 14 11-11" />
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+    </>
+  ),
   chevronUp: <path d="m18 15-6-6-6 6" />,
   chevronDown: <path d="m6 9 6 6 6-6" />,
 } as const satisfies Record<string, ReactNode>;

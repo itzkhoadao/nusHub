@@ -61,13 +61,16 @@ export class PostgresAiConversationStore implements AiConversationStore {
     if (!conversation.rows[0]) return null;
 
     const messages = await this.databasePool.query<MessageRow>(
-      `SELECT id, role, content, delivery_status, answer_status, error_code,
-              follow_up_question, warnings, academic_year, module_code,
-              created_at, updated_at
-       FROM ai_messages
-       WHERE conversation_id = $1
-       ORDER BY created_at ASC, id ASC`,
-      [conversationId],
+      `SELECT m.id, m.role, m.content, m.delivery_status, m.answer_status,
+              m.error_code, m.follow_up_question, m.warnings,
+              m.academic_year, m.module_code, m.created_at, m.updated_at,
+              f.rating AS feedback_rating
+       FROM ai_messages m
+       LEFT JOIN ai_feedback f
+         ON f.message_id = m.id AND f.user_id = $2
+       WHERE m.conversation_id = $1
+       ORDER BY m.created_at ASC, m.id ASC`,
+      [conversationId, userId],
     );
     const citations = await this.databasePool.query<
       AiStoredCitation & { message_id: string }
@@ -92,9 +95,12 @@ export class PostgresAiConversationStore implements AiConversationStore {
     const message = await this.databasePool.query<MessageRow>(
       `SELECT m.id, m.role, m.content, m.delivery_status, m.answer_status,
               m.error_code, m.follow_up_question, m.warnings,
-              m.academic_year, m.module_code, m.created_at, m.updated_at
+              m.academic_year, m.module_code, m.created_at, m.updated_at,
+              f.rating AS feedback_rating
        FROM ai_messages m
        JOIN ai_conversations c ON c.id = m.conversation_id
+       LEFT JOIN ai_feedback f
+         ON f.message_id = m.id AND f.user_id = $2
        WHERE m.id = $1 AND c.user_id = $2`,
       [messageId, userId],
     );

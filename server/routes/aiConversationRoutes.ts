@@ -13,6 +13,7 @@ import {
 import {
   initializeEventStream,
   streamAnswerEvents,
+  writeCompletionEvent,
   writeEvent,
 } from "../ai/conversation/sse";
 import type {
@@ -196,20 +197,29 @@ export function createAiConversationRouter(
             result.groundedAnswer,
           );
 
+          await streamAnswerEvents({
+            academicYear: result.academicYear,
+            answer: validatedAnswer,
+            assistantMessageId: exchange.assistantMessageId,
+            includeCompletion: false,
+            moduleCode: result.moduleCode,
+            requestId: req.requestId,
+            res,
+            signal: controller.signal,
+          });
+          if (controller.signal.aborted) throw new Error("AI_STREAM_CANCELLED");
           await store.completeAssistant({
             academicYear: result.academicYear,
             answer: validatedAnswer,
             assistantMessageId: exchange.assistantMessageId,
             moduleCode: result.moduleCode,
           });
-          await streamAnswerEvents({
+          writeCompletionEvent({
             academicYear: result.academicYear,
             answer: validatedAnswer,
-            assistantMessageId: exchange.assistantMessageId,
             moduleCode: result.moduleCode,
             requestId: req.requestId,
             res,
-            signal: controller.signal,
           });
           completed = true;
           res.end();

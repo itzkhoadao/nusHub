@@ -10,6 +10,7 @@ import GroupDetailPage from "./pages/GroupDetailPage";
 import ChatPage from "./pages/ChatPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import ReportPage from "./pages/ReportPage";
+import AiAssistantPage from "./pages/AiAssistantPage";
 
 function App() {
   return (
@@ -21,6 +22,8 @@ function App() {
       <Route path="/create-post" element={<CreatePostPage />} />
       <Route path="/posts/:id" element={<PostDetailPage />} />
       <Route path="/report" element={<ReportPage />} />
+      <Route path="/assistant" element={<AiAssistantPage />} />
+      <Route path="/assistant/:conversationId" element={<AiAssistantPage />} />
       <Route path="/profile" element={<ProfilePage />} />
       <Route path="/users/:userId" element={<ProfilePage />} />
       <Route path="/groups" element={<GroupsPage />} />
