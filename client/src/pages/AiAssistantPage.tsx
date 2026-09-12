@@ -543,11 +543,11 @@ export default function AiAssistantPage() {
       <div className="ai-page">
         <section className="ai-hero">
           <div>
-            <p>Grounded module guidance</p>
+            <p>Grounded NUS guidance</p>
             <h1>NUSHub AI Assistant</h1>
             <span>
-              Ask about module descriptions, prerequisites, workload, and
-              semester availability using current NUSMods records.
+              Ask about modules, academic dates, transport, libraries, student
+              support, health services, and IT using current official sources.
             </span>
           </div>
           <div className="ai-provider-note">
@@ -628,8 +628,8 @@ export default function AiAssistantPage() {
             <section className="ai-workspace" aria-label="AI conversation">
               <header className="ai-workspace-header">
                 <div>
-                  <h2>{conversation?.title ?? "New module question"}</h2>
-                  <p>Answers are limited to grounded NUSMods information.</p>
+                  <h2>{conversation?.title ?? "New NUS question"}</h2>
+                  <p>Answers are grounded in approved, current NUS sources.</p>
                 </div>
                 {conversation && (
                   <button

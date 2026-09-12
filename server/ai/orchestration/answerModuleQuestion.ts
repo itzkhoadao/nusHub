@@ -20,6 +20,8 @@ export type ModuleQuestion = {
   academicYear?: string;
   intent: ModuleQuestionIntent;
   moduleCode?: string;
+  originalText?: string;
+  requestId?: string;
   semester?: number;
   signal?: AbortSignal;
   unsafeInput?: boolean;
@@ -28,7 +30,9 @@ export type ModuleQuestion = {
 export type ModuleQuestionAnswer = {
   academicYear: string | null;
   groundedAnswer: GroundedAnswer;
+  modelId?: string | null;
   moduleCode: string | null;
+  promptVersion?: string;
 };
 
 const unsafeModuleCodeCharacters = /[^A-Za-z0-9\s-]/;
@@ -381,5 +385,11 @@ function wrap(
   moduleCode: string | null,
   groundedAnswer: GroundedAnswer,
 ): ModuleQuestionAnswer {
-  return { academicYear, groundedAnswer, moduleCode };
+  return {
+    academicYear,
+    groundedAnswer,
+    modelId: null,
+    moduleCode,
+    promptVersion: "nusmods-structured.v1",
+  };
 }

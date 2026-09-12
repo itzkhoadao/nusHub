@@ -4,6 +4,7 @@ export type AiConfig = {
   dailyRequestLimitPerUser: number;
   enabled: boolean;
   generationModel: string;
+  maxContextChars: number;
   maxConcurrentRequestsPerUser: number;
   maxInputChars: number;
   maxOutputTokens: number;
@@ -16,6 +17,7 @@ export const aiConfig: AiConfig = Object.freeze({
   dailyRequestLimitPerUser: env.AI_DAILY_REQUEST_LIMIT_PER_USER,
   enabled: env.AI_ENABLED,
   generationModel: env.AI_GENERATION_MODEL,
+  maxContextChars: env.AI_MAX_CONTEXT_CHARS,
   maxInputChars: env.AI_MAX_INPUT_CHARS,
   maxConcurrentRequestsPerUser: env.AI_MAX_CONCURRENT_REQUESTS_PER_USER,
   maxOutputTokens: env.AI_MAX_OUTPUT_TOKENS,

@@ -43,7 +43,9 @@ export type CompleteAssistantInput = {
   academicYear: string | null;
   answer: GroundedAnswer;
   assistantMessageId: string;
+  modelId?: string | null;
   moduleCode: string | null;
+  promptVersion?: string;
 };
 
 export interface AiConversationStore {
@@ -78,5 +80,7 @@ export type ModuleAnswerService = (
 ) => Promise<{
   academicYear: string | null;
   groundedAnswer: GroundedAnswer;
+  modelId?: string | null;
   moduleCode: string | null;
+  promptVersion?: string;
 }>;

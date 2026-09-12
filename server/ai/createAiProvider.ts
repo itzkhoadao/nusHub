@@ -9,10 +9,9 @@ export function createAiProvider() {
 
   return new GeminiAiProvider({
     apiKey: env.GEMINI_API_KEY,
-    maxInputChars: aiConfig.maxInputChars,
+    maxInputChars: aiConfig.maxContextChars,
     maxOutputTokens: aiConfig.maxOutputTokens,
     model: aiConfig.generationModel,
     requestTimeoutMs: aiConfig.requestTimeoutMs,
   });
 }
-

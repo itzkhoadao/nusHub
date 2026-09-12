@@ -19,6 +19,10 @@ test("parses defaults and environment strings into typed configuration", () => {
   assert.equal(environment.AI_NUSMODS_FETCH_TIMEOUT_MS, 15_000);
   assert.equal(environment.AI_NUSMODS_CACHE_TTL_MS, 86_400_000);
   assert.equal(environment.AI_NUSMODS_MAX_STALENESS_MS, 172_800_000);
+  assert.equal(environment.AI_EMBEDDING_DIMENSIONS, 768);
+  assert.equal(environment.AI_KNOWLEDGE_RETRIEVAL_LIMIT, 5);
+  assert.equal(environment.AI_KNOWLEDGE_CANDIDATE_LIMIT, 50);
+  assert.equal(environment.AI_KNOWLEDGE_MAX_SEMANTIC_DISTANCE, 0.55);
   assert.equal(environment.JWT_EXPIRES_IN, "7d");
   assert.equal(environment.REQUEST_BODY_LIMIT, "1mb");
   assert.equal(environment.TRUST_PROXY_HOPS, 0);
@@ -92,5 +96,42 @@ test("rejects a NUSMods stale window shorter than its cache TTL", () => {
         AI_NUSMODS_MAX_STALENESS_MS: "1000",
       }),
     /AI_NUSMODS_MAX_STALENESS_MS must be greater than or equal/,
+  );
+});
+
+test("keeps retrieval limits and embedding indexes internally consistent", () => {
+  assert.throws(
+    () =>
+      parseEnvironment({
+        ...validEnvironment,
+        AI_EMBEDDING_MODEL: "different-space",
+      }),
+    /AI_EMBEDDING_MODEL must remain gemini-embedding-001/,
+  );
+  assert.throws(
+    () =>
+      parseEnvironment({
+        ...validEnvironment,
+        AI_KNOWLEDGE_CANDIDATE_LIMIT: "4",
+        AI_KNOWLEDGE_RETRIEVAL_LIMIT: "5",
+      }),
+    /AI_KNOWLEDGE_CANDIDATE_LIMIT must be at least/,
+  );
+  assert.throws(
+    () =>
+      parseEnvironment({
+        ...validEnvironment,
+        AI_MAX_CONTEXT_CHARS: "1000",
+        AI_MAX_INPUT_CHARS: "2000",
+      }),
+    /AI_MAX_CONTEXT_CHARS must be at least/,
+  );
+  assert.throws(
+    () =>
+      parseEnvironment({
+        ...validEnvironment,
+        AI_KNOWLEDGE_MAX_CONTEXT_CHARS: "17000",
+      }),
+    /AI_KNOWLEDGE_MAX_CONTEXT_CHARS must not exceed/,
   );
 });

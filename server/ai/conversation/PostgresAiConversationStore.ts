@@ -29,7 +29,7 @@ export class AiConversationNotFoundError extends Error {
 export class PostgresAiConversationStore implements AiConversationStore {
   constructor(private readonly databasePool: Pool = pool) {}
 
-  async createConversation(userId: string, title = "New module question") {
+  async createConversation(userId: string, title = "New NUS question") {
     const result = await this.databasePool.query<AiConversationSummary>(
       `INSERT INTO ai_conversations (user_id, title)
        VALUES ($1, $2)
@@ -222,7 +222,8 @@ export class PostgresAiConversationStore implements AiConversationStore {
         `UPDATE ai_messages
          SET content = $2, delivery_status = 'completed', answer_status = $3,
              follow_up_question = $4, warnings = $5::jsonb,
-             academic_year = $6, module_code = $7, updated_at = NOW()
+             academic_year = $6, module_code = $7, model_id = $8,
+             prompt_version = COALESCE($9, prompt_version), updated_at = NOW()
          WHERE id = $1 AND role = 'assistant' AND delivery_status = 'processing'`,
         [
           input.assistantMessageId,
@@ -232,6 +233,8 @@ export class PostgresAiConversationStore implements AiConversationStore {
           JSON.stringify(input.answer.warnings),
           input.academicYear,
           input.moduleCode,
+          input.modelId ?? null,
+          input.promptVersion ?? null,
         ],
       );
       if (update.rowCount !== 1) {
@@ -242,8 +245,13 @@ export class PostgresAiConversationStore implements AiConversationStore {
         await client.query(
           `INSERT INTO ai_message_citations (
              message_id, source_id, document_version_id, title, url,
-             effective_at, retrieved_at, claim_ids, position
-           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)`,
+             effective_at, retrieved_at, claim_ids, position,
+             knowledge_source_version_id
+           ) VALUES (
+             $1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9,
+             (SELECT id FROM ai_source_versions
+              WHERE id::text = $3 AND source_id = $2)
+           )`,
           [
             input.assistantMessageId,
             citation.sourceId,

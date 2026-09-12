@@ -92,6 +92,21 @@ The server applies forward-only database migrations before opening its HTTP
 listener. A failed migration therefore prevents an unhealthy release from
 passing the readiness check.
 
+Before deploying migration `012`, enable the PostgreSQL `vector` extension in
+the production database and confirm the application migration role is allowed
+to use it. Verify it from an administrative SQL console with:
+
+```sql
+SELECT extversion FROM pg_extension WHERE extname = 'vector';
+```
+
+Deploy the server migration before running any knowledge manifest. Ingestion
+is an explicit operator job (`npm run ai:ingest -- --manifest <path>`), not a
+web-server startup task. Review the manifest URLs and metadata, keep the old
+published snapshot available during the run, and verify the resulting
+`ai_ingestion_runs` row before enabling the new assistant scope. A failed run
+does not replace the current snapshot.
+
 ## Rollback
 
 Application rollback is performed in Vercel or Render by redeploying the last

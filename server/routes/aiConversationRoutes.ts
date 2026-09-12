@@ -190,6 +190,8 @@ export function createAiConversationRouter(
           );
           const result = await answerModuleQuestion({
             ...question,
+            originalText: content,
+            requestId: req.requestId,
             signal: controller.signal,
           });
           if (controller.signal.aborted) throw new Error("AI_STREAM_CANCELLED");
@@ -212,7 +214,9 @@ export function createAiConversationRouter(
             academicYear: result.academicYear,
             answer: validatedAnswer,
             assistantMessageId: exchange.assistantMessageId,
+            modelId: result.modelId,
             moduleCode: result.moduleCode,
+            promptVersion: result.promptVersion,
           });
           writeCompletionEvent({
             academicYear: result.academicYear,

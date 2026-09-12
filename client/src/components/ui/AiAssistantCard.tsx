@@ -8,8 +8,8 @@ type AiAssistantCardProps = {
 };
 
 export default function AiAssistantCard({
-  title = "Ask the module assistant",
-  description = "Get grounded answers from current NUSMods module information.",
+  title = "Ask the NUS assistant",
+  description = "Get grounded answers from current NUSMods and official campus information.",
 }: AiAssistantCardProps) {
   const [question, setQuestion] = useState("");
   const navigate = useNavigate();
@@ -39,7 +39,7 @@ export default function AiAssistantCard({
           className="app-input bg-surface-low pr-12"
           maxLength={2000}
           onChange={(event) => setQuestion(event.target.value)}
-          placeholder="Ask about an NUS module..."
+          placeholder="Ask about NUS modules or services..."
           type="text"
           value={question}
         />

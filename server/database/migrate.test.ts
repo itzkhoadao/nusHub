@@ -11,7 +11,7 @@ test("loads the repository migrations in a continuous, checksummed order", async
 
   assert.deepEqual(
     migrations.map((migration) => migration.version),
-    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
   );
 
   for (const migration of migrations) {
@@ -19,6 +19,19 @@ test("loads the repository migrations in a continuous, checksummed order", async
     assert.match(migration.checksum, /^[a-f0-9]{64}$/);
     assert.notEqual(migration.sql.trim(), "");
   }
+});
+
+test("defines immutable knowledge snapshots and both hybrid retrieval indexes", async () => {
+  const migrations = await loadMigrations();
+  const knowledge = migrations.find((migration) => migration.version === 12);
+
+  assert.ok(knowledge);
+  assert.match(knowledge.sql, /CREATE EXTENSION IF NOT EXISTS vector/);
+  assert.match(knowledge.sql, /CREATE UNIQUE INDEX ai_source_versions_one_published_idx/);
+  assert.match(knowledge.sql, /USING GIN\(search_document\)/);
+  assert.match(knowledge.sql, /USING hnsw \(embedding vector_cosine_ops\)/);
+  assert.match(knowledge.sql, /verified_at TIMESTAMPTZ NOT NULL/);
+  assert.match(knowledge.sql, /knowledge_source_version_id UUID/);
 });
 
 test("rejects a migration sequence with a missing version", async () => {

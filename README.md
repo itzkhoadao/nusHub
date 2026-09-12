@@ -16,9 +16,10 @@ The project was originally started as a two-person project. It is now maintained
 
 ## AI Assistant
 
-NUSHub includes a grounded module assistant backed by Gemini and structured
-NUSMods data. Signed-in users can ask module questions, receive streamed
-answers with citations and source-check dates, continue contextual
+NUSHub includes a grounded NUS assistant backed by Gemini, structured NUSMods
+data, and a curated official-source knowledge index. Signed-in users can ask
+module and campus-service questions, receive streamed answers with citations
+and source-check dates, continue contextual
 conversations, rate answers, stop an in-progress response, and delete their
 saved conversation history.
 
@@ -28,18 +29,37 @@ release gates are approved. When it is enabled, questions are sent to Google
 Gemini for processing. The product clearly discloses this and reminds users to
 verify important details against the cited sources.
 
-The AI boundary isolates Gemini behind an internal provider interface,
-validates structured responses, performs stateless provider requests, and
-records content-free operational metrics. Conversation ownership, quotas,
-concurrency limits, idempotency, cancellation, and feedback are enforced by
-the server rather than trusted to the browser.
+Exact module facts stay on the deterministic NUSMods path. Broader questions
+use hybrid PostgreSQL full-text and pgvector retrieval over atomically
+published source snapshots. Only allowlisted public NUS domains may be
+ingested; every generated citation is checked against the exact retrieved
+chunk before it can be stored or shown. The AI boundary isolates Gemini behind
+internal provider interfaces, performs stateless requests, and records
+content-free operational metrics. Conversation ownership, quotas, concurrency
+limits, idempotency, cancellation, and feedback are enforced by the server
+rather than trusted to the browser.
 
 To check safe AI configuration while the server is running, call the
 authenticated `GET /api/ai/health` endpoint. To make a real server-only
 connectivity probe in development, set `AI_ENABLED=true` and `GEMINI_API_KEY`
 in `server/.env`, then run `npm run ai:probe` from `server/`. Apply the database
-migrations before using conversation history; migration `011` adds the AI
-conversation, message, citation, feedback, and usage records.
+migrations before using conversation history. Migration `011` adds AI
+conversation records; migration `012` adds the immutable knowledge snapshots,
+hybrid indexes, ingestion audit log, and citation provenance link. PostgreSQL
+must provide the `vector` extension before migration `012` runs.
+
+Knowledge ingestion is a separate operator action, never part of a user
+request. After migration `012`, review a manifest against the source registry,
+then run this from `server/`:
+
+```bash
+npm run ai:ingest -- --manifest ai/knowledge/manifests/library.example.json
+```
+
+A manifest can publish up to 100 pages as one source snapshot. Publication is
+transactional: users continue to retrieve the previous complete version if
+fetching, parsing, chunking, or embedding any document fails. Identical content
+reuses its immutable version without paying to embed it again.
 
 ## Tech Stack
 
@@ -67,7 +87,7 @@ After starting the application, open `http://localhost:5173` in your browser.
 
 Install the following before you begin:
 
-- [Node.js](https://nodejs.org/) and npm
+- [Node.js](https://nodejs.org/) 22.3 or newer and npm
 - [PostgreSQL](https://www.postgresql.org/)
 - Git
 
@@ -201,6 +221,7 @@ Run these commands from the relevant `client` or `server` directory.
 | `server` | `npm test` | Run backend unit and API tests |
 | `server` | `npm run check` | Run backend lint, tests, and production build |
 | `server` | `npm run migrate` | Apply pending database migrations without starting the server |
+| `server` | `npm run ai:ingest -- --manifest <path>` | Publish a reviewed official-source snapshot |
 | `server` | `npm start` | Run the compiled backend |
 
 ## Automated Delivery

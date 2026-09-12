@@ -28,6 +28,7 @@ const config: AiConfig = {
   generationModel: "stable-test-model",
   maxConcurrentRequestsPerUser: 1,
   maxInputChars: 2_000,
+  maxContextChars: 16_000,
   maxOutputTokens: 800,
   provider: "gemini",
   requestTimeoutMs: 20_000,

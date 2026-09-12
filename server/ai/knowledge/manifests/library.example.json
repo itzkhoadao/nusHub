@@ -1,0 +1,15 @@
+{
+  "sourceId": "nus_libraries",
+  "metadata": {
+    "snapshot_owner": "NUSHub operator"
+  },
+  "documents": [
+    {
+      "url": "https://nus.edu.sg/nuslibraries/",
+      "title": "NUS Libraries",
+      "metadata": {
+        "page_type": "service_overview"
+      }
+    }
+  ]
+}

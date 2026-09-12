@@ -19,6 +19,7 @@ const enabledConfig: AiConfig = {
   enabled: true,
   generationModel: "stable-test-model",
   maxInputChars: 2_000,
+  maxContextChars: 16_000,
   maxConcurrentRequestsPerUser: 1,
   maxOutputTokens: 800,
   provider: "gemini",

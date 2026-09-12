@@ -81,7 +81,7 @@ export default function AiMessageCard({
           <strong>NUSHub AI</strong>
           <span>
             {isPending
-              ? "Checking NUSMods sources…"
+              ? "Checking official sources…"
               : message.answer_status
                 ? STATUS_LABELS[message.answer_status]
                 : "Assistant response"}

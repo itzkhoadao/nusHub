@@ -88,9 +88,11 @@ const environmentSchema = z
       .trim()
       .min(1)
       .default("gemini-embedding-001"),
+    AI_EMBEDDING_DIMENSIONS: z.coerce.number().int().min(128).max(2_000).default(768),
     AI_INTERACTIONS_STORE: booleanFromEnvironment.default(false),
     AI_REQUEST_TIMEOUT_MS: positiveInteger(20_000),
     AI_MAX_INPUT_CHARS: positiveInteger(2_000),
+    AI_MAX_CONTEXT_CHARS: positiveInteger(16_000),
     AI_MAX_OUTPUT_TOKENS: positiveInteger(800),
     AI_MAX_TOOL_CALLS: positiveInteger(3),
     AI_MAX_CONCURRENT_REQUESTS_PER_USER: positiveInteger(1),
@@ -100,6 +102,13 @@ const environmentSchema = z
     AI_NUSMODS_MAX_STALENESS_MS: positiveInteger(48 * 60 * 60 * 1_000),
     AI_NUSMODS_MAX_DOCUMENT_BYTES: positiveInteger(1024 * 1024),
     AI_NUSMODS_CACHE_MAX_ENTRIES: positiveInteger(500),
+    AI_KNOWLEDGE_FETCH_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(60_000).default(15_000),
+    AI_KNOWLEDGE_MAX_DOCUMENT_BYTES: z.coerce.number().int().min(1_024).max(50 * 1024 * 1024).default(10 * 1024 * 1024),
+    AI_KNOWLEDGE_EMBEDDING_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(20),
+    AI_KNOWLEDGE_RETRIEVAL_LIMIT: z.coerce.number().int().min(1).max(10).default(5),
+    AI_KNOWLEDGE_CANDIDATE_LIMIT: z.coerce.number().int().min(5).max(500).default(50),
+    AI_KNOWLEDGE_MAX_CONTEXT_CHARS: z.coerce.number().int().min(1_000).default(12_000),
+    AI_KNOWLEDGE_MAX_SEMANTIC_DISTANCE: z.coerce.number().min(0).max(2).default(0.55),
   })
   .superRefine((environment, context) => {
     if (
@@ -164,6 +173,56 @@ const environmentSchema = z
         message:
           "AI_NUSMODS_MAX_STALENESS_MS must be greater than or equal to AI_NUSMODS_CACHE_TTL_MS",
         path: ["AI_NUSMODS_MAX_STALENESS_MS"],
+      });
+    }
+
+    if (environment.AI_EMBEDDING_DIMENSIONS !== 768) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "AI_EMBEDDING_DIMENSIONS must remain 768 until a reviewed migration creates a matching vector column and index",
+        path: ["AI_EMBEDDING_DIMENSIONS"],
+      });
+    }
+
+    if (environment.AI_EMBEDDING_MODEL !== "gemini-embedding-001") {
+      context.addIssue({
+        code: "custom",
+        message:
+          "AI_EMBEDDING_MODEL must remain gemini-embedding-001 until a reviewed re-embedding migration is completed",
+        path: ["AI_EMBEDDING_MODEL"],
+      });
+    }
+
+    if (environment.AI_MAX_CONTEXT_CHARS < environment.AI_MAX_INPUT_CHARS) {
+      context.addIssue({
+        code: "custom",
+        message: "AI_MAX_CONTEXT_CHARS must be at least AI_MAX_INPUT_CHARS",
+        path: ["AI_MAX_CONTEXT_CHARS"],
+      });
+    }
+
+    if (
+      environment.AI_KNOWLEDGE_CANDIDATE_LIMIT <
+      environment.AI_KNOWLEDGE_RETRIEVAL_LIMIT
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "AI_KNOWLEDGE_CANDIDATE_LIMIT must be at least AI_KNOWLEDGE_RETRIEVAL_LIMIT",
+        path: ["AI_KNOWLEDGE_CANDIDATE_LIMIT"],
+      });
+    }
+
+    if (
+      environment.AI_KNOWLEDGE_MAX_CONTEXT_CHARS >
+      environment.AI_MAX_CONTEXT_CHARS
+    ) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "AI_KNOWLEDGE_MAX_CONTEXT_CHARS must not exceed AI_MAX_CONTEXT_CHARS",
+        path: ["AI_KNOWLEDGE_MAX_CONTEXT_CHARS"],
       });
     }
   }); // ensure all environment variables are present and valid
