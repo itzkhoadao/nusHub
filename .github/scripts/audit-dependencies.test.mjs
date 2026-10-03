@@ -40,6 +40,16 @@ test("waives only the known development dependency chain before expiration", () 
   });
 });
 
+test("accepts npm 10's Tailwind 4-only major migration as the available fix", () => {
+  const report = bracesReport();
+  report.vulnerabilities.braces.fixAvailable = {
+    name: "tailwindcss",
+    version: "4.3.3",
+    isSemVerMajor: true,
+  };
+  assert.equal(evaluateAuditReports(report, clean, beforeExpiry).passed, true);
+});
+
 test("never waives a production vulnerability", () => {
   const report = bracesReport();
   assert.match(evaluateAuditReports(report, report, beforeExpiry).reason, /Production vulnerabilities/);
@@ -74,6 +84,12 @@ test("fails after the waiver expiration", () => {
 test("fails if upstream marks the advisory fixable", () => {
   const report = bracesReport();
   report.vulnerabilities.braces.fixAvailable = true;
+  assert.equal(evaluateAuditReports(report, clean, beforeExpiry).passed, false);
+  report.vulnerabilities.braces.fixAvailable = {
+    name: "tailwindcss",
+    version: "3.4.20",
+    isSemVerMajor: false,
+  };
   assert.equal(evaluateAuditReports(report, clean, beforeExpiry).passed, false);
 });
 

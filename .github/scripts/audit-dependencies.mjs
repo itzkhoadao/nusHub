@@ -72,8 +72,19 @@ function derivesOnlyFromWaivedAdvisory(name, all, visiting) {
     }
     return name === "braces" && cause?.name === "braces" &&
       cause.url === WAIVED_ADVISORY && cause.severity === "high" &&
-      vulnerability.fixAvailable === false;
+      hasNoCompatibleFix(vulnerability.fixAvailable);
   });
+}
+
+function hasNoCompatibleFix(fixAvailable) {
+  // npm 10 identifies a Tailwind 4 major migration as a fix; npm 11 reports
+  // no fix for braces itself. Neither is a patch to the current toolchain.
+  return fixAvailable === false || Boolean(
+    fixAvailable && typeof fixAvailable === "object" &&
+    fixAvailable.name === "tailwindcss" &&
+    fixAvailable.isSemVerMajor === true &&
+    /^4\./.test(fixAvailable.version),
+  );
 }
 
 function runAudit(omitDevelopment) {
