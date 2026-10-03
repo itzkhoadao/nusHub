@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { parseKnowledgeDocument } from "./documentParser";
+import { KnowledgeSourcePolicyError } from "./sourceRegistry";
 
 test("extracts readable HTML and removes executable or navigational text", async () => {
   const parsed = await parseKnowledgeDocument(
@@ -23,4 +24,19 @@ test("extracts readable HTML and removes executable or navigational text", async
   assert.match(parsed.content, /Monday to Friday/);
   assert.doesNotMatch(parsed.content, /steal|Ignore me/);
   assert.deepEqual(parsed.metadata, { page_type: "hours" });
+});
+
+test("rejects a 200 response carrying an access-control interstitial", async () => {
+  await assert.rejects(
+    parseKnowledgeDocument({
+      bytes: Buffer.from('<html><head><META NAME="ROBOTS" CONTENT="NOINDEX, NOFOLLOW"><script src="/_Incapsula_Resource"></script></head><body>Access denied</body></html>'),
+      canonicalUrl: "https://nusit.nus.edu.sg/contact/",
+      contentType: "text/html",
+      etag: null,
+      fetchedAt: "2026-10-03T00:00:00.000Z",
+      lastModified: null,
+    }, { metadata: { service_area: "it_support" } }),
+    (error: unknown) => error instanceof KnowledgeSourcePolicyError &&
+      error.code === "SOURCE_FETCH_FAILED",
+  );
 });

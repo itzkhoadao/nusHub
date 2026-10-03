@@ -123,3 +123,41 @@ test("rejects required metadata before starting a source run", async () => {
     /Required source metadata is missing: page_type/,
   );
 });
+
+test("a failed multi-document refresh never publishes a partial snapshot", async () => {
+  const repository = new MemoryRepository();
+  const fetcher = new SafeSourceFetcher({
+    fetch: async (url) => {
+      const pathname = new URL(String(url)).pathname;
+      return pathname.endsWith("/broken")
+        ? new Response("Unavailable", { status: 503 })
+        : new Response(`<main><h1>Approved page</h1><p>${"Current official information. ".repeat(10)}</p></main>`, {
+            headers: { "content-type": "text/html" },
+          });
+    },
+    lookup: async () => [{ address: "93.184.216.34", family: 4 }],
+    maxDocumentBytes: 20_000,
+    timeoutMs: 1_000,
+  });
+  const service = new KnowledgeIngestionService({
+    embeddingBatchSize: 2,
+    embeddingProvider: {
+      dimensions: 768,
+      embedDocuments: async () => { throw new Error("Embeddings should not start"); },
+      embedQuery: async () => [],
+      model: "gemini-embedding-001",
+    },
+    fetcher,
+    registryVersion: "test-registry",
+    repository,
+  });
+  await assert.rejects(service.ingestSource({
+    documents: [
+      { metadata: { page_type: "hours" }, url: "https://nus.edu.sg/nuslibraries/good" },
+      { metadata: { page_type: "services" }, url: "https://nus.edu.sg/nuslibraries/broken" },
+    ],
+    sourceId: "nus_libraries",
+  }), /approved source did not return/);
+  assert.equal(repository.published, undefined);
+  assert.deepEqual(repository.failed, ["SOURCE_FETCH_FAILED"]);
+});

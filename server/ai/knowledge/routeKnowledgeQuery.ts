@@ -1,9 +1,11 @@
 import type { KnowledgeSearchFilters } from "./types";
 
 const PRIVATE_DATA_PATTERN =
-  /\b(my|someone(?:'s)?|another user(?:'s)?)\s+(?:(?:module|course|exam)\s+)?(?:grades?|results?|gpa|bill|balance|application|medical records?|messages?|course\s*reg(?:istration)? status)\b/i;
+  /\b(my|someone(?:'s)?|another user(?:'s)?)\s+(?:NUS\s+)?(?:(?:module|course|exam)\s+)?(?:grades?|results?|gpa|bill|balance|application|medical records?|health records?|messages?|course\s*reg(?:istration)? status)\b/i;
 const CREDENTIAL_PATTERN =
   /\b(?:show|tell|find|retrieve|reveal|give|expose|store|save|send|what(?:'s| is))\b.{0,50}\b(?:passwords?|one[- ]time passwords?|otps?|mfa codes?|recovery codes?|api keys?|private keys?|access tokens?|jwt)\b/i;
+const URGENT_PATTERN =
+  /\b(emergency|chest pain|difficulty breathing|severe bleeding|suicid(?:e|al)|self[- ]harm|hurt myself|kill myself|end my life|physical danger|assault|sexual misconduct)\b/i;
 
 export type KnowledgeQueryRoute =
   | { action: "refuse"; reason: "credentials" | "private_data" }
@@ -19,11 +21,7 @@ export function routeKnowledgeQuery(input: string): KnowledgeQueryRoute {
   }
 
   const normalized = input.toLowerCase();
-  if (
-    /\b(emergency|chest pain|difficulty breathing|severe bleeding|suicid(?:e|al)|self[- ]harm|physical danger|assault|sexual misconduct)\b/.test(
-      normalized,
-    )
-  ) {
+  if (isUrgentKnowledgeQuery(normalized)) {
     return retrieve(["nus_uhc", "nus_osa"], true);
   }
   if (/\b(calendar|semester dates?|term dates?|reading week|exam period)\b/.test(normalized)) {
@@ -51,6 +49,10 @@ export function routeKnowledgeQuery(input: string): KnowledgeQueryRoute {
     return retrieve(["nus_osa"], true);
   }
   return { action: "unsupported" };
+}
+
+export function isUrgentKnowledgeQuery(input: string) {
+  return URGENT_PATTERN.test(input);
 }
 
 function retrieve(

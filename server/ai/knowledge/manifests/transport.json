@@ -1,0 +1,10 @@
+{
+  "sourceId": "nus_transport",
+  "metadata": { "snapshot_owner": "NUSHub operator" },
+  "documents": [{
+    "url": "https://uci.nus.edu.sg/campus-life/campus-services/transportation/internal-shuttle-bus/",
+    "title": "NUS Internal Shuttle Bus Services",
+    "effectiveAt": "2026-01-05T00:00:00+08:00",
+    "metadata": { "network_effective_at": "2026-01-05T00:00:00+08:00" }
+  }]
+}

@@ -1,0 +1,10 @@
+{
+  "sourceId": "nus_registrar_calendar",
+  "metadata": { "snapshot_owner": "NUSHub operator" },
+  "documents": [{
+    "url": "https://nus.edu.sg/registrar/docs/default-source/calendar/ay2026-2027.pdf",
+    "title": "NUS Academic Calendar AY2026/2027",
+    "effectiveAt": "2026-07-30T00:00:00+08:00",
+    "metadata": { "academic_year": "AY2026/27" }
+  }]
+}

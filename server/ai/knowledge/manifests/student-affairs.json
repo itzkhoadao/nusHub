@@ -1,0 +1,9 @@
+{
+  "sourceId": "nus_osa",
+  "metadata": { "snapshot_owner": "NUSHub operator" },
+  "documents": [{
+    "url": "https://osa.nus.edu.sg/wellness/nus-student-support-directory/",
+    "title": "NUS Student Support Directory",
+    "metadata": { "service_area": "student_support" }
+  }]
+}

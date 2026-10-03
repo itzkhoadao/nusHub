@@ -84,6 +84,21 @@ test("returns not-verified without generation when approved evidence is absent",
   assert.equal(setup.providerCalls(), 0);
 });
 
+test("gives immediate emergency direction when urgent evidence is unavailable", async () => {
+  const setup = dependencies([]);
+  const result = await answerKnowledgeQuestion(
+    {
+      requestId: "22222222-2222-4222-8222-222222222222",
+      text: "I might hurt myself tonight. Where can I get help?",
+    },
+    setup.dependencies,
+  );
+  assert.equal(result.groundedAnswer.status, "not_verified");
+  assert.match(result.groundedAnswer.answer, /emergency services.*emergency department/i);
+  assert.ok(result.groundedAnswer.warnings.includes("urgent_support_unverified"));
+  assert.equal(setup.providerCalls(), 0);
+});
+
 test("fails closed when current official evidence contains a declared conflict", async () => {
   const setup = dependencies([
     { ...evidence, metadata: { conflict_key: "opening_time", fact_value: "08:00" } },

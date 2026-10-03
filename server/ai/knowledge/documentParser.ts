@@ -40,7 +40,16 @@ export async function parseKnowledgeDocument(
 }
 
 function parseHtml(bytes: Uint8Array) {
-  const $ = load(Buffer.from(bytes).toString("utf8"));
+  const html = Buffer.from(bytes).toString("utf8");
+  if (
+    /_Incapsula_Resource|SWUDNSAI=|<meta[^>]+robots[^>]+noindex[^>]+nofollow/i.test(html)
+  ) {
+    throw new KnowledgeSourcePolicyError(
+      "SOURCE_FETCH_FAILED",
+      "The source returned an access-control page rather than its published content.",
+    );
+  }
+  const $ = load(html);
   $("script,style,noscript,template,svg,form,nav,header,footer").remove();
   const title =
     $("main h1, article h1, h1").first().text().trim() ||

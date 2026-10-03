@@ -1,0 +1,9 @@
+{
+  "sourceId": "nus_it",
+  "metadata": { "snapshot_owner": "NUSHub operator" },
+  "documents": [{
+    "url": "https://nusit.nus.edu.sg/contact/",
+    "title": "NUS IT Care Contact",
+    "metadata": { "service_area": "it_support" }
+  }]
+}

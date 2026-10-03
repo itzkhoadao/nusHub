@@ -6,7 +6,7 @@ import {
   NUS_KNOWLEDGE_SYSTEM_INSTRUCTION,
 } from "../prompts/nusKnowledgeAssistant.v1";
 import type { HybridKnowledgeRetriever } from "./HybridKnowledgeRetriever";
-import { routeKnowledgeQuery } from "./routeKnowledgeQuery";
+import { isUrgentKnowledgeQuery, routeKnowledgeQuery } from "./routeKnowledgeQuery";
 import type { RetrievedEvidence } from "./types";
 import {
   GroundingValidationError,
@@ -54,6 +54,14 @@ export async function answerKnowledgeQuestion(
     input.signal,
   );
   if (evidence.length === 0) {
+    if (isUrgentKnowledgeQuery(input.text)) {
+      return wrap({
+        answer: "If you or someone else may be in immediate danger, call local emergency services now or go to the nearest emergency department. I could not verify current NUS guidance from approved sources.",
+        citations: [],
+        status: "not_verified",
+        warnings: ["approved_evidence_not_found", "urgent_support_unverified"],
+      });
+    }
     return wrap(notVerified("I could not find current approved evidence for that question."));
   }
 

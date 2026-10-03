@@ -27,6 +27,10 @@ test("distinguishes password guidance from requests to expose credentials", () =
 
 test("refuses private records and rejects unsupported broad retrieval", () => {
   assert.deepEqual(
+    routeKnowledgeQuery("Can you show me my NUS medical record?"),
+    { action: "refuse", reason: "private_data" },
+  );
+  assert.deepEqual(
     routeKnowledgeQuery("Show my course grades"),
     { action: "refuse", reason: "private_data" },
   );
@@ -34,4 +38,12 @@ test("refuses private records and rejects unsupported broad retrieval", () => {
     routeKnowledgeQuery("Recommend an overseas restaurant"),
     { action: "unsupported" },
   );
+});
+
+test("routes a plain-language urgent self-harm request to high-stakes support", () => {
+  assert.deepEqual(routeKnowledgeQuery("I might hurt myself tonight. Where can I get help?"), {
+    action: "retrieve",
+    filters: { sourceIds: ["nus_uhc", "nus_osa"], trustTiers: ["T1"] },
+    highStakes: true,
+  });
 });

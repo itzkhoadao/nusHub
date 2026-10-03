@@ -3,6 +3,8 @@ node_modules/
 
 # Environment variables (NEVER upload these)
 .env
+.env.staging
+.env.*.local
 
 # Build files
 dist/
