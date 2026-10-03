@@ -59,8 +59,11 @@ jobs:
       - name: Build server
         run: npm run build
 
+      - name: Test audit policy
+        run: node --test ../.github/scripts/audit-dependencies.test.mjs
+
       - name: Audit all server dependencies
-        run: npm audit --audit-level=high
+        run: npm run audit:ci
 
       - name: Package server build
         if: github.event_name == 'push'
@@ -115,7 +118,7 @@ jobs:
         run: npm run build
 
       - name: Audit all client dependencies
-        run: npm audit --audit-level=high
+        run: npm run audit:ci
 
       - name: Package client build
         if: github.event_name == 'push'

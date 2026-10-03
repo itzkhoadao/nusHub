@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "audit:ci": "node ../.github/scripts/audit-dependencies.mjs",
     "lint": "eslint .",
     "test": "vitest run",
     "preview": "vite preview"
