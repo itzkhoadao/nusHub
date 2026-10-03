@@ -11,6 +11,11 @@ updates:
     groups:
       client-minor-and-patch:
         update-types: [minor, patch]
+    # TypeScript major upgrades require a coordinated typescript-eslint upgrade.
+    # Keep patch/minor updates automatic; review majors once the tooling supports them.
+    ignore:
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: deps(client)
 
@@ -25,6 +30,9 @@ updates:
     groups:
       server-minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: deps(server)
 
