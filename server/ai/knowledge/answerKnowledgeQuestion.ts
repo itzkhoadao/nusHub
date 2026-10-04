@@ -123,6 +123,20 @@ export async function answerKnowledgeQuestion(
     });
   }
 
+  // The approved transport capture names routes, but its stop order is only
+  // shown in map images. A generated ordered list would be unsupported.
+  if (route.filters.sourceIds?.includes("nus_transport") &&
+      /\bstops?\b/i.test(input.text) &&
+      /\b(?:every|all|order|sequence|list)\b/i.test(input.text)) {
+    return wrap(notVerified("I cannot verify an ordered shuttle stop list from the approved text. Please check the current route map on the official NUS transport page or in uNivUS."));
+  }
+  // The UHC FAQ explains booking but has no live appointment inventory.
+  if (route.filters.sourceIds?.includes("nus_uhc") &&
+      /\b(?:live|right now|current|today)\b/i.test(input.text) &&
+      /\b(?:wait(?:ing)? time|available slots?|appointment availability)\b/i.test(input.text)) {
+    return wrap(notVerified("I cannot verify live UHC appointment wait times or availability from the approved FAQ. Please check MyUHC through uNivUS or contact UHC directly."));
+  }
+
   // Flattened PDF tables do not establish which date belongs to a mini-semester.
   // Fail closed until the corpus has an independently verified table extraction.
   if (route.filters.sourceIds?.includes("nus_registrar_calendar") && /\bmini[- ]semester\b/i.test(input.text)) {

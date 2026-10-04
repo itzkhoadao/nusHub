@@ -1,6 +1,6 @@
 # Phase 5 staging evidence — updated 4 October 2026
 
-**Status: all six official documents are published in isolated staging; full Phase 5 gate remains open. Phase 6 has not begun.** The latest expanded 22-case draft scored 22/22 automatic passes with `gemini-3.5-flash-lite`; see [the provider recovery checkpoint](PHASE5_PROVIDER_RECOVERY_2026-10-04.md). The earlier `gemini-3.6-flash` 8/17 failure remains part of the evidence. Human review, durable HTML delivery and threshold proof remain open.
+**Status: the six-source technical staging proof passed; the full Phase 5 release gate remains open. Phase 6 has not begun.** The latest expanded 22-case draft scored 22/22 automatic passes with `gemini-3.5-flash-lite`; see [the owner decision and agent audit](PHASE5_OWNER_DECISION_2026-10-04.md). The earlier `gemini-3.6-flash` 8/17 failure remains part of the evidence. The owner waived independent review for this staging exercise; durable HTML delivery and the guide's full release threshold proof remain open.
 
 ## Verified on the real staging database
 
@@ -47,7 +47,7 @@ The manual browser channel preserves allowlisting, provenance, freshness, previe
 
 ## Code verification
 
-Latest `npm run check` passed: lint, **172 tests**, and TypeScript/build checks. Client lint, eight contract tests and build passed at the preceding implementation checkpoint; the client was not changed in this provider recovery.
+Latest `npm run check` passed: lint, **173 tests**, and TypeScript/build checks. Client lint, eight contract tests and build passed at the preceding implementation checkpoint; the client was not changed in this provider recovery.
 
 ## Strengthening and chatbot acceptance (4 October)
 

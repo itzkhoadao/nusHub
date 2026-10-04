@@ -143,6 +143,22 @@ test("handles an urgent physical-safety query without waiting for generation", a
   assert.equal(setup.providerCalls(), 0);
 });
 
+test("does not invent image-only shuttle stops or live UHC availability", async () => {
+  for (const [text, sourceId, expected] of [
+    ["List every stop in order for NUS shuttle Service R today.", "nus_transport", /official NUS transport.*uNivUS/i],
+    ["What is the live wait time for a UHC medical appointment right now?", "nus_uhc", /MyUHC.*uNivUS/i],
+  ] as const) {
+    const setup = dependencies([{ ...evidence, sourceId }]);
+    const result = await answerKnowledgeQuestion({
+      requestId: "22222222-2222-4222-8222-222222222222", text,
+    }, setup.dependencies);
+    assert.equal(result.groundedAnswer.status, "not_verified");
+    assert.match(result.groundedAnswer.answer, expected);
+    assert.deepEqual(result.groundedAnswer.citations, []);
+    assert.equal(setup.providerCalls(), 0);
+  }
+});
+
 test("calendar answers cite the adjacent semester heading when the date row spans chunks", async () => {
   const base = { ...evidence, sourceId: "nus_registrar_calendar",
     url: "https://nus.edu.sg/registrar/docs/default-source/calendar/ay2026-2027.pdf",

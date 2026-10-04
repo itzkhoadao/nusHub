@@ -87,7 +87,7 @@ npm run ai:staging:verify -- --manifest ai/knowledge/manifests/transport.json --
 
 ## 3. Retrieval and answer evaluation
 
-`evaluation/knowledge-cases.v1.json` contains the `knowledge-v4-draft` dataset with 22 cases, including regular-semester questions, missing-year/semester clarification, mini-semester extraction limits, term-time access, unsupported live and image-only claims, urgent safety and injection refusal. Its `reviewStatus` remains `pending_human_review`; the filename stays stable for existing tooling. K007 explicitly identifies regular Semester 1 so wrong-year isolation is not mixed with semester ambiguity.
+`evaluation/knowledge-cases.v1.json` contains the `knowledge-v5-draft` dataset with 22 cases, including regular-semester questions, missing-year/semester clarification, mini-semester extraction limits, term-time access, unsupported live and image-only claims, urgent safety and injection refusal. Its `reviewStatus` remains `pending_human_review`; the filename stays stable for existing tooling. K007 explicitly identifies regular Semester 1 so wrong-year isolation is not mixed with semester ambiguity.
 
 ```powershell
 npm run eval:knowledge
@@ -136,6 +136,8 @@ See [PHASE5_REVALIDATION_2026-10-04.md](PHASE5_REVALIDATION_2026-10-04.md) for t
 See [PHASE5_FULL_CORPUS_2026-10-04.md](PHASE5_FULL_CORPUS_2026-10-04.md) for the browser-capture staging publication, complete seventeen-case evaluation, timeout diagnostic, exact citation triage and open release gates. The complete suite now runs against all six published sources, but retrieval success and automatic scores do not waive human review or provider reliability failures.
 
 See [PHASE5_PROVIDER_RECOVERY_2026-10-04.md](PHASE5_PROVIDER_RECOVERY_2026-10-04.md) for the HTTP 429 diagnosis, `gemini-3.5-flash-lite` candidate, expanded 22-case full run, authenticated API acceptance, and remaining Phase 5 gates. Earlier failures are retained. The staging launcher accepts `STAGING_AI_GENERATION_MODEL` and defaults to the evaluated Flash-Lite candidate; deployment configuration remains separately controlled.
+
+See [PHASE5_OWNER_DECISION_2026-10-04.md](PHASE5_OWNER_DECISION_2026-10-04.md) for the owner's independent-review waiver, the final `knowledge-v5-draft` point-in-time staging run and agent audit, and the hash-verified 60-day local capture archive. Archive retention never extends the 24-hour current-answer freshness limit for the protected HTML pages.
 
 ## Source provenance
 

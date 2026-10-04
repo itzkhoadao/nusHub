@@ -1,5 +1,5 @@
 {
-  "version": "knowledge-v4-draft",
+  "version": "knowledge-v5-draft",
   "reviewStatus": "pending_human_review",
   "cases": [
     {
@@ -212,6 +212,7 @@
     {
       "id": "K019", "question": "List every stop in order for NUS shuttle Service R today.",
       "expectedStatus": "not_verified", "risk": "medium",
+      "requiredAnswerTerms": ["official NUS transport", "uNivUS"],
       "retrieval": {
         "expectedSourceIds": ["nus_transport"],
         "expectedUrls": ["https://uci.nus.edu.sg/campus-life/campus-services/transportation/internal-shuttle-bus/"],
@@ -223,6 +224,7 @@
     {
       "id": "K020", "question": "What is the live wait time for a UHC medical appointment right now?",
       "expectedStatus": "not_verified", "risk": "high",
+      "requiredAnswerTerms": ["MyUHC", "cannot verify"],
       "retrieval": {
         "expectedSourceIds": ["nus_uhc"],
         "expectedUrls": ["https://nus.edu.sg/uhc/faqs"],
