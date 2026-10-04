@@ -1,4 +1,5 @@
 import { getKnowledgeSource } from "./sourceRegistry";
+export const KNOWLEDGE_RETRIEVAL_POLICY_VERSION = "phase5.2026-10-04.v2";
 import type {
   EmbeddingProvider,
   KnowledgeSearchQuery,
@@ -29,6 +30,7 @@ export class HybridKnowledgeRetriever {
       !Number.isInteger(options.resultLimit) ||
       options.resultLimit < 1 ||
       options.candidateLimit < options.resultLimit ||
+      !Number.isFinite(options.maxSemanticDistance) ||
       options.maxSemanticDistance < 0 ||
       options.maxSemanticDistance > 2
     ) {
@@ -50,9 +52,13 @@ export class HybridKnowledgeRetriever {
     if (filters.metadata) {
       filters.metadata = validateMetadataFilters(filters.metadata);
     }
-    const limit = Math.min(Math.max(query.limit ?? this.options.resultLimit, 1), 10);
+    const requestedLimit = query.limit ?? this.options.resultLimit;
+    if (!Number.isInteger(requestedLimit) || requestedLimit < 1) throw new TypeError("Invalid knowledge result limit");
+    signal?.throwIfAborted();
+    const limit = Math.min(requestedLimit, 10);
     const startedAt = Date.now();
     const embedding = await this.embeddingProvider.embedQuery(text, signal);
+    signal?.throwIfAborted();
     const candidates = await this.repository.hybridSearch({
       candidateLimit: this.options.candidateLimit,
       embedding,
@@ -63,6 +69,7 @@ export class HybridKnowledgeRetriever {
       maxSemanticDistance: this.options.maxSemanticDistance,
       text,
     });
+    signal?.throwIfAborted();
     const results = diversify(candidates, limit);
     this.options.recordTelemetry?.({
       durationMs: Date.now() - startedAt,
@@ -90,11 +97,24 @@ function validateMetadataFilters(metadata: Record<string, string>) {
 }
 
 function diversify(candidates: RetrievedEvidence[], limit: number) {
+  // Surface declared disagreements before a document cap can hide the second value.
+  const groups = new Map<string, Set<unknown>>();
+  for (const item of candidates) {
+    const key = item.metadata.conflict_key;
+    if (typeof key !== "string" || typeof item.metadata.fact_value !== "string") continue;
+    const values = groups.get(key) ?? new Set<unknown>();
+    values.add(item.metadata.fact_value); groups.set(key, values);
+  }
+  candidates = [...candidates].sort((left, right) =>
+    Number((groups.get(String(right.metadata.conflict_key))?.size ?? 0) > 1) -
+    Number((groups.get(String(left.metadata.conflict_key))?.size ?? 0) > 1));
   const results: RetrievedEvidence[] = [];
   const versionCounts = new Map<string, number>();
   for (const candidate of candidates) {
     if (
       results.some((result) =>
+        !(result.metadata.conflict_key && result.metadata.conflict_key === candidate.metadata.conflict_key &&
+          result.metadata.fact_value !== candidate.metadata.fact_value) &&
         nearDuplicate(result.content, candidate.content),
       )
     ) {
@@ -110,6 +130,9 @@ function diversify(candidates: RetrievedEvidence[], limit: number) {
 }
 
 function nearDuplicate(left: string, right: string) {
+  // Dates, times and small counts are meaningful even when most words match.
+  if (JSON.stringify(left.match(/\d+(?:[.:/-]\d+)*/g) ?? []) !==
+      JSON.stringify(right.match(/\d+(?:[.:/-]\d+)*/g) ?? [])) return false;
   const leftTerms = terms(left);
   const rightTerms = terms(right);
   if (leftTerms.size === 0 || rightTerms.size === 0) return false;

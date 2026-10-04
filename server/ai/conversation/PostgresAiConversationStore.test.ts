@@ -4,6 +4,7 @@ import type { Pool, QueryResult } from "pg";
 import {
   AiConversationNotFoundError,
   AiQuotaExceededError,
+  AiIdempotencyConflictError,
   PostgresAiConversationStore,
 } from "./PostgresAiConversationStore";
 
@@ -61,6 +62,17 @@ test("checks ownership before consuming quota or storing an exchange", async () 
   assert.equal(database.released(), true);
 });
 
+test("a reused key with different content is rejected without charging quota", async () => {
+  const database = fakePool(sql => {
+    if (sql.includes("SELECT id FROM ai_conversations")) return { rowCount: 1, rows: [{ id: exchangeInput.conversationId }] };
+    if (sql.includes("FROM ai_messages u")) return { rowCount: 1, rows: [{ content: "Different question", user_message_id: "u", assistant_message_id: "a" }] };
+    return { rowCount: 0, rows: [] };
+  });
+  await assert.rejects(new PostgresAiConversationStore(database.pool).beginExchange(exchangeInput), AiIdempotencyConflictError);
+  assert.ok(database.queries.includes("ROLLBACK"));
+  assert.equal(database.queries.some(sql => sql.includes("ai_request_usage")), false);
+});
+
 test("rolls back without messages when the atomic daily quota is exhausted", async () => {
   const database = fakePool((sql) => {
     if (sql.includes("SELECT id FROM ai_conversations")) {
@@ -102,6 +114,7 @@ test("replays an existing idempotent exchange without consuming quota", async ()
           {
             assistant_message_id: "55555555-5555-4555-8555-555555555555",
             user_message_id: "66666666-6666-4666-8666-666666666666",
+            content: exchangeInput.content,
           },
         ],
       };

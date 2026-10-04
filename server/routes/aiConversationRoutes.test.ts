@@ -30,6 +30,7 @@ const config: AiConfig = {
   maxInputChars: 2_000,
   maxContextChars: 16_000,
   maxOutputTokens: 800,
+  thinkingLevel: "low",
   provider: "gemini",
   requestTimeoutMs: 20_000,
   storeInteractions: false,
@@ -62,6 +63,14 @@ class MemoryAiConversationStore implements AiConversationStore {
       .filter((conversation) => conversation.ownerId === userId)
       .map(({ messages: _messages, ownerId: _ownerId, ...summary }) => summary);
   }
+
+  async renameConversation(id: string, userId: string, title: string) {
+    const conversation = this.conversations.get(id);
+    if (conversation?.ownerId !== userId) return null;
+    conversation.title = title;
+    return withoutOwner(conversation);
+  }
+  async getMessageEvidence() { return []; }
 
   async getConversation(conversationId: string, userId: string) {
     const conversation = this.conversations.get(conversationId);
@@ -237,13 +246,14 @@ function testApp(
     moduleCode: "CS2030S",
   }),
   coordinator?: AiRequestCoordinator,
+  configuration: AiConfig = config,
 ) {
   const app = express();
   app.use(requestId);
   app.use(express.json());
   app.use(
     "/api/ai",
-    createAiRouter(config, {
+    createAiRouter(configuration, {
       answerModuleQuestion: answer,
       coordinator,
       store,
@@ -256,6 +266,55 @@ function testApp(
 function authorization(userId = firstUser) {
   return `Bearer ${createAccessToken(userId)}`;
 }
+
+test("rename and passage APIs enforce ownership and private response caching", async () => {
+  const store = new MemoryAiConversationStore();
+  const app = testApp(store);
+  const conversation = await store.createConversation(firstUser, "Original");
+  await request(app).patch(`/api/ai/conversations/${conversation.id}`).set("Authorization", authorization(secondUser)).send({ title: "Stolen" }).expect(404);
+  const renamed = await request(app).patch(`/api/ai/conversations/${conversation.id}`).set("Authorization", authorization()).send({ title: "Reading week" }).expect(200);
+  assert.equal(renamed.body.conversation.title, "Reading week");
+  assert.match(renamed.headers["cache-control"], /private.*no-store/);
+  await request(app).patch(`/api/ai/conversations/${conversation.id}`).set("Authorization", authorization()).send({ title: "x".repeat(81) }).expect(400);
+  await request(app).post(`/api/ai/conversations/${conversation.id}/messages`).set("Authorization", authorization()).set("Accept", "text/event-stream").set("Idempotency-Key", randomUUID()).send({ content: "What is CS2030S in AY2026/27?" }).expect(200);
+  const assistant = store.conversations.get(conversation.id)!.messages[1];
+  await request(app).get(`/api/ai/messages/${assistant.id}/evidence`).set("Authorization", authorization(secondUser)).expect(404);
+  const evidence = await request(app).get(`/api/ai/messages/${assistant.id}/evidence`).set("Authorization", authorization()).expect(200);
+  assert.deepEqual(evidence.body.passages, []);
+});
+
+test("a stalled service releases the request slot and returns a terminal timeout", async () => {
+  const store = new MemoryAiConversationStore();
+  const coordinator = new AiRequestCoordinator(1);
+  const app = testApp(store, async () => new Promise(() => undefined), coordinator, { ...config, requestTimeoutMs: 30 });
+  const conversation = await store.createConversation(firstUser);
+  const response = await request(app).post(`/api/ai/conversations/${conversation.id}/messages`)
+    .set("Authorization", authorization()).set("Accept", "text/event-stream").set("Idempotency-Key", randomUUID())
+    .send({ content: "What is CS2030S in AY2026/27?" }).expect(200);
+  assert.match(response.text, /response.failed/);
+  assert.match(response.text, /AI_REQUEST_TIMEOUT/);
+  assert.equal(store.failed[0]?.interrupted, false);
+  coordinator.acquire(firstUser)();
+});
+
+test("preserves a campus question and reconstructs an academic-year clarification", async () => {
+  const store = new MemoryAiConversationStore();
+  const observed: string[] = [];
+  const app = testApp(store, async question => {
+    observed.push(question.originalText ?? "");
+    return { academicYear: null, moduleCode: null, groundedAnswer: {
+      answer: "Which academic year?", followUpQuestion: "Which academic year?", citations: [], warnings: [], status: "needs_clarification",
+    } };
+  });
+  const conversation = await store.createConversation(firstUser);
+  for (const content of ["When is regular Semester 1 reading week?", "AY2026/27"]) {
+    await request(app).post(`/api/ai/conversations/${conversation.id}/messages`)
+      .set("Authorization", authorization()).set("Accept", "text/event-stream").set("Idempotency-Key", randomUUID())
+      .send({ content }).expect(200);
+  }
+  assert.equal(observed[0], "When is regular Semester 1 reading week?");
+  assert.match(observed[1], /regular Semester 1 reading week.*AY2026\/27/);
+});
 
 async function createConversation(
   app: ReturnType<typeof testApp>,
@@ -526,7 +585,7 @@ test("does not persist completion after a disconnect during answer delivery", as
   const store = new MemoryAiConversationStore();
   const app = testApp(store, async () => ({
     academicYear: "AY2026/27",
-    groundedAnswer: groundedAnswer("CS2030S ".repeat(20_000)),
+    groundedAnswer: groundedAnswer("CS2030S ".repeat(3_000)),
     moduleCode: "CS2030S",
   }));
   const conversation = await store.createConversation(firstUser, "Delivery test");

@@ -3,11 +3,13 @@ import { readFile, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { answerKnowledgeQuestion } from "../ai/knowledge/answerKnowledgeQuestion";
 import { GeminiEmbeddingProvider } from "../ai/knowledge/GeminiEmbeddingProvider";
-import { HybridKnowledgeRetriever } from "../ai/knowledge/HybridKnowledgeRetriever";
+import { HybridKnowledgeRetriever, KNOWLEDGE_RETRIEVAL_POLICY_VERSION } from "../ai/knowledge/HybridKnowledgeRetriever";
 import { PostgresKnowledgeRepository } from "../ai/knowledge/PostgresKnowledgeRepository";
 import { createKnowledgeStagingPool } from "../ai/knowledge/stagingDatabase";
 import { GeminiAiProvider } from "../ai/providers/GeminiAiProvider";
 import { knowledgeEvaluationDatasetSchema, runKnowledgeEvaluation } from "./knowledgeEvaluation";
+import { sha256 } from "../ai/knowledge/chunkDocument";
+import { KNOWLEDGE_SOURCE_REGISTRY_VERSION } from "../ai/knowledge/sourceRegistry";
 
 async function main() {
   const args = process.argv.slice(2);
@@ -15,6 +17,12 @@ async function main() {
     "evaluation/knowledge-cases.v1.json");
   const datasetText = await readFile(datasetPath, "utf8");
   const dataset = knowledgeEvaluationDatasetSchema.parse(JSON.parse(datasetText) as unknown);
+  const selection = argument(args, "--cases")?.split(",");
+  if (selection && (new Set(selection).size !== selection.length ||
+    selection.some((id) => !dataset.cases.some((item) => item.id === id)))) {
+    throw new Error("--cases must list unique case IDs from the dataset");
+  }
+  const selectedDataset = selection ? { ...dataset, cases: dataset.cases.filter((item) => selection.includes(item.id)) } : dataset;
   if (!args.includes("--run")) {
     console.log("Knowledge evaluation dataset validated", {
       cases: dataset.cases.length,
@@ -29,7 +37,7 @@ async function main() {
   try {
     const { env } = await import("../config/env");
     if (!env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is required for live evaluation");
-    await assertCorpusReady(pool, dataset.cases.flatMap((item) => item.retrieval?.expectedUrls ?? []));
+    await assertCorpusReady(pool, selectedDataset.cases.flatMap((item) => item.retrieval?.expectedUrls ?? []));
     const embeddingProvider = new GeminiEmbeddingProvider({
       apiKey: env.GEMINI_API_KEY,
       dimensions: env.AI_EMBEDDING_DIMENSIONS,
@@ -49,14 +57,33 @@ async function main() {
       maxOutputTokens: env.AI_MAX_OUTPUT_TOKENS,
       model: env.AI_GENERATION_MODEL,
       requestTimeoutMs: env.AI_REQUEST_TIMEOUT_MS,
+      thinkingLevel: env.AI_THINKING_LEVEL,
     });
-    const report = await runKnowledgeEvaluation(dataset, {
+    const results = await runKnowledgeEvaluation(selectedDataset, {
       answer: (text, requestId) => answerKnowledgeQuestion(
         { requestId, text },
         { maxContextChars: env.AI_KNOWLEDGE_MAX_CONTEXT_CHARS, provider, retriever },
       ),
       search: (query) => retriever.search(query),
     });
+    const report = {
+      ...results,
+      datasetSnapshot: dataset,
+      runManifest: {
+        datasetHash: sha256(datasetText),
+        caseIds: selectedDataset.cases.map((item) => item.id),
+        excludedCaseIds: dataset.cases.filter((item) => !selectedDataset.cases.includes(item)).map((item) => item.id),
+        scope: selection ? "development_subset" : "full_dataset",
+        generationModel: env.AI_GENERATION_MODEL,
+        maxOutputTokens: env.AI_MAX_OUTPUT_TOKENS,
+        thinkingLevel: env.AI_THINKING_LEVEL,
+        embeddingModel: env.AI_EMBEDDING_MODEL,
+        embeddingDimensions: env.AI_EMBEDDING_DIMENSIONS,
+        sourceRegistryVersion: KNOWLEDGE_SOURCE_REGISTRY_VERSION,
+        retrievalPolicyVersion: KNOWLEDGE_RETRIEVAL_POLICY_VERSION,
+        environment: "staging",
+      },
+    };
     const resolved = path.resolve(outputPath);
     await mkdir(path.dirname(resolved), { recursive: true });
     await writeFile(resolved, `${JSON.stringify(report, null, 2)}\n`, {

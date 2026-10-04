@@ -5,6 +5,8 @@ import { parseKnowledgeDocument } from "./documentParser";
 import { loadKnowledgeManifest } from "./manifest";
 import { SafeSourceFetcher } from "./SafeSourceFetcher";
 import { getKnowledgeSource } from "./sourceRegistry";
+import { KNOWLEDGE_SOURCE_REGISTRY_VERSION } from "./sourceRegistry";
+import { knowledgeManifestHash } from "./sourceApproval";
 
 async function main() {
   const args = process.argv.slice(2);
@@ -57,6 +59,8 @@ async function main() {
     await mkdir(path.dirname(resolved), { recursive: true });
     await writeFile(resolved, `${JSON.stringify({
       inspectedAt: new Date().toISOString(),
+      manifestHash: knowledgeManifestHash(manifest),
+      registryVersion: KNOWLEDGE_SOURCE_REGISTRY_VERSION,
       sourceId: source.id,
       documents,
     }, null, 2)}\n`, { encoding: "utf8", flag: "wx" });

@@ -1,5 +1,7 @@
 import Icon from "../Icon";
-import type { AiMessage } from "../../utils/aiApi";
+import { useEffect, useRef, useState } from "react";
+import { safeAiSourceUrl } from "../../utils/aiContracts";
+import { getAiMessageEvidence, type AiMessage, type AiEvidencePassage } from "../../utils/aiApi";
 
 type AiMessageCardProps = {
   isNewest: boolean;
@@ -11,6 +13,7 @@ type AiMessageCardProps = {
   ) => Promise<void>;
   onFollowUp: (question: string) => void;
   onRetry: () => void;
+  feedbackPending?: boolean;
 };
 
 const STATUS_LABELS: Record<NonNullable<AiMessage["answer_status"]>, string> = {
@@ -29,16 +32,14 @@ function formatDate(value: string) {
   }).format(date);
 }
 
-function safeSourceUrl(value: string) {
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" || url.protocol === "http:"
-      ? url.toString()
-      : null;
-  } catch {
-    return null;
-  }
-}
+const WARNING_LABELS: Record<string, string> = {
+  approved_evidence_not_found: "Current approved evidence is unavailable for this question.",
+  conflicting_sources: "The sources disagree. Confirm the details with the responsible NUS office.",
+  citation_validation_failed: "This answer did not pass source validation.",
+  unsupported_knowledge_scope: "This question is outside the assistant’s supported NUS topics.",
+  urgent_support_unverified: "Current NUS support details could not be verified.",
+  stale_source: "This source may be out of date. Check it before relying on the answer.",
+};
 
 export default function AiMessageCard({
   isNewest,
@@ -47,7 +48,32 @@ export default function AiMessageCard({
   onFeedback,
   onFollowUp,
   onRetry,
+  feedbackPending,
 }: AiMessageCardProps) {
+  const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
+  const [passages, setPassages] = useState<AiEvidencePassage[] | null>(null);
+  const [loadingEvidence, setLoadingEvidence] = useState(false);
+  const [evidenceError, setEvidenceError] = useState(false);
+  const evidenceLock = useRef(false);
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (copyTimer.current) clearTimeout(copyTimer.current); }, []);
+  async function copyAnswer() {
+    try {
+      await navigator.clipboard.writeText([message.content, ...message.citations.map(c => `${c.title}: ${c.url}`)].join("\n\n"));
+      setCopied(true); setCopyError(false);
+      if (copyTimer.current) clearTimeout(copyTimer.current);
+      copyTimer.current = setTimeout(() => setCopied(false), 2000);
+    } catch { setCopyError(true); }
+  }
+  async function loadEvidence() {
+    if (passages || evidenceLock.current || message.delivery_status !== "completed" ||
+        !message.citations.some(c => c.claimIds.some(id => id.startsWith("knowledge_chunk:")))) return;
+    evidenceLock.current = true; setLoadingEvidence(true); setEvidenceError(false);
+    try { setPassages(await getAiMessageEvidence(message.id)); }
+    catch { setEvidenceError(true); }
+    finally { setLoadingEvidence(false); evidenceLock.current = false; }
+  }
   if (message.role === "user") {
     return (
       <article className="ai-message ai-message-user">
@@ -70,7 +96,6 @@ export default function AiMessageCard({
 
   return (
     <article
-      aria-live={isPending ? "polite" : undefined}
       className={`ai-message ai-message-assistant ai-message-${message.delivery_status}`}
     >
       <header className="ai-message-header">
@@ -79,7 +104,7 @@ export default function AiMessageCard({
         </span>
         <div>
           <strong>NUSHub AI</strong>
-          <span>
+          <span role={isPending ? "status" : undefined}>
             {isPending
               ? "Checking official sources…"
               : message.answer_status
@@ -105,20 +130,24 @@ export default function AiMessageCard({
         </p>
       )}
 
+      {message.content && (message.delivery_status === "interrupted" || message.delivery_status === "failed") && (
+        <p className="ai-response-error" role="status">This response is incomplete. Please retry before relying on it.</p>
+      )}
+
       {message.warnings.length > 0 && (
         <aside className="ai-warnings" aria-label="Answer warnings">
           {message.warnings.map((warning, index) => (
-            <p key={`${message.id}-warning-${index}`}>{warning}</p>
+            <p key={`${message.id}-warning-${index}`}>{WARNING_LABELS[warning] ?? (/^[a-z0-9_]+$/.test(warning) ? "Check the official source before relying on this answer." : warning)}</p>
           ))}
         </aside>
       )}
 
       {message.citations.length > 0 && (
-        <section className="ai-sources" aria-label="Sources">
-          <h3>Sources</h3>
+        <details className="ai-sources" onToggle={event => { if (event.currentTarget.open) void loadEvidence(); }}>
+          <summary><Icon name="file" className="h-4 w-4" /> {message.citations.length} source{message.citations.length === 1 ? "" : "s"} · inspect the evidence</summary>
           <ol>
             {message.citations.map((citation, index) => {
-              const sourceUrl = safeSourceUrl(citation.url);
+              const sourceUrl = safeAiSourceUrl(citation.url);
               return (
                 <li key={`${citation.documentVersionId}-${index}`}>
                   {sourceUrl ? (
@@ -132,11 +161,17 @@ export default function AiMessageCard({
                   {citation.effectiveAt && (
                     <small>Effective {formatDate(citation.effectiveAt)}</small>
                   )}
+                  <small>Checked {formatDate(citation.retrievedAt)} · {citation.sourceId.replace(/^nus_/, "").replaceAll("_", " ")}</small>
+                  {passages?.filter(p => p.documentVersionId === citation.documentVersionId && citation.claimIds.includes(p.claimId)).map(p =>
+                    <blockquote className="assistant-evidence-passage" key={p.claimId}><span>Retrieved passage · {p.claimId}</span>{p.content}</blockquote>)}
                 </li>
               );
             })}
           </ol>
-        </section>
+          {loadingEvidence && <p className="assistant-evidence-status" role="status">Loading cited passages…</p>}
+          {evidenceError && <p className="assistant-evidence-status" role="status">Passages could not be loaded. <button type="button" onClick={() => void loadEvidence()}>Retry</button></p>}
+          <p className="assistant-evidence-status">Citations identify the retrieved evidence. Check whether the passage supports the answer.</p>
+        </details>
       )}
 
       {message.delivery_status === "completed" && (
@@ -147,6 +182,8 @@ export default function AiMessageCard({
             {checkedAt && <span>Checked {formatDate(checkedAt)}</span>}
           </div>
           <div className="ai-feedback" aria-label="Rate this answer">
+            <button type="button" className="ai-copy" onClick={() => void copyAnswer()} aria-label="Copy answer and sources">{copied ? "Copied" : "Copy"}</button>
+            {copyError && <span role="status">Could not copy</span>}
             <span>Was this useful?</span>
             <button
               aria-label="Mark answer as helpful"
@@ -156,6 +193,7 @@ export default function AiMessageCard({
               }
               onClick={() => void onFeedback(message.id, "helpful")}
               type="button"
+              disabled={feedbackPending}
             >
               <Icon name="thumbsUp" className="h-4 w-4" />
             </button>
@@ -167,6 +205,7 @@ export default function AiMessageCard({
               }
               onClick={() => void onFeedback(message.id, "unhelpful")}
               type="button"
+              disabled={feedbackPending}
             >
               <Icon name="thumbsDown" className="h-4 w-4" />
             </button>
@@ -174,7 +213,9 @@ export default function AiMessageCard({
         </footer>
       )}
 
-      {message.follow_up_question && (
+      {message.follow_up_question && message.answer_status === "needs_clarification" ? (
+        <p className="ai-clarification-hint">Reply below with the missing details.</p>
+      ) : message.follow_up_question && (
         <button
           className="ai-follow-up"
           disabled={isStreaming}

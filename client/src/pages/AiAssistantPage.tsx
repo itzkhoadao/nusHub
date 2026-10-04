@@ -10,6 +10,8 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import AiMessageCard from "../components/ai/AiMessageCard";
 import Icon from "../components/Icon";
 import AppShell from "../components/layout/AppShell";
+import AssistantWelcome from "../components/ai/AssistantWelcome";
+import "../components/ai/assistant.css";
 import { getAuthToken } from "../utils/authStorage";
 import {
   AiApiError,
@@ -20,6 +22,7 @@ import {
   listAiConversations,
   streamAiMessage,
   submitAiFeedback,
+  renameAiConversation,
   type AiAvailability,
   type AiCitation,
   type AiConversation,
@@ -142,6 +145,22 @@ export default function AiAssistantPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [historySearch, setHistorySearch] = useState("");
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [online, setOnline] = useState(() => navigator.onLine);
+  const [showJump, setShowJump] = useState(false);
+  const [dialogAction, setDialogAction] = useState<"delete" | "rename" | null>(null);
+  const [renameTitle, setRenameTitle] = useState("");
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [pendingFeedback, setPendingFeedback] = useState<Set<string>>(new Set());
+  const feedbackLocks = useRef(new Set<string>());
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const pinnedRef = useRef(true);
+  const mountedRef = useRef(true);
+  const sendingRef = useRef(false);
+  const sendGenerationRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
   const activeStreamConversationIdRef = useRef<string | null>(null);
   const conversationRef = useRef<AiConversation | null>(null);
@@ -237,15 +256,30 @@ export default function AiAssistantPage() {
   }, [availability?.enabled, conversationId, navigate, replaceConversation]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({
-      behavior: isStreaming ? "smooth" : "auto",
-      block: "end",
-    });
+    if (pinnedRef.current && scrollerRef.current) scrollerRef.current.scrollTop = scrollerRef.current.scrollHeight;
   }, [conversation?.messages, isStreaming]);
 
+  useEffect(() => {
+    if (!composerRef.current) return;
+    composerRef.current.style.height = "auto";
+    composerRef.current.style.height = `${Math.min(composerRef.current.scrollHeight, 180)}px`;
+  }, [draft]);
+
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    window.addEventListener("online", update); window.addEventListener("offline", update);
+    return () => { window.removeEventListener("online", update); window.removeEventListener("offline", update); };
+  }, []);
+
+  useEffect(() => {
+    if (dialogAction) dialogRef.current?.showModal();
+    else dialogRef.current?.close();
+  }, [dialogAction]);
+
   useEffect(
-    () => () => {
-      abortRef.current?.abort();
+    () => {
+      mountedRef.current = true;
+      return () => { mountedRef.current = false; abortRef.current?.abort(); };
     },
     [],
   );
@@ -255,6 +289,8 @@ export default function AiAssistantPage() {
       const question = rawQuestion.trim();
       if (
         !question ||
+        sendingRef.current ||
+        !online ||
         isStreaming ||
         isLoading ||
         !availability?.enabled ||
@@ -270,6 +306,12 @@ export default function AiAssistantPage() {
       setDraft("");
       setError(null);
       setIsStreaming(true);
+      sendingRef.current = true;
+      pinnedRef.current = true;
+      setShowJump(false);
+      const controller = new AbortController();
+      const generation = ++sendGenerationRef.current;
+      abortRef.current = controller;
       let activeConversation = conversationRef.current;
       let activeConversationId = activeConversation?.id;
       let serverStarted = false;
@@ -280,7 +322,10 @@ export default function AiAssistantPage() {
 
       try {
         if (!activeConversationId) {
-          const created = await createAiConversation(conversationTitle(question));
+          const created = await createAiConversation(conversationTitle(question), controller.signal);
+          controller.signal.throwIfAborted();
+          if (generation !== sendGenerationRef.current) throw new DOMException("Request cancelled", "AbortError");
+          if (!mountedRef.current) return;
           activeConversationId = created.id;
           activeConversation = { ...created, messages: [] };
           activeStreamConversationIdRef.current = created.id;
@@ -305,9 +350,8 @@ export default function AiAssistantPage() {
         };
         replaceConversation(optimisticConversation);
 
-        const controller = new AbortController();
-        abortRef.current = controller;
         const handleEvent = (event: AiStreamEvent) => {
+          if (!mountedRef.current || controller.signal.aborted) return;
           if (event.type === "response.started") {
             const storedMessageId = stringValue(event.data.message_id);
             if (!storedMessageId) return;
@@ -317,6 +361,8 @@ export default function AiAssistantPage() {
               ...message,
               id: storedMessageId,
             }));
+            const storedUserId = stringValue(event.data.user_message_id);
+            if (storedUserId) updateMessage(tempUserId, message => ({ ...message, id: storedUserId }));
             return;
           }
 
@@ -391,6 +437,7 @@ export default function AiAssistantPage() {
           conversationId: activeConversationId,
           onEvent: handleEvent,
           signal: controller.signal,
+          idempotencyKey: crypto.randomUUID(),
         });
         if (!terminalEventReceived) {
           throw new AiApiError(
@@ -400,8 +447,8 @@ export default function AiAssistantPage() {
           );
         }
       } catch (requestError) {
-        const interrupted =
-          requestError instanceof DOMException && requestError.name === "AbortError";
+        if (!mountedRef.current) return;
+        const interrupted = controller.signal.aborted;
         updateMessage(assistantMessageId, (message) => ({
           ...message,
           delivery_status: interrupted ? "interrupted" : "failed",
@@ -409,21 +456,23 @@ export default function AiAssistantPage() {
           updated_at: now(),
         }));
         if (!interrupted) setError(errorMessage(requestError));
+        if (!serverStarted && !conversationRef.current?.messages.some(message => message.id === tempUserId)) setDraft(question);
       } finally {
-        abortRef.current = null;
-        setIsStreaming(false);
         const storedConversationId = activeConversationId;
-        activeStreamConversationIdRef.current = null;
-        if (serverStarted && storedConversationId) {
+        if (mountedRef.current && serverStarted && storedConversationId) {
           await new Promise((resolve) => window.setTimeout(resolve, 100));
           try {
             const stored = await getAiConversation(storedConversationId);
-            replaceConversation(stored);
+            if (mountedRef.current && conversationRef.current?.id === storedConversationId && !controller.signal.aborted) replaceConversation(stored);
             await refreshConversations();
           } catch (refreshError) {
-            setError(errorMessage(refreshError));
+            if (mountedRef.current) setError(errorMessage(refreshError));
           }
         }
+        abortRef.current = null;
+        activeStreamConversationIdRef.current = null;
+        sendingRef.current = false;
+        if (mountedRef.current) { setIsStreaming(false); composerRef.current?.focus(); }
       }
     },
     [
@@ -431,6 +480,7 @@ export default function AiAssistantPage() {
       conversationId,
       isLoading,
       isStreaming,
+      online,
       navigate,
       refreshConversations,
       replaceConversation,
@@ -462,9 +512,6 @@ export default function AiAssistantPage() {
 
   async function handleDelete() {
     if (!conversation || isStreaming) return;
-    if (!window.confirm(`Delete “${conversation.title}” and all of its messages?`)) {
-      return;
-    }
     setIsDeleting(true);
     setError(null);
     try {
@@ -474,6 +521,7 @@ export default function AiAssistantPage() {
       );
       replaceConversation(null);
       navigate("/assistant", { replace: true });
+      setDialogAction(null);
     } catch (requestError) {
       setError(errorMessage(requestError));
     } finally {
@@ -485,6 +533,9 @@ export default function AiAssistantPage() {
     messageId: string,
     rating: "helpful" | "unhelpful",
   ) {
+    if (feedbackLocks.current.has(messageId)) return;
+    feedbackLocks.current.add(messageId);
+    setPendingFeedback(new Set(feedbackLocks.current));
     const original = conversationRef.current?.messages.find(
       (message) => message.id === messageId,
     )?.feedback_rating;
@@ -500,6 +551,9 @@ export default function AiAssistantPage() {
         feedback_rating: original ?? null,
       }));
       setError(errorMessage(requestError));
+    } finally {
+      feedbackLocks.current.delete(messageId);
+      if (mountedRef.current) setPendingFeedback(new Set(feedbackLocks.current));
     }
   }
 
@@ -509,7 +563,7 @@ export default function AiAssistantPage() {
   }
 
   function handleComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key === "Enter" && !event.shiftKey) {
+    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
       if (draft.trim() && !isStreaming) void sendQuestion(draft);
     }
@@ -520,6 +574,9 @@ export default function AiAssistantPage() {
     setError(null);
     replaceConversation(null);
     setIsLoading(false);
+    setDraft("");
+    setHistoryOpen(false);
+    pinnedRef.current = true;
     navigate("/assistant");
   }
 
@@ -528,6 +585,8 @@ export default function AiAssistantPage() {
     setError(null);
     setIsLoading(true);
     replaceConversation(null);
+    setHistoryOpen(false);
+    pinnedRef.current = true;
     navigate(`/assistant/${id}`);
   }
 
@@ -537,28 +596,41 @@ export default function AiAssistantPage() {
   }
 
   const remainingCharacters = MAX_QUESTION_LENGTH - draft.length;
+  const visibleConversations = conversations.filter(entry => entry.title.toLowerCase().includes(historySearch.trim().toLowerCase()));
+  function choosePrompt(question: string) { setDraft(question); composerRef.current?.focus(); }
+  async function handleRename(event: FormEvent) {
+    event.preventDefault();
+    if (!conversation || !renameTitle.trim() || isRenaming) return;
+    setIsRenaming(true);
+    try {
+      const updated = await renameAiConversation(conversation.id, renameTitle.trim());
+      if (conversationRef.current?.id === updated.id) replaceConversation({ ...conversationRef.current, ...updated });
+      setConversations(current => current.map(entry => entry.id === updated.id ? updated : entry));
+      setDialogAction(null);
+    } catch (requestError) { setError(errorMessage(requestError)); }
+    finally { setIsRenaming(false); }
+  }
 
   return (
     <AppShell contextualPlaceholder="Search NUSHub">
-      <div className="ai-page">
+      <div className="ai-page assistant-studio">
         <section className="ai-hero">
           <div>
-            <p>Grounded NUS guidance</p>
-            <h1>NUSHub AI Assistant</h1>
+            <p><span className="assistant-status-dot" /> YOUR CAMPUS COMPANION</p>
+            <h1>A little clarity. <em>A lot less searching.</em></h1>
             <span>
-              Ask about modules, academic dates, transport, libraries, student
-              support, health services, and IT using current official sources.
+              Explore NUS with answers you can trace. If the evidence is missing, we’ll say so.
             </span>
           </div>
           <div className="ai-provider-note">
             <Icon name="bot" className="h-5 w-5" />
             <span>
               Questions are sent to <strong>Google Gemini</strong> for
-              processing. AI can make mistakes—verify important details in the
-              cited source.
+              processing. Please keep passwords and private records out of your questions.
             </span>
           </div>
         </section>
+        {!online && <div className="ai-page-error" role="status">You’re offline. Your draft is safe here; reconnect to send it.</div>}
 
         {error && (
           <div className="ai-page-error" role="alert">
@@ -589,12 +661,12 @@ export default function AiAssistantPage() {
             </p>
           </section>
         ) : (
-          <div className="ai-layout">
+          <div className={`ai-layout ${historyOpen ? "history-is-open" : ""}`}>
             <aside className="ai-history" aria-label="AI conversation history">
               <div className="ai-history-header">
                 <div>
-                  <span>Your questions</span>
-                  <small>{conversations.length} saved</small>
+                  <span>Conversations</span>
+                  <small>{conversations.length === 100 ? "100 most recent" : `${conversations.length} saved`}</small>
                 </div>
                 <button
                   aria-label="Start a new AI conversation"
@@ -605,11 +677,12 @@ export default function AiAssistantPage() {
                   <Icon name="plus" className="h-4 w-4" />
                 </button>
               </div>
+              <label className="assistant-history-search"><Icon name="search" className="h-4 w-4" /><input aria-label="Search conversations" placeholder="Find a conversation…" value={historySearch} onChange={event => setHistorySearch(event.target.value)} /></label>
               <div className="ai-history-list">
-                {conversations.length === 0 ? (
-                  <p>No saved questions yet.</p>
+                {visibleConversations.length === 0 ? (
+                  <p>{historySearch ? "No matching conversations." : "A fresh start. Your conversations will appear here."}</p>
                 ) : (
-                  conversations.map((entry) => (
+                  visibleConversations.map((entry) => (
                     <button
                       className={entry.id === conversation?.id ? "is-active" : ""}
                       disabled={isStreaming}
@@ -623,53 +696,39 @@ export default function AiAssistantPage() {
                   ))
                 )}
               </div>
+              <div className="assistant-history-note"><Icon name="file" className="h-4 w-4" /><p>Source links, clear limits.<small>Check consequential details with NUS.</small></p></div>
             </aside>
 
             <section className="ai-workspace" aria-label="AI conversation">
               <header className="ai-workspace-header">
+                <button className="assistant-history-toggle" type="button" aria-expanded={historyOpen} aria-label="Toggle conversation history" onClick={() => setHistoryOpen(!historyOpen)}><Icon name="message" /></button>
                 <div>
-                  <h2>{conversation?.title ?? "New NUS question"}</h2>
-                  <p>Answers are grounded in approved, current NUS sources.</p>
+                  <h2>{conversation?.title ?? "NUSHub Assistant"}</h2>
+                  <p><span className="assistant-status-dot" />{isStreaming ? "Preparing your response…" : "Ready when you are"}</p>
                 </div>
                 {conversation && (
-                  <button
+                  <div className="assistant-thread-actions"><button type="button" disabled={isStreaming} onClick={() => { setRenameTitle(conversation.title); setDialogAction("rename"); }} aria-label="Rename conversation">Rename</button><button
                     aria-label="Delete this conversation"
                     className="ai-delete"
                     disabled={isStreaming || isDeleting}
-                    onClick={() => void handleDelete()}
+                    onClick={() => setDialogAction("delete")}
                     type="button"
                   >
                     <Icon name="trash" className="h-4 w-4" />
                     <span>{isDeleting ? "Deleting…" : "Delete"}</span>
                   </button>
+                  </div>
                 )}
               </header>
 
-              <div className="ai-messages">
+              <div className="ai-messages" ref={scrollerRef} onScroll={() => {
+                const el = scrollerRef.current;
+                if (el) { pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 90; setShowJump(!pinnedRef.current); }
+              }} aria-label="Conversation messages">
+                {conversation?.has_earlier_messages && <p className="assistant-archive-note">Showing the latest 200 messages in this conversation.</p>}
+                {isLoading && <div className="assistant-loading" role="status"><div className="ai-thinking"><i /><i /><i /></div>Loading your conversation…</div>}
                 {!conversation || conversation.messages.length === 0 ? (
-                  <div className="ai-empty-state">
-                    <span className="ai-message-avatar"><Icon name="bot" /></span>
-                    <h2>What would you like to check?</h2>
-                    <p>
-                      Include a module code and academic year when possible for
-                      a more precise, verifiable answer.
-                    </p>
-                    <div>
-                      {[
-                        "What are the prerequisites for CS2040S?",
-                        "When is CS2103T offered?",
-                        "Tell me about IS1108",
-                      ].map((question) => (
-                        <button
-                          key={question}
-                          onClick={() => setDraft(question)}
-                          type="button"
-                        >
-                          {question}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  <AssistantWelcome onChoose={choosePrompt} disabled={isLoading || isStreaming} />
                 ) : (
                   conversation.messages.map((message, index) => (
                     <AiMessageCard
@@ -678,25 +737,32 @@ export default function AiAssistantPage() {
                       key={message.id}
                       message={message}
                       onFeedback={handleFeedback}
-                      onFollowUp={(question) => void sendQuestion(question)}
+                      onFollowUp={choosePrompt}
+                      feedbackPending={pendingFeedback.has(message.id)}
                       onRetry={() => retryMessage(index)}
                     />
                   ))
                 )}
                 <div ref={messagesEndRef} />
               </div>
+              {showJump && <button className="assistant-jump" type="button" onClick={() => {
+                pinnedRef.current = true; setShowJump(false);
+                scrollerRef.current?.scrollTo({ top: scrollerRef.current.scrollHeight, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+              }}>Jump to latest ↓</button>}
 
               <div className="ai-composer-wrap">
                 <form className="ai-composer" onSubmit={handleSubmit}>
                   <textarea
-                    aria-label="Ask a module question"
+                    ref={composerRef}
+                    aria-label="Ask a NUS question"
+                    aria-describedby="assistant-composer-hint"
                     disabled={!availability?.enabled || isLoading}
                     aria-busy={isLoading}
                     maxLength={MAX_QUESTION_LENGTH}
                     onChange={(event) => setDraft(event.target.value)}
                     onKeyDown={handleComposerKeyDown}
-                    placeholder="Ask about an NUS module…"
-                    rows={3}
+                    placeholder="Ask anything about your NUS journey…"
+                    rows={2}
                     value={draft}
                   />
                   <div className="ai-composer-actions">
@@ -706,28 +772,37 @@ export default function AiAssistantPage() {
                     {isStreaming ? (
                       <button
                         className="ai-stop"
-                        onClick={() => abortRef.current?.abort()}
+                        onClick={event => { event.preventDefault(); sendGenerationRef.current++; abortRef.current?.abort(); }}
                         type="button"
                       >
                         <Icon name="square" className="h-3.5 w-3.5" />
                         Stop
                       </button>
                     ) : (
-                      <button disabled={!draft.trim() || isLoading} type="submit">
-                        <span>Ask</span>
+                      <button disabled={!draft.trim() || isLoading || !online} type="submit">
+                        <span>Send</span>
                         <Icon name="send" className="h-4 w-4" />
                       </button>
                     )}
                   </div>
                 </form>
-                <p>
-                  NUSHub AI answers from retrieved records, not personal advice.
-                  Your conversation is saved to your account until you delete it.
+                <p id="assistant-composer-hint">
+                  Enter to send · Shift + Enter for a new line. Saved to your account until deleted. Verify important details.
                 </p>
               </div>
             </section>
           </div>
         )}
+        <dialog ref={dialogRef} className="assistant-dialog" onCancel={() => setDialogAction(null)} onClose={() => setDialogAction(null)}>
+          {dialogAction === "delete" ? <>
+            <span className="assistant-dialog-icon"><Icon name="trash" /></span><h2>Delete this conversation?</h2>
+            <p>“{conversation?.title}” and its messages will be permanently removed.</p>
+            <div><button type="button" autoFocus disabled={isDeleting} onClick={() => setDialogAction(null)}>Keep conversation</button><button className="is-destructive" type="button" disabled={isDeleting} onClick={() => void handleDelete()}>{isDeleting ? "Deleting…" : "Delete"}</button></div>
+          </> : <form onSubmit={event => void handleRename(event)}>
+            <h2>Make it easy to find</h2><label>Conversation name<input autoFocus maxLength={80} value={renameTitle} onChange={event => setRenameTitle(event.target.value)} required /></label>
+            <div><button type="button" disabled={isRenaming} onClick={() => setDialogAction(null)}>Cancel</button><button type="submit" disabled={isRenaming || !renameTitle.trim()}>{isRenaming ? "Saving…" : "Save name"}</button></div>
+          </form>}
+        </dialog>
       </div>
     </AppShell>
   );

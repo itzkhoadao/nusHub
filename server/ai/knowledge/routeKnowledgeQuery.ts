@@ -8,11 +8,15 @@ const URGENT_PATTERN =
   /\b(emergency|chest pain|difficulty breathing|severe bleeding|suicid(?:e|al)|self[- ]harm|hurt myself|kill myself|end my life|physical danger|assault|sexual misconduct)\b/i;
 
 export type KnowledgeQueryRoute =
-  | { action: "refuse"; reason: "credentials" | "private_data" }
+  | { action: "refuse"; reason: "credentials" | "private_data" | "unsafe_input" }
+  | { action: "clarify"; question: string }
   | { action: "unsupported" }
   | { action: "retrieve"; filters: KnowledgeSearchFilters; highStakes: boolean };
 
 export function routeKnowledgeQuery(input: string): KnowledgeQueryRoute {
+  if (/\b(?:ignore|override|disregard)\b.{0,60}\b(?:instructions|system|rules|policy)\b|<\/?(?:system|tool)>|\b(?:forge|fabricate)\b.{0,40}\b(?:citations?|sources?)\b/i.test(input)) {
+    return { action: "refuse", reason: "unsafe_input" };
+  }
   if (CREDENTIAL_PATTERN.test(input)) {
     return { action: "refuse", reason: "credentials" };
   }
@@ -24,9 +28,11 @@ export function routeKnowledgeQuery(input: string): KnowledgeQueryRoute {
   if (isUrgentKnowledgeQuery(normalized)) {
     return retrieve(["nus_uhc", "nus_osa"], true);
   }
-  if (/\b(calendar|semester dates?|term dates?|reading week|exam period)\b/.test(normalized)) {
+  if (/\b(calendar|semester dates?|term dates?|reading week|exam period|mini[- ]semester)\b|\bsemester\b.{0,30}\b(?:start|end|begin)\b/.test(normalized)) {
+    const academicYear = extractAcademicYear(input);
+    if (!academicYear) return { action: "clarify", question: "Which academic year do you mean? For example, AY2026/27." };
     return retrieve(["nus_registrar_calendar"], false, {
-      academicYear: extractAcademicYear(input),
+      academicYear,
     });
   }
   if (/\b(shuttle|bus|transport|route|campus rider)\b/.test(normalized)) {

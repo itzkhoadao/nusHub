@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import { AiProviderError } from "../domain/errors";
+import { awaitWithAbort } from "../domain/abortableOperation";
 import {
   groundedAnswerSchema,
   type AiProviderRequest,
@@ -13,7 +14,7 @@ import {
 } from "../telemetry/aiTelemetry";
 
 type InteractionRequest = {
-  generation_config: { max_output_tokens: number };
+  generation_config: { max_output_tokens: number; thinking_level?: "minimal" | "low" | "medium" | "high" };
   input: string;
   labels: Record<string, string>;
   model: string;
@@ -36,7 +37,7 @@ type InteractionResponse = {
 
 type CreateInteraction = (
   request: InteractionRequest,
-  options: { maxRetries: number; timeout: number },
+  options: { maxRetries: number; timeout: number; signal?: AbortSignal },
 ) => Promise<InteractionResponse>;
 
 export type GeminiAiProviderOptions = {
@@ -47,6 +48,7 @@ export type GeminiAiProviderOptions = {
   model: string;
   recordTelemetry?: AiTelemetryRecorder;
   requestTimeoutMs: number;
+  thinkingLevel?: "minimal" | "low" | "medium" | "high";
 };
 
 const providerRequestSchema = z.object({
@@ -122,6 +124,7 @@ export class GeminiAiProvider implements AiProvider {
   private readonly model: string;
   private readonly recordTelemetry: AiTelemetryRecorder;
   private readonly requestTimeoutMs: number;
+  private readonly thinkingLevel: GeminiAiProviderOptions["thinkingLevel"];
 
   constructor(options: GeminiAiProviderOptions) {
     const client = options.createInteraction
@@ -137,13 +140,18 @@ export class GeminiAiProvider implements AiProvider {
     this.model = options.model;
     this.recordTelemetry = options.recordTelemetry ?? recordAiTelemetry;
     this.requestTimeoutMs = options.requestTimeoutMs;
+    this.thinkingLevel = options.thinkingLevel;
   }
 
   async generateAnswer(request: AiProviderRequest): Promise<AiProviderResult> {
     const startedAt = Date.now();
     let errorCode: AiProviderError["code"] | undefined;
+    const deadline = new AbortController();
+    const timer = setTimeout(() => deadline.abort(new DOMException("The provider request timed out", "TimeoutError")), this.requestTimeoutMs);
+    const signal = request.signal ? AbortSignal.any([request.signal, deadline.signal]) : deadline.signal;
 
     try {
+      request.signal?.throwIfAborted();
       const input = providerRequestSchema.parse(request);
 
       if (input.input.length > this.maxInputChars) {
@@ -153,9 +161,12 @@ export class GeminiAiProvider implements AiProvider {
         );
       }
 
-      const interaction = await this.createInteraction(
+      const interaction = await awaitWithAbort(this.createInteraction(
         {
-          generation_config: { max_output_tokens: this.maxOutputTokens },
+          generation_config: {
+            max_output_tokens: this.maxOutputTokens,
+            ...(this.thinkingLevel ? { thinking_level: this.thinkingLevel } : {}),
+          },
           input: input.input,
           labels: { request_id: input.requestId },
           model: this.model,
@@ -167,8 +178,9 @@ export class GeminiAiProvider implements AiProvider {
           store: false,
           system_instruction: input.systemInstruction,
         },
-        { maxRetries: 1, timeout: this.requestTimeoutMs },
-      );
+        { maxRetries: 1, timeout: this.requestTimeoutMs, signal },
+      ), signal);
+      request.signal?.throwIfAborted();
 
       let parsedOutput: unknown;
       try {
@@ -222,6 +234,8 @@ export class GeminiAiProvider implements AiProvider {
         requestId: request.requestId,
       });
       throw providerError;
+    } finally {
+      clearTimeout(timer);
     }
   }
 }

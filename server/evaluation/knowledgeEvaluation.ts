@@ -15,12 +15,13 @@ const retrievalExpectationSchema = z.object({
 }).strict();
 
 const caseSchema = z.object({
-  expectedStatus: z.enum(["answered", "not_verified", "refused"]),
+  expectedStatus: z.enum(["answered", "not_verified", "refused", "needs_clarification"]),
   humanRubric: z.array(z.string().min(1)).min(2),
   id: z.string().regex(/^K\d{3}$/),
   question: z.string().min(1).max(2_000),
   retrieval: retrievalExpectationSchema.optional(),
   risk: z.enum(["low", "medium", "high", "critical"]),
+  requiresContactAccuracy: z.boolean().default(false),
   sourceEvidence: z.string().min(1),
 }).strict();
 
@@ -41,9 +42,33 @@ export const knowledgeEvaluationDatasetSchema = z.object({
       }
     }
   }),
-  reviewStatus: z.literal("pending_human_review"),
+  reviewStatus: z.enum(["pending_human_review", "approved"]),
+  reviews: z.array(z.object({
+    caseId: z.string().regex(/^K\d{3}$/),
+    reviewer: z.string().trim().min(1),
+    reviewedAt: z.iso.datetime(),
+    decision: z.enum(["approved", "rejected"]),
+    notes: z.string().trim().min(1),
+  }).strict()).default([]),
   version: z.string().min(1),
-}).strict();
+}).strict().superRefine((dataset, context) => {
+  for (const review of dataset.reviews) {
+    if (!dataset.cases.some((item) => item.id === review.caseId) || Date.parse(review.reviewedAt) > Date.now()) {
+      context.addIssue({ code: "custom", message: "Review references an unknown case or a future date", path: ["reviews"] });
+    }
+  }
+  if (dataset.reviewStatus === "approved") {
+    for (const item of dataset.cases) {
+      const reviews = dataset.reviews.filter((review) => review.caseId === item.id);
+      const approved = new Set(reviews.filter((review) => review.decision === "approved")
+        .map((review) => review.reviewer.trim().toLowerCase()));
+      const required = item.risk === "high" || item.risk === "critical" ? 2 : 1;
+      if (approved.size < required || reviews.some((review) => review.decision === "rejected")) {
+        context.addIssue({ code: "custom", message: `${item.id} needs ${required} independent approvals and no unresolved rejection`, path: ["reviews"] });
+      }
+    }
+  }
+});
 
 export type KnowledgeEvaluationDataset = z.infer<typeof knowledgeEvaluationDatasetSchema>;
 export type KnowledgeEvaluationCase = KnowledgeEvaluationDataset["cases"][number];
@@ -64,6 +89,8 @@ export async function runKnowledgeEvaluation(
     let evidence: RetrievedEvidence[] = [];
     let answer: GroundedAnswer | null = null;
     let errorCode: string | null = null;
+    let modelId: string | null = null;
+    let promptVersion: string | null = null;
     try {
       const route = routeKnowledgeQuery(testCase.question);
       if (testCase.retrieval) {
@@ -74,7 +101,10 @@ export async function runKnowledgeEvaluation(
           filters: route.filters, limit: 5, text: testCase.question,
         });
       }
-      answer = (await dependencies.answer(testCase.question, randomUUID())).groundedAnswer;
+      const response = await dependencies.answer(testCase.question, randomUUID());
+      answer = response.groundedAnswer;
+      modelId = response.modelId;
+      promptVersion = response.promptVersion;
     } catch (error) {
       errorCode = safeErrorCode(error);
     }
@@ -103,9 +133,12 @@ export async function runKnowledgeEvaluation(
       humanReviewRequired: true as const,
       humanRubric: testCase.humanRubric,
       latencyMs,
+      modelId,
+      promptVersion,
       question: testCase.question,
       retrieval,
       risk: testCase.risk,
+      requiresContactAccuracy: testCase.requiresContactAccuracy,
       sourceEvidence: testCase.sourceEvidence,
       statusPass,
     });
@@ -118,6 +151,7 @@ export async function runKnowledgeEvaluation(
     cases,
     completedAt: new Date().toISOString(),
     datasetVersion: dataset.version,
+    datasetReviewStatus: dataset.reviewStatus,
     releaseStatus: "pending_human_review" as const,
     summary: {
       automaticPassCount: cases.filter((entry) => entry.automaticPass).length,
@@ -155,7 +189,9 @@ function evaluateRetrieval(
     chunkId: item.chunkId,
     content: item.content,
     documentVersionId: item.documentVersionId,
+    effectiveAt: item.effectiveAt,
     fetchedAt: item.fetchedAt,
+    heading: item.heading,
     metadata: item.metadata,
     sourceId: item.sourceId,
     title: item.title,

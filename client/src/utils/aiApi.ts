@@ -1,5 +1,6 @@
 import { apiUrl, mutationFetch } from "./api";
 import { getAuthToken } from "./authStorage";
+import { isAiCitation, isAiMessage, isAiSummary, safeAiSourceUrl } from "./aiContracts";
 
 export type AiAvailability = {
   enabled: boolean;
@@ -25,6 +26,20 @@ export type AiCitation = {
   url: string;
 };
 
+export type AiEvidencePassage = {
+  claimId: string; content: string; documentVersionId: string; sourceId: string; title: string; url: string;
+};
+
+export async function getAiMessageEvidence(messageId: string) {
+  const body = await getJson<{ passages: AiEvidencePassage[] }>(`/api/ai/messages/${encodeURIComponent(messageId)}/evidence`);
+  if (!Array.isArray(body.passages) || body.passages.length > 20 || body.passages.some(p =>
+    !p || typeof p.content !== "string" || p.content.length > 10_000 || typeof p.claimId !== "string" ||
+    typeof p.documentVersionId !== "string" || typeof p.sourceId !== "string" || typeof p.url !== "string" || !safeAiSourceUrl(p.url))) {
+    throw new AiApiError("The source passages could not be loaded.", "AI_RESPONSE_INVALID", 502);
+  }
+  return body.passages;
+}
+
 export type AiMessage = {
   academic_year: string | null;
   answer_status:
@@ -48,6 +63,7 @@ export type AiMessage = {
 };
 
 export type AiConversation = AiConversationSummary & {
+  has_earlier_messages?: boolean;
   messages: AiMessage[];
 };
 
@@ -115,6 +131,11 @@ export async function getAiAvailability(): Promise<AiAvailability> {
   });
   const body = await readJson(response);
 
+  if (typeof body.enabled !== "boolean" || typeof body.model !== "string" || body.provider !== "gemini" ||
+    body.status !== (body.enabled ? "configured" : "disabled")) {
+    if (!response.ok) throw responseError(response, body);
+    throw new AiApiError("The assistant returned an invalid response.", "AI_RESPONSE_INVALID", 502);
+  }
   if (response.status === 503 && body.status === "disabled") {
     return body as AiAvailability;
   }
@@ -126,6 +147,9 @@ export async function listAiConversations() {
   const body = await getJson<{ conversations: AiConversationSummary[] }>(
     "/api/ai/conversations",
   );
+  if (!Array.isArray(body.conversations) || body.conversations.length > 100 || !body.conversations.every(isAiSummary)) {
+    throw new AiApiError("Conversation history could not be loaded.", "AI_RESPONSE_INVALID", 502);
+  }
   return body.conversations;
 }
 
@@ -133,10 +157,14 @@ export async function getAiConversation(conversationId: string) {
   const body = await getJson<{ conversation: AiConversation }>(
     `/api/ai/conversations/${encodeURIComponent(conversationId)}`,
   );
+  if (!isAiSummary(body.conversation) || !Array.isArray(body.conversation.messages) ||
+      body.conversation.messages.length > 200 || !body.conversation.messages.every(isAiMessage)) {
+    throw new AiApiError("This conversation could not be loaded.", "AI_RESPONSE_INVALID", 502);
+  }
   return body.conversation;
 }
 
-export async function createAiConversation(title: string) {
+export async function createAiConversation(title: string, signal?: AbortSignal) {
   const response = await mutationFetch(apiUrl("/api/ai/conversations"), {
     body: JSON.stringify({ title }),
     headers: {
@@ -144,10 +172,22 @@ export async function createAiConversation(title: string) {
       "Content-Type": "application/json",
     },
     method: "POST",
+    signal,
   });
   const body = await readJson(response);
   if (!response.ok) throw responseError(response, body);
-  return (body as { conversation: AiConversationSummary }).conversation;
+  if (!isAiSummary(body.conversation)) throw new AiApiError("The conversation could not be saved.", "AI_RESPONSE_INVALID", 502);
+  return body.conversation;
+}
+
+export async function renameAiConversation(conversationId: string, title: string) {
+  const response = await mutationFetch(apiUrl(`/api/ai/conversations/${encodeURIComponent(conversationId)}`), {
+    body: JSON.stringify({ title }), headers: { ...authorizationHeaders(), "Content-Type": "application/json" }, method: "PATCH",
+  });
+  const body = await readJson(response);
+  if (!response.ok) throw responseError(response, body);
+  if (!isAiSummary(body.conversation)) throw new AiApiError("The conversation could not be saved.", "AI_RESPONSE_INVALID", 502);
+  return body.conversation;
 }
 
 export async function deleteAiConversation(conversationId: string) {
@@ -191,6 +231,7 @@ const STREAM_EVENT_TYPES = new Set<AiStreamEventType>([
 ]);
 
 export function parseAiStreamBlock(block: string): AiStreamEvent | null {
+  if (block.length > 65_536) throw new AiApiError("The assistant stream exceeded its safe limit.", "AI_STREAM_INVALID", 502);
   let eventName = "";
   const dataLines: string[] = [];
 
@@ -217,6 +258,7 @@ export function parseAiStreamBlock(block: string): AiStreamEvent | null {
     !isRecord(payload) ||
     payload.version !== 1 ||
     typeof payload.request_id !== "string" ||
+    !payload.request_id || payload.request_id.length > 100 ||
     typeof payload.type !== "string" ||
     !STREAM_EVENT_TYPES.has(payload.type as AiStreamEventType) ||
     !isRecord(payload.data) ||
@@ -224,6 +266,16 @@ export function parseAiStreamBlock(block: string): AiStreamEvent | null {
   ) {
     throw new AiApiError("The assistant returned an invalid stream.", "AI_STREAM_INVALID", 502);
   }
+
+  const data = payload.data;
+  const type = payload.type;
+  const valid = type === "response.started" ? typeof data.message_id === "string" && data.message_id.length > 0 :
+    type === "response.text.delta" ? typeof data.delta === "string" && data.delta.length <= 16_384 :
+    type === "response.citation" ? isAiCitation(data.citation) :
+    type === "response.warning" ? typeof data.warning === "string" && data.warning.length <= 2000 :
+    type === "response.completed" ? typeof data.status === "string" && ["answered", "needs_clarification", "not_verified", "refused"].includes(data.status) :
+    type === "response.failed" ? typeof data.code === "string" && data.code.length <= 100 && typeof data.message === "string" && data.message.length <= 2000 : false;
+  if (!valid) throw new AiApiError("The assistant returned an invalid stream.", "AI_STREAM_INVALID", 502);
 
   return {
     data: payload.data,
@@ -240,10 +292,29 @@ export async function consumeAiEventStream(
   const reader = stream.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  let requestId: string | null = null;
+  let terminal = false;
+  let textLength = 0;
+  let eventCount = 0;
+  let bytes = 0;
+  const deliver = (event: AiStreamEvent) => {
+    if (terminal || ++eventCount > 1000 || (requestId !== null && event.requestId !== requestId) ||
+      (requestId === null && event.type !== "response.started") ||
+      (requestId !== null && event.type === "response.started")) {
+      throw new AiApiError("The assistant returned an invalid event sequence.", "AI_STREAM_INVALID", 502);
+    }
+    requestId = event.requestId;
+    if (event.type === "response.text.delta") textLength += (event.data.delta as string).length;
+    if (textLength > 32_768) throw new AiApiError("The answer exceeded its safe limit.", "AI_STREAM_INVALID", 502);
+    terminal = event.type === "response.completed" || event.type === "response.failed";
+    onEvent(event);
+  };
 
   try {
     for (;;) {
       const { done, value } = await reader.read();
+      bytes += value?.byteLength ?? 0;
+      if (bytes > 2_000_000) throw new AiApiError("The assistant stream exceeded its safe limit.", "AI_STREAM_INVALID", 502);
       buffer += decoder.decode(value, { stream: !done });
 
       let boundary = buffer.search(/\r?\n\r?\n/);
@@ -252,17 +323,22 @@ export async function consumeAiEventStream(
         const separator = buffer.slice(boundary).match(/^\r?\n\r?\n/)?.[0] ?? "\n\n";
         buffer = buffer.slice(boundary + separator.length);
         const event = parseAiStreamBlock(block);
-        if (event) onEvent(event);
+        if (event) deliver(event);
         boundary = buffer.search(/\r?\n\r?\n/);
       }
+      if (buffer.length > 65_536) throw new AiApiError("The assistant stream exceeded its safe limit.", "AI_STREAM_INVALID", 502);
 
       if (done) break;
     }
 
     if (buffer.trim()) {
       const event = parseAiStreamBlock(buffer);
-      if (event) onEvent(event);
+      if (event) deliver(event);
     }
+    if (!terminal) throw new AiApiError("The answer ended before it was complete.", "AI_STREAM_INCOMPLETE", 502);
+  } catch (error) {
+    await reader.cancel().catch(() => undefined);
+    throw error;
   } finally {
     reader.releaseLock();
   }
@@ -273,6 +349,7 @@ export async function streamAiMessage(input: {
   conversationId: string;
   onEvent: (event: AiStreamEvent) => void;
   signal: AbortSignal;
+  idempotencyKey?: string;
 }) {
   const response = await fetch(
     apiUrl(
@@ -284,7 +361,7 @@ export async function streamAiMessage(input: {
         Accept: "text/event-stream",
         ...authorizationHeaders(),
         "Content-Type": "application/json",
-        "Idempotency-Key": crypto.randomUUID(),
+        "Idempotency-Key": input.idempotencyKey ?? crypto.randomUUID(),
       },
       method: "POST",
       signal: input.signal,

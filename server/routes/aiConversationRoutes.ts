@@ -4,6 +4,7 @@ import type { AiConfig } from "../ai/config/aiConfig";
 import {
   AiConversationNotFoundError,
   AiQuotaExceededError,
+  AiIdempotencyConflictError,
   PostgresAiConversationStore,
 } from "../ai/conversation/PostgresAiConversationStore";
 import {
@@ -28,6 +29,8 @@ import {
 } from "../ai/domain/types";
 import { parseModuleQuestionText } from "../ai/orchestration/parseModuleQuestion";
 import type { ModuleQuestion } from "../ai/orchestration/answerModuleQuestion";
+import { routeKnowledgeQuery } from "../ai/knowledge/routeKnowledgeQuery";
+import { awaitWithAbort } from "../ai/domain/abortableOperation";
 import { AppError } from "../errors/AppError";
 import { readRequiredIdempotencyKey } from "../middleware/idempotency";
 
@@ -57,7 +60,8 @@ export function createAiConversationRouter(
     dependencies.coordinator ??
     new AiRequestCoordinator(config.maxConcurrentRequestsPerUser);
 
-  router.use((_req, _res, next) => {
+  router.use((_req, res, next) => {
+    res.set("Cache-Control", "private, no-store");
     if (!config.enabled) {
       return next(
         new AppError(
@@ -79,6 +83,14 @@ export function createAiConversationRouter(
   router.get("/conversations", asyncHandler(async (req, res) => {
     const conversations = await store.listConversations(req.user.id);
     res.json({ conversations, request_id: req.requestId });
+  }));
+
+  router.patch("/conversations/:conversationId", asyncHandler(async (req, res) => {
+    const conversationId = parseIdentifier(req.params.conversationId);
+    const { title } = parseBody(z.object({ title: z.string().trim().min(1).max(80) }).strict(), req.body);
+    const conversation = await store.renameConversation(conversationId, req.user.id, title);
+    if (!conversation) throw notFound();
+    res.json({ conversation, request_id: req.requestId });
   }));
 
   router.get("/conversations/:conversationId", asyncHandler(async (req, res) => {
@@ -145,6 +157,7 @@ export function createAiConversationRouter(
           initializeEventStream(res);
           writeEvent(res, req.requestId, "response.started", {
             message_id: stored.id,
+            user_message_id: exchange.userMessageId,
             replayed: true,
           });
           if (stored.delivery_status !== "completed") {
@@ -168,6 +181,10 @@ export function createAiConversationRouter(
         }
 
         const controller = new AbortController();
+        const deadline = setTimeout(() => controller.abort(new Error("AI_REQUEST_TIMEOUT")), config.requestTimeoutMs);
+        const heartbeat = setInterval(() => {
+          if (!res.destroyed && !res.writableEnded) res.write(": keep-alive\n\n");
+        }, 10_000);
         let completed = false;
         res.once("close", () => {
           if (!completed) controller.abort();
@@ -175,6 +192,7 @@ export function createAiConversationRouter(
         initializeEventStream(res);
         writeEvent(res, req.requestId, "response.started", {
           message_id: exchange.assistantMessageId,
+          user_message_id: exchange.userMessageId,
           replayed: false,
         });
 
@@ -185,15 +203,14 @@ export function createAiConversationRouter(
             req.user.id,
           );
           const question = applyConversationContext(
-            parsedQuestion,
+            { ...parsedQuestion, originalText: content },
             conversation?.messages ?? [],
           );
-          const result = await answerModuleQuestion({
+          const result = await awaitWithAbort(answerModuleQuestion({
             ...question,
-            originalText: content,
             requestId: req.requestId,
             signal: controller.signal,
-          });
+          }), controller.signal);
           if (controller.signal.aborted) throw new Error("AI_STREAM_CANCELLED");
           const validatedAnswer = groundedAnswerSchema.parse(
             result.groundedAnswer,
@@ -228,13 +245,16 @@ export function createAiConversationRouter(
           completed = true;
           res.end();
         } catch (error) {
+          console.error("AI response failed", { requestId: req.requestId,
+            code: error && typeof error === "object" && "code" in error && typeof error.code === "string" ? error.code.slice(0, 64) : "AI_RESPONSE_FAILED" });
+          const timedOut = controller.signal.reason instanceof Error && controller.signal.reason.message === "AI_REQUEST_TIMEOUT";
           const interrupted = controller.signal.aborted ||
             (error instanceof Error && error.message === "AI_STREAM_CANCELLED");
           try {
             await store.failAssistant({
               assistantMessageId: exchange.assistantMessageId,
-              errorCode: interrupted ? "AI_REQUEST_CANCELLED" : "AI_RESPONSE_FAILED",
-              interrupted,
+              errorCode: timedOut ? "AI_REQUEST_TIMEOUT" : interrupted ? "AI_REQUEST_CANCELLED" : "AI_RESPONSE_FAILED",
+              interrupted: interrupted && !timedOut,
             });
           } catch {
             // The client still receives a stable terminal event when possible;
@@ -243,17 +263,23 @@ export function createAiConversationRouter(
               requestId: req.requestId,
             });
           }
-          if (!interrupted) {
+          if (!res.destroyed && !res.writableEnded) {
             writeEvent(res, req.requestId, "response.failed", {
-              code: "AI_RESPONSE_FAILED",
-              message: "The assistant could not complete this response.",
+              code: timedOut ? "AI_REQUEST_TIMEOUT" : "AI_RESPONSE_FAILED",
+              message: timedOut ? "The assistant took too long to respond. Please try again." : "The assistant could not complete this response.",
             });
             completed = true;
             res.end();
           }
+        } finally {
+          clearTimeout(deadline);
+          clearInterval(heartbeat);
         }
       } catch (error) {
         if (error instanceof AiConversationNotFoundError) throw notFound();
+        if (error instanceof AiIdempotencyConflictError) {
+          throw new AppError(409, "AI_IDEMPOTENCY_CONFLICT", "This request key was already used for a different question.");
+        }
         if (error instanceof AiQuotaExceededError) {
           res.set("Retry-After", secondsUntilTomorrowUtc());
           throw new AppError(
@@ -289,6 +315,14 @@ export function createAiConversationRouter(
     res.json({ rating: input.rating, request_id: req.requestId });
   }));
 
+  router.get("/messages/:messageId/evidence", asyncHandler(async (req, res) => {
+    const id = parseIdentifier(req.params.messageId);
+    const message = await store.getMessage(id, req.user.id);
+    if (!message || message.role !== "assistant" || message.delivery_status !== "completed") throw notFound();
+    const passages = await store.getMessageEvidence(id, req.user.id);
+    res.json({ passages, request_id: req.requestId });
+  }));
+
   return router;
 }
 
@@ -296,6 +330,20 @@ export function applyConversationContext(
   question: ModuleQuestion,
   messages: AiStoredMessage[],
 ): ModuleQuestion {
+  const latest = [...messages].reverse().find(message => message.role === "assistant" && message.delivery_status === "completed");
+  const followUp = question.originalText?.trim() ?? "";
+  if (latest?.answer_status === "needs_clarification" &&
+      /^(?:(?:AY\s*)?20\d{2}\s*[/–-]\s*(?:20)?\d{2}|(?:regular\s+)?semester\s*(?:1|2|one|two))[?.!\s]*$/i.test(followUp)) {
+    const original = [...messages].reverse().find(message => message.role === "user" &&
+      message.content !== followUp && /calendar|reading week|exam period|semester dates?|mini[- ]semester/i.test(message.content));
+    if (original && routeKnowledgeQuery(original.content).action !== "refuse") {
+      const answers = messages.filter(message => message.role === "user" &&
+        message.created_at >= original.created_at &&
+        /^(?:(?:AY\s*)?20\d{2}\s*[/–-]\s*(?:20)?\d{2}|(?:regular\s+)?semester\s*(?:1|2|one|two))[?.!\s]*$/i.test(message.content))
+        .slice(-2).map(message => message.content);
+      return { ...question, originalText: [original.content, ...answers, followUp].join(" ").slice(0, 2000) };
+    }
+  }
   const previousAnswer = [...messages]
     .reverse()
     .find(

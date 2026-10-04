@@ -7,6 +7,8 @@ import type {
   KnowledgeIngestionRepository,
 } from "./types";
 import type { SafeSourceFetcher } from "./SafeSourceFetcher";
+import { assertApprovedContent, assertSourceApproval, sourceApprovalSchema, type SourceApproval } from "./sourceApproval";
+import { validateKnowledgeManifest } from "./manifest";
 
 export type KnowledgeIngestionServiceOptions = {
   embeddingBatchSize: number;
@@ -14,6 +16,9 @@ export type KnowledgeIngestionServiceOptions = {
   fetcher: SafeSourceFetcher;
   registryVersion: string;
   repository: KnowledgeIngestionRepository;
+  approval?: SourceApproval;
+  now?: () => Date;
+  runMetadata?: Record<string, string>;
 };
 
 export type KnowledgeDocumentInput = {
@@ -48,14 +53,29 @@ export class KnowledgeIngestionService {
   }
 
   async ingestSource(input: KnowledgeSourceIngestionInput) {
+    throwIfAborted(input.signal);
+    const { signal: _signal, ...rawManifest } = input;
+    const manifest = validateKnowledgeManifest(rawManifest);
     const source = getKnowledgeSource(input.sourceId);
+    if (!this.options.approval) {
+      throw new KnowledgeSourcePolicyError("SOURCE_APPROVAL_INVALID", "A reviewed source approval is required before ingestion.");
+    }
+    const approval = sourceApprovalSchema.parse(this.options.approval);
+    assertSourceApproval(approval, manifest, this.options.registryVersion,
+      source.maxStalenessHours, this.options.now?.() ?? new Date());
     if (input.documents.length === 0 || input.documents.length > 100) {
       throw new KnowledgeSourcePolicyError(
         "SOURCE_METADATA_INVALID",
         "An ingestion snapshot must contain 1 to 100 documents.",
       );
     }
-    const sourceMetadata = validateMetadata([], input.metadata ?? {});
+    const sourceMetadata = validateMetadata([], {
+      ...input.metadata,
+      ...this.options.runMetadata,
+      approval_reviewer: approval.reviewer,
+      approval_reviewed_at: approval.reviewedAt,
+      approval_manifest_hash: approval.manifestHash,
+    });
     const documentInputs = input.documents.map((document) => ({
       ...document,
       effectiveAt: validateOptionalTimestamp(document.effectiveAt),
@@ -95,6 +115,7 @@ export class KnowledgeIngestionService {
         );
       }
       const canonicalUrls = parsedDocuments.map((document) => document.canonicalUrl);
+      assertApprovedContent(approval, parsedDocuments);
       if (new Set(canonicalUrls).size !== canonicalUrls.length) {
         throw new KnowledgeSourcePolicyError(
           "SOURCE_METADATA_INVALID",

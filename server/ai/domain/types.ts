@@ -14,22 +14,23 @@ export const citationSchema = z
 
 export const groundedAnswerSchema = z
   .object({
-    answer: z.string().trim().min(1),
-    citations: z.array(citationSchema),
-    followUpQuestion: z.string().trim().min(1).optional(),
+    answer: z.string().trim().min(1).max(32_768),
+    citations: z.array(citationSchema).max(20),
+    followUpQuestion: z.string().trim().min(1).max(2000).optional(),
     status: z.enum([
       "answered",
       "needs_clarification",
       "not_verified",
       "refused",
     ]),
-    warnings: z.array(z.string().trim().min(1)),
+    warnings: z.array(z.string().trim().min(1).max(2000)).max(20),
   })
   .strict();
 
 export type GroundedAnswer = z.infer<typeof groundedAnswerSchema>;
 
 export type AiProviderRequest = {
+  signal?: AbortSignal;
   input: string;
   requestId: string;
   systemInstruction: string;

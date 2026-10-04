@@ -25,11 +25,12 @@ describe("AI event stream parsing", () => {
       "\"request_id\":\"r1\",\"type\":\"response.started\",\"version\":1}\r\n\r\n",
       "event: response.text.delta\ndata: {\"data\":{\"delta\":\"Hello\"},\"request_id\":\"r1\",",
       "\"type\":\"response.text.delta\",\"version\":1}\n\n",
+      'event: response.completed\ndata: {"data":{"status":"answered"},"request_id":"r1","type":"response.completed","version":1}\n\n',
     ]);
 
     await consumeAiEventStream(stream, (event) => events.push(event));
 
-    expect(events).toHaveLength(2);
+    expect(events).toHaveLength(3);
     expect(events[0].data.message_id).toBe("m1");
     expect(events[1].data.delta).toBe("Hello");
   });

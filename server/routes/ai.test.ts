@@ -22,6 +22,7 @@ const enabledConfig: AiConfig = {
   maxContextChars: 16_000,
   maxConcurrentRequestsPerUser: 1,
   maxOutputTokens: 800,
+  thinkingLevel: "low",
   provider: "gemini",
   requestTimeoutMs: 20_000,
   storeInteractions: false,

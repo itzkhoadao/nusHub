@@ -13,5 +13,6 @@ export function createAiProvider() {
     maxOutputTokens: aiConfig.maxOutputTokens,
     model: aiConfig.generationModel,
     requestTimeoutMs: aiConfig.requestTimeoutMs,
+    thinkingLevel: aiConfig.thinkingLevel,
   });
 }

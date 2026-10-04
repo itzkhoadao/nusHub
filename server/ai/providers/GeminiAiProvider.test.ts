@@ -14,6 +14,20 @@ function validOutput() {
   });
 }
 
+test("enforces a total provider deadline even when the SDK ignores cancellation", async () => {
+  let sdkSignal: AbortSignal | undefined;
+  const provider = new GeminiAiProvider({
+    apiKey: "test-only", maxInputChars: 2000, maxOutputTokens: 800, model: "stable-test-model",
+    requestTimeoutMs: 20, recordTelemetry: () => undefined,
+    createInteraction: async (_request, options) => { sdkSignal = options.signal; return new Promise(() => undefined); },
+  });
+  const started = Date.now();
+  await assert.rejects(provider.generateAnswer({ requestId, input: "Probe", systemInstruction: "Instructions" }),
+    (error: unknown) => error instanceof Error && "code" in error && error.code === "AI_PROVIDER_TIMEOUT");
+  assert.ok(sdkSignal?.aborted);
+  assert.ok(Date.now() - started < 1000, "The caller must not wait indefinitely for the SDK");
+});
+
 test("uses a stateless structured interaction and records content-free metrics", async () => {
   const telemetry: AiTelemetryEvent[] = [];
   let capturedRequest;
@@ -33,6 +47,7 @@ test("uses a stateless structured interaction and records content-free metrics",
     model: "stable-test-model",
     recordTelemetry: (event) => telemetry.push(event),
     requestTimeoutMs: 20_000,
+    thinkingLevel: "low",
   });
 
   const result = await provider.generateAnswer({
@@ -45,7 +60,10 @@ test("uses a stateless structured interaction and records content-free metrics",
   assert.equal(capturedRequest.model, "stable-test-model");
   assert.equal(capturedRequest.response_format.mime_type, "application/json");
   assert.equal(capturedRequest.generation_config.max_output_tokens, 800);
-  assert.deepEqual(capturedOptions, { maxRetries: 1, timeout: 20_000 });
+  assert.equal(capturedRequest.generation_config.thinking_level, "low");
+  assert.equal(capturedOptions.maxRetries, 1);
+  assert.equal(capturedOptions.timeout, 20_000);
+  assert.ok(capturedOptions.signal instanceof AbortSignal);
   assert.equal("previous_interaction_id" in capturedRequest, false);
   assert.equal("tools" in capturedRequest, false);
   assert.equal(result.answer.status, "answered");

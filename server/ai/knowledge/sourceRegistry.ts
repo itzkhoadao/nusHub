@@ -107,6 +107,8 @@ export function listKnowledgeSources() {
 export class KnowledgeSourcePolicyError extends Error {
   constructor(
     readonly code:
+      | "SOURCE_APPROVAL_INVALID"
+      | "SOURCE_APPROVAL_CHANGED"
       | "SOURCE_CONTENT_TYPE_REJECTED"
       | "SOURCE_DOCUMENT_EMPTY"
       | "SOURCE_FETCH_FAILED"

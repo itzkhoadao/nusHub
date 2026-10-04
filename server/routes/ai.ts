@@ -15,6 +15,7 @@ export function createAiRouter(
   // This endpoint is intentionally non-billable: it reports safe configuration
   // state but never calls Gemini or exposes keys, prompts, quotas, or user data.
   router.get("/health", authenticate, (req, res) => {
+    res.set("Cache-Control", "private, no-store");
     return res.status(config.enabled ? 200 : 503).json({
       enabled: config.enabled,
       model: config.generationModel,

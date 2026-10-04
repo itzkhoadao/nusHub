@@ -19,7 +19,11 @@ export type KnowledgeManifest = z.infer<typeof knowledgeManifestSchema>;
 
 export async function loadKnowledgeManifest(filename: string): Promise<KnowledgeManifest> {
   const raw = await readFile(filename, "utf8");
-  const manifest = knowledgeManifestSchema.parse(JSON.parse(raw) as unknown);
+  return validateKnowledgeManifest(JSON.parse(raw) as unknown);
+}
+
+export function validateKnowledgeManifest(raw: unknown): KnowledgeManifest {
+  const manifest = knowledgeManifestSchema.parse(raw);
   const source = getKnowledgeSource(manifest.sourceId);
   const urls = new Set<string>();
   for (const document of manifest.documents) {

@@ -10,6 +10,7 @@ export type AiConfig = {
   maxOutputTokens: number;
   provider: "gemini";
   requestTimeoutMs: number;
+  thinkingLevel: "minimal" | "low" | "medium" | "high";
   storeInteractions: false;
 };
 
@@ -23,5 +24,6 @@ export const aiConfig: AiConfig = Object.freeze({
   maxOutputTokens: env.AI_MAX_OUTPUT_TOKENS,
   provider: env.AI_PROVIDER,
   requestTimeoutMs: env.AI_REQUEST_TIMEOUT_MS,
+  thinkingLevel: env.AI_THINKING_LEVEL,
   storeInteractions: false,
 });

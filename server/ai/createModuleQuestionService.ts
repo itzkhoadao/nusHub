@@ -66,6 +66,7 @@ export function shouldUseKnowledgeQuestion(
   const route = routeKnowledgeQuery(originalText);
   return (
     route.action === "refuse" ||
+    route.action === "clarify" ||
     (route.action === "retrieve" && Boolean(route.filters.sourceIds?.length)) ||
     (!question.moduleCode && !MODULE_LANGUAGE.test(originalText))
   );

@@ -30,6 +30,7 @@ export type AiStoredMessage = {
 };
 
 export type AiConversationDetail = AiConversationSummary & {
+  has_earlier_messages?: boolean;
   messages: AiStoredMessage[];
 };
 
@@ -37,6 +38,15 @@ export type AiExchange = {
   assistantMessageId: string;
   replayed: boolean;
   userMessageId: string;
+};
+
+export type AiEvidencePassage = {
+  claimId: string;
+  content: string;
+  documentVersionId: string;
+  sourceId: string;
+  title: string;
+  url: string;
 };
 
 export type CompleteAssistantInput = {
@@ -67,7 +77,9 @@ export interface AiConversationStore {
   }): Promise<void>;
   getConversation(conversationId: string, userId: string): Promise<AiConversationDetail | null>;
   getMessage(messageId: string, userId: string): Promise<AiStoredMessage | null>;
+  getMessageEvidence(messageId: string, userId: string): Promise<AiEvidencePassage[]>;
   listConversations(userId: string): Promise<AiConversationSummary[]>;
+  renameConversation(conversationId: string, userId: string, title: string): Promise<AiConversationSummary | null>;
   setFeedback(input: {
     messageId: string;
     rating: "helpful" | "unhelpful";

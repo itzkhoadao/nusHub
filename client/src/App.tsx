@@ -1,4 +1,5 @@
 import { Routes, Route } from "react-router-dom";
+import { lazy, Suspense } from "react";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
@@ -10,7 +11,8 @@ import GroupDetailPage from "./pages/GroupDetailPage";
 import ChatPage from "./pages/ChatPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import ReportPage from "./pages/ReportPage";
-import AiAssistantPage from "./pages/AiAssistantPage";
+const AiAssistantPage = lazy(() => import("./pages/AiAssistantPage"));
+const assistantPage = <Suspense fallback={<div className="app-container py-12" role="status">Opening NUSHub Assistant…</div>}><AiAssistantPage /></Suspense>;
 
 function App() {
   return (
@@ -22,8 +24,8 @@ function App() {
       <Route path="/create-post" element={<CreatePostPage />} />
       <Route path="/posts/:id" element={<PostDetailPage />} />
       <Route path="/report" element={<ReportPage />} />
-      <Route path="/assistant" element={<AiAssistantPage />} />
-      <Route path="/assistant/:conversationId" element={<AiAssistantPage />} />
+      <Route path="/assistant" element={assistantPage} />
+      <Route path="/assistant/:conversationId" element={assistantPage} />
       <Route path="/profile" element={<ProfilePage />} />
       <Route path="/users/:userId" element={<ProfilePage />} />
       <Route path="/groups" element={<GroupsPage />} />

@@ -10,6 +10,17 @@ import {
 
 const url = "https://nusit.nus.edu.sg/contact/";
 
+test("approved datasets require independent human review for every high and critical case", async () => {
+  const raw = JSON.parse(await readFile(path.join(__dirname, "knowledge-cases.v1.json"), "utf8")) as Record<string, unknown>;
+  assert.equal(knowledgeEvaluationDatasetSchema.safeParse({ ...raw, reviewStatus: "approved" }).success, false);
+  const draft = knowledgeEvaluationDatasetSchema.parse(raw);
+  const reviews = draft.cases.flatMap((item) => ["Reviewer A", "Reviewer B"].map((reviewer) => ({
+    caseId: item.id, reviewer, reviewedAt: "2026-10-01T00:00:00.000Z", decision: "approved", notes: "Source and rubric checked",
+  })));
+  assert.equal(knowledgeEvaluationDatasetSchema.safeParse({ ...raw, reviewStatus: "approved", reviews }).success, true);
+  assert.equal(knowledgeEvaluationDatasetSchema.safeParse({ ...raw, reviewStatus: "approved", reviews: reviews.map((review) => ({ ...review, reviewer: "Reviewer A" })) }).success, false);
+});
+
 function evidence(overrides: Partial<RetrievedEvidence> = {}): RetrievedEvidence {
   return {
     chunkId: "42",
@@ -31,7 +42,7 @@ function evidence(overrides: Partial<RetrievedEvidence> = {}): RetrievedEvidence
 test("draft dataset parses and includes positive, no-answer, and refusal coverage", async () => {
   const raw = await readFile(path.join(__dirname, "knowledge-cases.v1.json"), "utf8");
   const dataset = knowledgeEvaluationDatasetSchema.parse(JSON.parse(raw) as unknown);
-  assert.equal(dataset.cases.length, 10);
+  assert.equal(dataset.cases.length, 14);
   assert.ok(dataset.cases.some((item) => item.retrieval?.expectNoResults));
   assert.ok(dataset.cases.some((item) => item.expectedStatus === "refused"));
 });

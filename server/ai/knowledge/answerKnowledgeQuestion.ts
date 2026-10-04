@@ -35,9 +35,14 @@ export async function answerKnowledgeQuestion(
       refused(
         route.reason === "credentials"
           ? "I cannot request, retrieve, or handle passwords, security codes, tokens, or private keys. Use the official NUS support and account-recovery channels instead."
-          : "I cannot access private NUS account, academic, billing, message, or medical records. Use the relevant authenticated NUS service or contact the responsible office.",
+          : route.reason === "unsafe_input"
+            ? "I cannot bypass source verification or fabricate citations. Please ask a factual NUS question."
+            : "I cannot access private NUS account, academic, billing, message, or medical records. Use the relevant authenticated NUS service or contact the responsible office.",
       ),
     );
+  }
+  if (route.action === "clarify") {
+    return wrap({ answer: route.question, followUpQuestion: route.question, citations: [], status: "needs_clarification", warnings: [] });
   }
   if (route.action === "unsupported") {
     return wrap({
@@ -76,6 +81,18 @@ export async function answerKnowledgeQuestion(
     });
   }
 
+  // Flattened PDF tables do not establish which date belongs to a mini-semester.
+  // Fail closed until the corpus has an independently verified table extraction.
+  if (route.filters.sourceIds?.includes("nus_registrar_calendar") && /\bmini[- ]semester\b/i.test(input.text)) {
+    return wrap(notVerified("I found the official calendar, but cannot reliably verify mini-semester dates from the extracted table. Please check the Registrar PDF directly."));
+  }
+  if (route.filters.sourceIds?.includes("nus_registrar_calendar") &&
+      /\b(reading week|exam period|semester dates?)\b/i.test(input.text) &&
+      !/\bsemester\s*(?:1|2|one|two)\b/i.test(input.text)) {
+    const question = "Do you mean regular Semester 1 or Semester 2?";
+    return wrap({ answer: question, followUpQuestion: question, citations: [], status: "needs_clarification", warnings: [] });
+  }
+
   const boundedEvidence = fitEvidence(
     input.text,
     evidence,
@@ -102,6 +119,7 @@ export async function answerKnowledgeQuestion(
       question: input.text,
     }),
     requestId: input.requestId,
+    signal: input.signal,
     systemInstruction: NUS_KNOWLEDGE_SYSTEM_INSTRUCTION,
   });
 
@@ -140,14 +158,10 @@ function fitEvidence(
   maximumCharacters: number,
 ) {
   const selected: RetrievedEvidence[] = [];
-  let used = question.length + 300;
   for (const item of evidence) {
-    const metadataSize = JSON.stringify({ ...item, content: "" }).length;
-    const remaining = maximumCharacters - used - metadataSize;
-    if (remaining < 240) break;
-    const content = item.content.slice(0, remaining);
-    selected.push({ ...item, content });
-    used += metadataSize + content.length;
+    // Keep whole passages: cutting a table row or exception can reverse its meaning.
+    const size = JSON.stringify({ question, evidence: [...selected, item] }).length + 300;
+    if (size <= maximumCharacters) selected.push(item);
   }
   return selected;
 }

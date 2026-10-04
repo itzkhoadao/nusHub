@@ -1,6 +1,5 @@
 import path from "node:path";
 import { env } from "../../config/env";
-import { pool } from "../../db";
 import { GeminiEmbeddingProvider } from "./GeminiEmbeddingProvider";
 import { KnowledgeIngestionService } from "./KnowledgeIngestionService";
 import { loadKnowledgeManifest } from "./manifest";
@@ -8,6 +7,8 @@ import { PostgresKnowledgeRepository } from "./PostgresKnowledgeRepository";
 import { SafeSourceFetcher } from "./SafeSourceFetcher";
 import { KNOWLEDGE_SOURCE_REGISTRY_VERSION } from "./sourceRegistry";
 import { createKnowledgeStagingPool } from "./stagingDatabase";
+import { assertSourceApproval, loadSourceApproval } from "./sourceApproval";
+import { getKnowledgeSource } from "./sourceRegistry";
 
 async function main() {
   const args = process.argv.slice(2);
@@ -21,7 +22,15 @@ async function main() {
   }
   const manifestPath = readManifestArgument(args);
   const manifest = await loadKnowledgeManifest(path.resolve(manifestPath));
-  const databasePool = staging ? createKnowledgeStagingPool() : pool;
+  const approvalIndex = args.indexOf("--approval");
+  const approvalPath = approvalIndex >= 0 ? args[approvalIndex + 1] : undefined;
+  if (!approvalPath || approvalPath.startsWith("--")) {
+    throw new Error("Ingestion requires --approval path/to/human-source-approval.json after preview review.");
+  }
+  const approval = await loadSourceApproval(path.resolve(approvalPath));
+  assertSourceApproval(approval, manifest, KNOWLEDGE_SOURCE_REGISTRY_VERSION,
+    getKnowledgeSource(manifest.sourceId).maxStalenessHours);
+  const databasePool = staging ? createKnowledgeStagingPool() : (await import("../../db")).pool;
   const controller = new AbortController();
   const cancel = () => controller.abort();
   process.once("SIGINT", cancel);
@@ -34,6 +43,7 @@ async function main() {
       requestTimeoutMs: env.AI_REQUEST_TIMEOUT_MS,
     });
     const service = new KnowledgeIngestionService({
+      approval,
       embeddingBatchSize: env.AI_KNOWLEDGE_EMBEDDING_BATCH_SIZE,
       embeddingProvider,
       fetcher: new SafeSourceFetcher({

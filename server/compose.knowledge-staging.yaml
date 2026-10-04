@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.2-pg18-bookworm@sha256:42e7f6b4e1eceb02ff14e3e6bc6108bbe259abbe83879dc1845d0da1ddeb555d
+    environment:
+      POSTGRES_DB: nushub_knowledge_staging
+      POSTGRES_USER: nushub_staging
+      POSTGRES_PASSWORD: ${STAGING_POSTGRES_PASSWORD:?Run the staging setup script first}
+    ports:
+      - "127.0.0.1:${STAGING_POSTGRES_PORT:-55432}:5432"
+    volumes:
+      - knowledge-staging-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nushub_staging -d nushub_knowledge_staging"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+volumes:
+  knowledge-staging-data:

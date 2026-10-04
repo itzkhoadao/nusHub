@@ -5,12 +5,17 @@ import type {
   AiConversationStore,
   AiConversationSummary,
   AiExchange,
+  AiEvidencePassage,
   AiStoredCitation,
   AiStoredMessage,
   CompleteAssistantInput,
 } from "./types";
 
 type MessageRow = Omit<AiStoredMessage, "citations">;
+
+export class AiIdempotencyConflictError extends Error {
+  constructor() { super("This idempotency key belongs to a different question"); this.name = "AiIdempotencyConflictError"; }
+}
 
 export class AiQuotaExceededError extends Error {
   constructor() {
@@ -51,6 +56,15 @@ export class PostgresAiConversationStore implements AiConversationStore {
     return result.rows;
   }
 
+  async renameConversation(conversationId: string, userId: string, title: string) {
+    const result = await this.databasePool.query<AiConversationSummary>(
+      `UPDATE ai_conversations SET title = $3, updated_at = NOW()
+       WHERE id = $1 AND user_id = $2 RETURNING id, title, created_at, updated_at`,
+      [conversationId, userId, title],
+    );
+    return result.rows[0] ?? null;
+  }
+
   async getConversation(conversationId: string, userId: string) {
     const conversation = await this.databasePool.query<AiConversationSummary>(
       `SELECT id, title, created_at, updated_at
@@ -69,9 +83,10 @@ export class PostgresAiConversationStore implements AiConversationStore {
        LEFT JOIN ai_feedback f
          ON f.message_id = m.id AND f.user_id = $2
        WHERE m.conversation_id = $1
-       ORDER BY m.created_at ASC, m.id ASC`,
+       ORDER BY m.created_at DESC, m.id DESC LIMIT 201`,
       [conversationId, userId],
     );
+    const visibleMessages = messages.rows.slice(0, 200).reverse();
     const citations = await this.databasePool.query<
       AiStoredCitation & { message_id: string }
     >(
@@ -82,12 +97,13 @@ export class PostgresAiConversationStore implements AiConversationStore {
        FROM ai_message_citations
        WHERE message_id = ANY($1::uuid[])
        ORDER BY message_id, position`,
-      [messages.rows.map((message) => message.id)],
+      [visibleMessages.map((message) => message.id)],
     );
 
     return {
       ...conversation.rows[0],
-      messages: attachCitations(messages.rows, citations.rows),
+      messages: attachCitations(visibleMessages, citations.rows),
+      has_earlier_messages: messages.rows.length > 200,
     } satisfies AiConversationDetail;
   }
 
@@ -127,6 +143,24 @@ export class PostgresAiConversationStore implements AiConversationStore {
     return result.rowCount === 1;
   }
 
+  async getMessageEvidence(messageId: string, userId: string) {
+    const result = await this.databasePool.query<AiEvidencePassage>(
+      `SELECT ('knowledge_chunk:' || k.id::text) AS "claimId", k.content,
+              k.source_version_id::text AS "documentVersionId", k.source_id AS "sourceId",
+              citation.title, citation.url
+       FROM ai_messages m JOIN ai_conversations c ON c.id = m.conversation_id
+       JOIN ai_message_citations citation ON citation.message_id = m.id
+       JOIN ai_chunks k ON k.source_version_id = citation.knowledge_source_version_id
+         AND k.source_id = citation.source_id
+         AND citation.claim_ids ? ('knowledge_chunk:' || k.id::text)
+       WHERE m.id = $1 AND c.user_id = $2 AND m.role = 'assistant'
+         AND m.delivery_status = 'completed'
+       ORDER BY citation.position, k.chunk_index LIMIT 20`,
+      [messageId, userId],
+    );
+    return result.rows;
+  }
+
   async beginExchange(input: {
     content: string;
     conversationId: string;
@@ -143,8 +177,9 @@ export class PostgresAiConversationStore implements AiConversationStore {
       const existing = await client.query<{
         assistant_message_id: string;
         user_message_id: string;
+        content: string;
       }>(
-        `SELECT u.id AS user_message_id, a.id AS assistant_message_id
+        `SELECT u.id AS user_message_id, a.id AS assistant_message_id, u.content
          FROM ai_messages u
          JOIN ai_messages a ON a.reply_to_message_id = u.id
          WHERE u.conversation_id = $1
@@ -153,6 +188,7 @@ export class PostgresAiConversationStore implements AiConversationStore {
         [input.conversationId, input.idempotencyKey],
       );
       if (existing.rows[0]) {
+        if (existing.rows[0].content !== input.content) throw new AiIdempotencyConflictError();
         await client.query("COMMIT");
         return {
           assistantMessageId: existing.rows[0].assistant_message_id,
@@ -248,9 +284,9 @@ export class PostgresAiConversationStore implements AiConversationStore {
              effective_at, retrieved_at, claim_ids, position,
              knowledge_source_version_id
            ) VALUES (
-             $1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9,
+             $1, $2::varchar(100), $3::text, $4, $5, $6, $7, $8::jsonb, $9,
              (SELECT id FROM ai_source_versions
-              WHERE id::text = $3 AND source_id = $2)
+              WHERE id::text = $3::text AND source_id = $2::varchar(100))
            )`,
           [
             input.assistantMessageId,
@@ -308,7 +344,7 @@ export class PostgresAiConversationStore implements AiConversationStore {
        SELECT m.id, $2, $3
        FROM ai_messages m
        JOIN ai_conversations c ON c.id = m.conversation_id
-       WHERE m.id = $1 AND m.role = 'assistant' AND c.user_id = $2
+       WHERE m.id = $1 AND m.role = 'assistant' AND c.user_id = $2 AND m.delivery_status = 'completed'
        ON CONFLICT (message_id, user_id) DO UPDATE
        SET rating = EXCLUDED.rating, updated_at = NOW()
        RETURNING message_id`,
