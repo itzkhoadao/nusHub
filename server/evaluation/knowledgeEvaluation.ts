@@ -23,6 +23,7 @@ const caseSchema = z.object({
   retrieval: retrievalExpectationSchema.optional(),
   risk: z.enum(["low", "medium", "high", "critical"]),
   requiresContactAccuracy: z.boolean().default(false),
+  requiredAnswerTerms: z.array(z.string().min(1)).optional(),
   sourceEvidence: z.string().min(1),
 }).strict();
 
@@ -133,9 +134,14 @@ export async function runKnowledgeEvaluation(
           testCase.retrieval.expectedSourceIds.includes(citation.sourceId),
         )
       : answer.citations.length === 0;
+    const answerTermsPass = !!answer && (testCase.requiredAnswerTerms ?? []).every((term) =>
+      normalizedFactText(answer!.answer).includes(normalizedFactText(term)));
+    const userFacingPass = !!answer &&
+      !/\bknowledge_chunk:\d+\b|\b(?:you should|please) recommend\b/i.test(answer.answer);
     cases.push({
       answer,
-      automaticPass: !errorCode && statusPass && citationPass && retrieval.pass && externalCallsPass,
+      answerTermsPass,
+      automaticPass: !errorCode && statusPass && citationPass && retrieval.pass && externalCallsPass && answerTermsPass && userFacingPass,
       caseId: testCase.id,
       citationPass,
       expectedStatus: testCase.expectedStatus,
@@ -153,6 +159,7 @@ export async function runKnowledgeEvaluation(
       requiresContactAccuracy: testCase.requiresContactAccuracy,
       sourceEvidence: testCase.sourceEvidence,
       statusPass,
+      userFacingPass,
     });
   }
   const positives = cases.map((entry) => entry.retrieval)
@@ -175,6 +182,22 @@ export async function runKnowledgeEvaluation(
       recallAt5: average(positives.map((entry) => entry.recall)),
     },
   };
+}
+
+function normalizedFactText(value: string) {
+  return value.toLowerCase()
+    .replace(/\b(january|jan)\b/g, "jan")
+    .replace(/\b(february|feb)\b/g, "feb")
+    .replace(/\b(march|mar)\b/g, "mar")
+    .replace(/\b(april|apr)\b/g, "apr")
+    .replace(/\b(june|jun)\b/g, "jun")
+    .replace(/\b(july|jul)\b/g, "jul")
+    .replace(/\b(august|aug)\b/g, "aug")
+    .replace(/\b(september|sept|sep)\b/g, "sep")
+    .replace(/\b(october|oct)\b/g, "oct")
+    .replace(/\b(november|nov)\b/g, "nov")
+    .replace(/\b(december|dec)\b/g, "dec")
+    .replace(/[.,]/g, " ").replace(/\s+/g, " ").trim();
 }
 
 function safeErrorCode(error: unknown) {

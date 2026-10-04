@@ -87,14 +87,15 @@ npm run ai:staging:verify -- --manifest ai/knowledge/manifests/transport.json --
 
 ## 3. Retrieval and answer evaluation
 
-`evaluation/knowledge-cases.v1.json` now contains the `knowledge-v3-draft` dataset with seventeen cases, including four positive regular-semester questions, missing-year/semester clarification, mini-semester extraction limits and injection refusal. Its `reviewStatus` remains `pending_human_review`; the filename stays stable for existing tooling. K007 explicitly identifies regular Semester 1 so wrong-year isolation is not mixed with semester ambiguity.
+`evaluation/knowledge-cases.v1.json` contains the `knowledge-v4-draft` dataset with 22 cases, including regular-semester questions, missing-year/semester clarification, mini-semester extraction limits, term-time access, unsupported live and image-only claims, urgent safety and injection refusal. Its `reviewStatus` remains `pending_human_review`; the filename stays stable for existing tooling. K007 explicitly identifies regular Semester 1 so wrong-year isolation is not mixed with semester ambiguity.
 
 ```powershell
 npm run eval:knowledge
 npm run eval:knowledge -- --run --out evaluation-results/knowledge-live.json
+npm run eval:knowledge -- --run --generation-model gemini-3.5-flash-lite --out evaluation-results/knowledge-flash-lite.json
 ```
 
-The first command only validates the case file. The second requires `STAGING_DATABASE_URL`, a Gemini key, migration `012`, and all expected documents published in staging. It measures exact-document hit@5 and recall@5, answer-relevant chunk hit@5, MRR@5, wrong-year/no-result behavior, status, and citation identity. The report includes retrieved chunks, answers, and case-specific human rubrics. Keep reports in the ignored `evaluation-results/` directory.
+The first command only validates the case file. A live run requires `STAGING_DATABASE_URL`, a Gemini key, migration `012`, and all expected documents published and within their registry freshness windows in staging. The optional `--generation-model` overrides generation only for that run and is recorded in its manifest. It measures exact-document hit@5 and recall@5, answer-relevant chunk hit@5, MRR@5, wrong-year/no-result behavior, status, selected exact answer terms, and citation identity. The report includes retrieved chunks, answers, and case-specific human rubrics. Keep reports in the ignored `evaluation-results/` directory.
 
 Automatic citation checks prove that a citation points to a retrieved document; they **cannot prove that the cited passage entails every claim**. A human reviewer must inspect every answer against its source. High/critical cases need a second reviewer. Never treat `automaticPassCount` as release approval. Update the draft case set after review, and only then decide whether the product targets in `docs/AI_EVALUATION_GUIDE.md` are met.
 
@@ -111,6 +112,7 @@ Test stale filtering, wrong-year isolation and declared conflicts through the re
 ```powershell
 npm run ai:staging:scenarios -- --out evaluation-results/staging-sql-scenarios.json
 npm run eval:chat:staging -- --out evaluation-results/staging-chat-api.json
+npm run eval:chat:staging -- --generation-model gemini-3.5-flash-lite --out evaluation-results/staging-chat-api-flash-lite.json
 ```
 
 The SQL scenarios use stored-vector fixtures and synthetic conflict metadata inside a rolled-back transaction. They do not measure live Gemini quality or publish synthetic knowledge. The chatbot API check uses a temporary staging account, actual HTTP/JWT/SQL, and one live Gemini answer; it verifies clarification follow-up, replay, quota, ownership, citations, passage lookup, feedback, rename and deletion, then removes its account. Use a new output filename for each run.
@@ -132,6 +134,8 @@ The validator rejects incomplete judgments, wrong report hashes, duplicate revie
 See [PHASE5_REVALIDATION_2026-10-04.md](PHASE5_REVALIDATION_2026-10-04.md) for the recovered staging identity, both expanded live runs (9/11 then 11/11), source/citation inspection, private review packets, and remaining gate requirements. Both failed attempts are retained. The two runs had six successful factual generations and two timeouts, so the later pass is not a reliability guarantee.
 
 See [PHASE5_FULL_CORPUS_2026-10-04.md](PHASE5_FULL_CORPUS_2026-10-04.md) for the browser-capture staging publication, complete seventeen-case evaluation, timeout diagnostic, exact citation triage and open release gates. The complete suite now runs against all six published sources, but retrieval success and automatic scores do not waive human review or provider reliability failures.
+
+See [PHASE5_PROVIDER_RECOVERY_2026-10-04.md](PHASE5_PROVIDER_RECOVERY_2026-10-04.md) for the HTTP 429 diagnosis, `gemini-3.5-flash-lite` candidate, expanded 22-case full run, authenticated API acceptance, and remaining Phase 5 gates. Earlier failures are retained. The staging launcher accepts `STAGING_AI_GENERATION_MODEL` and defaults to the evaluated Flash-Lite candidate; deployment configuration remains separately controlled.
 
 ## Source provenance
 

@@ -61,7 +61,7 @@ test("uses a stateless structured interaction and records content-free metrics",
   assert.equal(capturedRequest.response_format.mime_type, "application/json");
   assert.equal(capturedRequest.generation_config.max_output_tokens, 800);
   assert.equal(capturedRequest.generation_config.thinking_level, "low");
-  assert.equal(capturedOptions.maxRetries, 1);
+  assert.equal(capturedOptions.maxRetries, 0);
   assert.equal(capturedOptions.timeout, 20_000);
   assert.ok(capturedOptions.signal instanceof AbortSignal);
   assert.equal("previous_interaction_id" in capturedRequest, false);
@@ -70,7 +70,28 @@ test("uses a stateless structured interaction and records content-free metrics",
   assert.deepEqual(result.tokenUsage, { input: 12, output: 8 });
   assert.equal(telemetry.length, 1);
   assert.equal(telemetry[0].outcome, "success");
+  assert.equal(typeof telemetry[0].transportMs, "number");
+  assert.equal(typeof telemetry[0].validationMs, "number");
   assert.doesNotMatch(JSON.stringify(telemetry[0]), /Connectivity|System instruction|connection is working/);
+});
+
+test("surfaces provider HTTP 429 promptly without leaking the provider message", async () => {
+  const telemetry: AiTelemetryEvent[] = [];
+  const provider = new GeminiAiProvider({
+    apiKey: "test-only-key", maxInputChars: 2_000, maxOutputTokens: 800,
+    model: "stable-test-model", requestTimeoutMs: 20_000,
+    recordTelemetry: event => telemetry.push(event),
+    createInteraction: async () => { throw Object.assign(new Error("quota detail secret-value"), { status: 429 }); },
+  });
+  await assert.rejects(provider.generateAnswer({ requestId, input: "Probe", systemInstruction: "Instructions" }), error => {
+    assert.ok(error instanceof Error && "code" in error);
+    assert.equal(error.code, "AI_PROVIDER_RATE_LIMITED");
+    assert.doesNotMatch(error.message, /secret-value/);
+    return true;
+  });
+  assert.equal(telemetry[0].providerStatus, 429);
+  assert.equal(telemetry[0].errorCode, "AI_PROVIDER_RATE_LIMITED");
+  assert.doesNotMatch(JSON.stringify(telemetry[0]), /secret-value/);
 });
 
 test("rejects provider JSON that does not match the answer contract", async () => {

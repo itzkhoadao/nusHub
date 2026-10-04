@@ -143,6 +143,31 @@ test("handles an urgent physical-safety query without waiting for generation", a
   assert.equal(setup.providerCalls(), 0);
 });
 
+test("calendar answers cite the adjacent semester heading when the date row spans chunks", async () => {
+  const base = { ...evidence, sourceId: "nus_registrar_calendar",
+    url: "https://nus.edu.sg/registrar/docs/default-source/calendar/ay2026-2027.pdf",
+    metadata: { academic_year: "AY2026/27" } };
+  const heading = { ...base, chunkId: "1", content: "ACADEMIC CALENDAR AY2026/2027. SEMESTER 1. Regular Semester." };
+  const row = { ...base, chunkId: "2", content: "Reading Reading Sat, 14 Nov 2026 ~ Fri, 20 Nov 2026. SEMESTER 2." };
+  const citation = {
+    claimIds: ["knowledge_chunk:2"], documentVersionId: row.documentVersionId,
+    effectiveAt: row.effectiveAt, retrievedAt: row.fetchedAt, sourceId: row.sourceId,
+    title: row.title, url: row.url,
+  };
+  const provider: AiProvider = { generateAnswer: async () => ({
+    answer: { answer: "Semester 1 reading week is 14–20 November 2026.",
+      citations: [citation], status: "answered", warnings: [] },
+    model: "test", tokenUsage: { input: 1, output: 1 },
+  }) };
+  const result = await answerKnowledgeQuestion({ requestId: "22222222-2222-4222-8222-222222222222",
+    text: "When is regular Semester 1 reading week in AY2026/27?" }, {
+    provider, maxContextChars: 4_000, retriever: { search: async () => [row, heading] },
+  });
+  assert.equal(result.groundedAnswer.status, "answered");
+  assert.deepEqual(result.groundedAnswer.citations.flatMap(item => item.claimIds),
+    ["knowledge_chunk:2", "knowledge_chunk:1"]);
+});
+
 test("fails closed when current official evidence contains a declared conflict", async () => {
   const setup = dependencies([
     { ...evidence, metadata: { conflict_key: "opening_time", fact_value: "08:00" } },

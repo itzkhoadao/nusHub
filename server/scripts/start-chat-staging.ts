@@ -17,6 +17,7 @@ async function main() {
   process.env.PORT = process.env.STAGING_API_PORT || "5001";
   process.env.CLIENT_URL = process.env.STAGING_CLIENT_URL || "http://127.0.0.1:5178";
   process.env.AI_ENABLED = "true";
+  process.env.AI_GENERATION_MODEL = process.env.STAGING_AI_GENERATION_MODEL || "gemini-3.5-flash-lite";
   process.env.JWT_SECRET = process.env.STAGING_JWT_SECRET || randomBytes(32).toString("hex");
   process.env.JWT_ISSUER = "nushub-staging-api";
   process.env.JWT_AUDIENCE = "nushub-staging-web";
@@ -31,6 +32,7 @@ async function main() {
   const sockets = configureSocketServer(server);
   server.listen(env.PORT, "127.0.0.1", () => console.log("Isolated chatbot staging API ready", {
     url: `http://127.0.0.1:${env.PORT}`, database: "separate staging", accounts: "staging only", aiEnabled: true,
+    generationModel: env.AI_GENERATION_MODEL,
   }));
   let stopping = false;
   const stop = () => {

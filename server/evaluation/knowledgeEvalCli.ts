@@ -11,7 +11,7 @@ import { createKnowledgeStagingPool } from "../ai/knowledge/stagingDatabase";
 import { GeminiAiProvider } from "../ai/providers/GeminiAiProvider";
 import { knowledgeEvaluationDatasetSchema, runKnowledgeEvaluation } from "./knowledgeEvaluation";
 import { sha256 } from "../ai/knowledge/chunkDocument";
-import { KNOWLEDGE_SOURCE_REGISTRY_VERSION } from "../ai/knowledge/sourceRegistry";
+import { getKnowledgeSource, KNOWLEDGE_SOURCE_REGISTRY_VERSION } from "../ai/knowledge/sourceRegistry";
 
 async function main() {
   const args = process.argv.slice(2);
@@ -35,6 +35,10 @@ async function main() {
   }
   const outputPath = argument(args, "--out");
   if (!outputPath) throw new Error("--run requires --out path/to/report.json");
+  const candidateModel = argument(args, "--generation-model");
+  if (candidateModel && !/^[a-z0-9][a-z0-9.-]{2,79}$/.test(candidateModel)) {
+    throw new Error("--generation-model must be a model identifier");
+  }
   const pool = createKnowledgeStagingPool();
   try {
     const { env } = await import("../config/env");
@@ -53,11 +57,12 @@ async function main() {
         resultLimit: 5,
       },
     );
+    const generationModel = candidateModel ?? env.AI_GENERATION_MODEL;
     const provider = new GeminiAiProvider({
       apiKey: env.GEMINI_API_KEY,
       maxInputChars: env.AI_MAX_CONTEXT_CHARS,
       maxOutputTokens: env.AI_MAX_OUTPUT_TOKENS,
-      model: env.AI_GENERATION_MODEL,
+      model: generationModel,
       requestTimeoutMs: env.AI_REQUEST_TIMEOUT_MS,
       thinkingLevel: env.AI_THINKING_LEVEL,
     });
@@ -95,7 +100,7 @@ async function main() {
         caseIds: selectedDataset.cases.map((item) => item.id),
         excludedCaseIds: dataset.cases.filter((item) => !selectedDataset.cases.includes(item)).map((item) => item.id),
         scope: selection ? "development_subset" : "full_dataset",
-        generationModel: env.AI_GENERATION_MODEL,
+        generationModel,
         maxOutputTokens: env.AI_MAX_OUTPUT_TOKENS,
         thinkingLevel: env.AI_THINKING_LEVEL,
         embeddingModel: env.AI_EMBEDDING_MODEL,
@@ -131,8 +136,8 @@ async function assertCorpusReady(pool: ReturnType<typeof createKnowledgeStagingP
     "SELECT version FROM schema_migrations WHERE version = 12",
   );
   if (migrated.rowCount !== 1) throw new Error("Knowledge migration 012 is missing on staging");
-  const found = await pool.query<{ canonical_url: string }>(
-    `SELECT d.canonical_url FROM ai_documents d
+  const found = await pool.query<{ canonical_url: string; source_id: string; verified_at: Date }>(
+    `SELECT d.canonical_url, sv.source_id, sv.verified_at FROM ai_documents d
      JOIN ai_source_versions sv ON sv.id = d.source_version_id
      WHERE sv.status = 'published' AND d.canonical_url = ANY($1::text[])`,
     [expected],
@@ -141,6 +146,11 @@ async function assertCorpusReady(pool: ReturnType<typeof createKnowledgeStagingP
   const missing = expected.filter((url) => !present.has(url));
   if (missing.length) {
     throw new Error(`Staging corpus is missing ${missing.length} expected documents: ${missing.join(", ")}`);
+  }
+  const stale = found.rows.filter((row) =>
+    Date.now() - new Date(row.verified_at).getTime() > getKnowledgeSource(row.source_id).maxStalenessHours * 3_600_000);
+  if (stale.length) {
+    throw new Error(`Staging corpus has ${stale.length} expired source snapshots. Capture, preview, approve and ingest fresh versions before evaluation.`);
   }
 }
 

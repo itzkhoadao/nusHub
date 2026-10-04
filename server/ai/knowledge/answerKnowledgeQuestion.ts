@@ -164,11 +164,12 @@ export async function answerKnowledgeQuestion(
       providerResult.answer,
       boundedEvidence,
     );
+    const contextualAnswer = addCalendarSectionCitation(answer, boundedEvidence, input.text);
     return wrap(
       {
-        ...answer,
+        ...contextualAnswer,
         warnings: [
-          ...answer.warnings,
+          ...contextualAnswer.warnings,
           ...(route.highStakes
             ? ["This information is not professional advice. Verify consequential details directly with the responsible NUS office."]
             : []),
@@ -186,6 +187,26 @@ export async function answerKnowledgeQuestion(
       warnings: ["citation_validation_failed"],
     });
   }
+}
+
+function addCalendarSectionCitation(
+  answer: GroundedAnswer,
+  evidence: RetrievedEvidence[],
+  question: string,
+): GroundedAnswer {
+  if (answer.status !== "answered" || !/\bsemester\s*1\b/i.test(question)) return answer;
+  const cited = new Set(answer.citations.flatMap((citation) => citation.claimIds));
+  const citedCalendar = evidence.filter((item) => item.sourceId === "nus_registrar_calendar" &&
+    cited.has(`knowledge_chunk:${item.chunkId}`));
+  if (citedCalendar.length === 0 || citedCalendar.some((item) => /\bSEMESTER 1\b/i.test(item.content))) return answer;
+  const preceding = evidence.find((item) => item.sourceId === "nus_registrar_calendar" &&
+    citedCalendar.some((row) => row.documentVersionId === item.documentVersionId &&
+      Number(row.chunkId) - Number(item.chunkId) === 1) &&
+    /\bSEMESTER 1\b/i.test(item.content));
+  if (!preceding) {
+    return notVerified("I found a calendar date, but cannot verify its Semester 1 context from the cited passages. Please check the Registrar PDF directly.");
+  }
+  return { ...answer, citations: [...answer.citations, evidenceCitation(preceding)] };
 }
 
 function fitEvidence(

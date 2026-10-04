@@ -108,6 +108,10 @@ function classifyProviderError(error: unknown) {
   }
 
   const message = error instanceof Error ? error.message : "Unknown provider failure";
+  const status = providerStatus(error);
+  if (status === 429) {
+    return new AiProviderError("AI_PROVIDER_RATE_LIMITED", "The AI provider rate limit was reached.", { cause: error });
+  }
   const timedOut = /abort|timeout|timed out/i.test(message);
 
   return new AiProviderError(
@@ -115,6 +119,13 @@ function classifyProviderError(error: unknown) {
     timedOut ? "The AI provider request timed out." : "The AI provider request failed.",
     { cause: error },
   );
+}
+
+function providerStatus(error: unknown): number | undefined {
+  if (!error || typeof error !== "object") return undefined;
+  const status = "status" in error ? error.status : "statusCode" in error ? error.statusCode : undefined;
+  return typeof status === "number" && Number.isInteger(status) && status >= 400 && status <= 599
+    ? status : undefined;
 }
 
 export class GeminiAiProvider implements AiProvider {
@@ -146,6 +157,7 @@ export class GeminiAiProvider implements AiProvider {
   async generateAnswer(request: AiProviderRequest): Promise<AiProviderResult> {
     const startedAt = Date.now();
     let errorCode: AiProviderError["code"] | undefined;
+    let transportMs: number | undefined;
     const deadline = new AbortController();
     const timer = setTimeout(() => deadline.abort(new DOMException("The provider request timed out", "TimeoutError")), this.requestTimeoutMs);
     const signal = request.signal ? AbortSignal.any([request.signal, deadline.signal]) : deadline.signal;
@@ -178,8 +190,9 @@ export class GeminiAiProvider implements AiProvider {
           store: false,
           system_instruction: input.systemInstruction,
         },
-        { maxRetries: 1, timeout: this.requestTimeoutMs, signal },
+        { maxRetries: 0, timeout: this.requestTimeoutMs, signal },
       ), signal);
+      transportMs = Date.now() - startedAt;
       request.signal?.throwIfAborted();
 
       let parsedOutput: unknown;
@@ -209,6 +222,8 @@ export class GeminiAiProvider implements AiProvider {
         operation: "generate_answer",
         outcome: "success",
         outputTokens: interaction.usage?.total_output_tokens,
+        transportMs,
+        validationMs: Date.now() - startedAt - transportMs,
         provider: "gemini",
         requestId: input.requestId,
       });
@@ -227,6 +242,8 @@ export class GeminiAiProvider implements AiProvider {
       this.recordTelemetry({
         durationMs: Date.now() - startedAt,
         errorCode,
+        providerStatus: providerStatus(error),
+        transportMs: Date.now() - startedAt,
         model: this.model,
         operation: "generate_answer",
         outcome: "error",

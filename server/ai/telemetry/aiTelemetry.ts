@@ -8,6 +8,9 @@ export type AiTelemetryEvent = {
   operation: "generate_answer";
   outcome: "success" | "error";
   outputTokens?: number;
+  providerStatus?: number;
+  transportMs?: number;
+  validationMs?: number;
   provider: "gemini";
   requestId: string;
 };
