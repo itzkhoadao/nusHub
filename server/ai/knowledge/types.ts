@@ -168,6 +168,7 @@ export interface KnowledgeIngestionRepository {
   }): Promise<IngestionResult>;
   reuseVersion(input: {
     contentHash: string;
+    verifiedAt: string;
     runId: string;
     sourceId: string;
     versionId: string;

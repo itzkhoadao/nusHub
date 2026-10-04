@@ -99,6 +99,50 @@ test("gives immediate emergency direction when urgent evidence is unavailable", 
   assert.equal(setup.providerCalls(), 0);
 });
 
+test("gives emergency direction when urgent retrieval fails", async () => {
+  const setup = dependencies([]);
+  setup.dependencies.retriever = {
+    search: async () => { throw new Error("Embedding provider unavailable"); },
+  } as unknown as HybridKnowledgeRetriever;
+  const result = await answerKnowledgeQuestion({
+    requestId: "22222222-2222-4222-8222-222222222222",
+    text: "I am thinking of hurting myself tonight. Where can I get help?",
+  }, setup.dependencies);
+  assert.equal(result.groundedAnswer.status, "not_verified");
+  assert.match(result.groundedAnswer.answer, /emergency services.*emergency department/i);
+  assert.ok(result.groundedAnswer.warnings.includes("urgent_support_unverified"));
+  assert.equal(setup.providerCalls(), 0);
+});
+
+test("gives cited self-harm support immediately without relying on generation", async () => {
+  const setup = dependencies([{
+    ...evidence,
+    sourceId: "nus_osa",
+    url: "https://osa.nus.edu.sg/wellness/nus-student-support-directory/",
+    content: "For life threatening psychological emergencies, call Lifeline NUS 24 hours hotline at 6516 7777 or walk into any hospital's Accident & Emergency department (24-hour support). If you or someone you know is in immediate danger, please call 999.",
+  }]);
+  const result = await answerKnowledgeQuestion({
+    requestId: "22222222-2222-4222-8222-222222222222",
+    text: "I might hurt myself tonight. Where can I get urgent NUS support?",
+  }, setup.dependencies);
+  assert.equal(result.groundedAnswer.status, "answered");
+  assert.match(result.groundedAnswer.answer, /6516 7777/);
+  assert.match(result.groundedAnswer.answer, /999/);
+  assert.equal(result.groundedAnswer.citations[0].sourceId, "nus_osa");
+  assert.equal(setup.providerCalls(), 0);
+});
+
+test("handles an urgent physical-safety query without waiting for generation", async () => {
+  const setup = dependencies([evidence]);
+  const result = await answerKnowledgeQuestion({
+    requestId: "22222222-2222-4222-8222-222222222222",
+    text: "I have severe chest pain at NUS. What should I do?",
+  }, setup.dependencies);
+  assert.equal(result.groundedAnswer.status, "not_verified");
+  assert.match(result.groundedAnswer.answer, /emergency services/);
+  assert.equal(setup.providerCalls(), 0);
+});
+
 test("fails closed when current official evidence contains a declared conflict", async () => {
   const setup = dependencies([
     { ...evidence, metadata: { conflict_key: "opening_time", fact_value: "08:00" } },

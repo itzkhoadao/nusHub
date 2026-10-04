@@ -1,6 +1,8 @@
 import "dotenv/config";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { answerKnowledgeQuestion } from "../ai/knowledge/answerKnowledgeQuestion";
 import { GeminiEmbeddingProvider } from "../ai/knowledge/GeminiEmbeddingProvider";
 import { HybridKnowledgeRetriever, KNOWLEDGE_RETRIEVAL_POLICY_VERSION } from "../ai/knowledge/HybridKnowledgeRetriever";
@@ -59,17 +61,36 @@ async function main() {
       requestTimeoutMs: env.AI_REQUEST_TIMEOUT_MS,
       thinkingLevel: env.AI_THINKING_LEVEL,
     });
+    const executionCounts = { answerRetrievalCalls: 0, generationCalls: 0 };
+    const startedAt = new Date().toISOString();
+    const sourceSnapshot = (await pool.query(
+      `SELECT source_id, id AS version_id, content_hash, verified_at FROM ai_source_versions
+       WHERE status = 'published' ORDER BY source_id, id`,
+    )).rows;
+    const codeRevision = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+    const workingTreeDirty = execFileSync("git", ["status", "--porcelain"], { encoding: "utf8" }).trim().length > 0;
     const results = await runKnowledgeEvaluation(selectedDataset, {
       answer: (text, requestId) => answerKnowledgeQuestion(
         { requestId, text },
-        { maxContextChars: env.AI_KNOWLEDGE_MAX_CONTEXT_CHARS, provider, retriever },
+        { maxContextChars: env.AI_KNOWLEDGE_MAX_CONTEXT_CHARS,
+          provider: { generateAnswer: request => {
+            executionCounts.generationCalls++;
+            return provider.generateAnswer(request);
+          } },
+          retriever: { search: (query, signal) => {
+            executionCounts.answerRetrievalCalls++;
+            return retriever.search(query, signal);
+          } },
+        },
       ),
       search: (query) => retriever.search(query),
+      executionCounts: () => ({ ...executionCounts }),
     });
     const report = {
       ...results,
       datasetSnapshot: dataset,
       runManifest: {
+        runId: randomUUID(), startedAt, codeRevision, workingTreeDirty, sourceSnapshot,
         datasetHash: sha256(datasetText),
         caseIds: selectedDataset.cases.map((item) => item.id),
         excludedCaseIds: dataset.cases.filter((item) => !selectedDataset.cases.includes(item)).map((item) => item.id),
@@ -81,6 +102,10 @@ async function main() {
         embeddingDimensions: env.AI_EMBEDDING_DIMENSIONS,
         sourceRegistryVersion: KNOWLEDGE_SOURCE_REGISTRY_VERSION,
         retrievalPolicyVersion: KNOWLEDGE_RETRIEVAL_POLICY_VERSION,
+        requestTimeoutMs: env.AI_REQUEST_TIMEOUT_MS,
+        maxContextChars: env.AI_KNOWLEDGE_MAX_CONTEXT_CHARS,
+        candidateLimit: env.AI_KNOWLEDGE_CANDIDATE_LIMIT,
+        maxSemanticDistance: env.AI_KNOWLEDGE_MAX_SEMANTIC_DISTANCE,
         environment: "staging",
       },
     };

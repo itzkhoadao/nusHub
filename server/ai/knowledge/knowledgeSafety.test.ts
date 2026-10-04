@@ -34,6 +34,15 @@ test("injection refusal precedes both retrieval and generation", async () => {
   });
   assert.equal(result.groundedAnswer.status, "refused");
 });
+test("semester clarification happens before retrieval even when the corpus is unavailable", async () => {
+  const result = await answerKnowledgeQuestion({ text: "When is reading week in AY2026/27?", requestId: randomUUID() }, {
+    retriever: { search: async () => { throw new Error("Must not retrieve for clarification"); } },
+    maxContextChars: 4000,
+    provider: { generateAnswer: async () => { throw new Error("Must not generate for clarification"); } },
+  });
+  assert.equal(result.groundedAnswer.status, "needs_clarification");
+  assert.match(result.groundedAnswer.followUpQuestion ?? "", /Semester 1 or Semester 2/);
+});
 test("numeric disagreements survive deduplication and document diversification", async () => {
   const results = await retriever([evidence, { ...evidence, chunkId: "2", content: "The library opens at 9:00 on 12 October." }])
     .search({ text: "Library hours" });

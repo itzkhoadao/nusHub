@@ -1,6 +1,6 @@
 # Phase 5 staging evidence — updated 4 October 2026
 
-**Status: Registrar staging pilot verified; full Phase 5 gate remains open. Phase 6 has not begun.**
+**Status: all six official documents are published in isolated staging; full Phase 5 gate remains open. Phase 6 has not begun.** The final 17-case draft run scored 8/17 because all nine generation-dependent cases timed out; see [the full-corpus checkpoint](PHASE5_FULL_CORPUS_2026-10-04.md) for the runs and failures.
 
 ## Verified on the real staging database
 
@@ -30,15 +30,15 @@ Generation used Gemini `gemini-3.6-flash`, explicit low thinking and a 2,048-tok
 
 Earlier attempts are retained: one upstream 503/provider-unavailable failure and one invalid structured-output failure with the previous 800-token budget. Gemini's combined thinking/output token limit makes that cap a truncation risk. Invalid output continues to fail closed. Two subsequent runs with the revised budget passed; provider reliability still needs broader evaluation.
 
-## Sources that remain excluded
+## Sources excluded before the 4 October browser capture
 
-Transport, Libraries, OSA, UHC and IT Care each returned access-control screens. All five remain **unapproved and un-ingested**. The full evaluation preflight rejected their missing documents. No browser-rendered text was copied into the corpus.
+Transport, Libraries, OSA, UHC and IT Care each returned access-control screens to the earlier direct fetcher. At that checkpoint, all five were unapproved and un-ingested, and the full evaluation preflight rejected their missing documents. On 4 October they were captured from the user's open Chrome tabs, selectively previewed, approved through user-delegated inspection and published to staging through the explicit staging-only channel described in the latest checkpoint.
 
-Source-owner-authorized machine access or an approved official delivery channel is required. Any new delivery mechanism must preserve allowlisting, provenance, freshness, preview approval and content-hash verification.
+The manual browser channel preserves allowlisting, provenance, freshness, preview approval and content-hash verification for staging. It requires a new capture within each 24-hour freshness window and cannot serve as the production refresh mechanism.
 
 ## Human review and remaining release evidence
 
-- All fourteen cases in `knowledge-v2-draft` remain `pending_human_review`. The blocked sources prevent local factual verification of K002–K006 and K010.
+- All seventeen cases in `knowledge-v3-draft` remain `pending_human_review`. The five formerly blocked HTML sources were captured and checked by the agent, but their ground truth and resulting answers still need independent human review. The v3 changes and earlier agent-assisted PDF inspection are recorded in [the revalidation checkpoint](PHASE5_REVALIDATION_2026-10-04.md); the expanded source and answer triage is in [the full-corpus checkpoint](PHASE5_FULL_CORPUS_2026-10-04.md).
 - The final answer-review template and evidence packet are `server/evaluation-results/knowledge-registrar-review.json` and its adjacent `.json.md` file. Judgments are intentionally unfinished.
 - Dataset approval and answer review are separate. High/critical cases require two distinct human reviewers. User-delegated agent inspection is labelled as such and is not substituted for independent review.
 - Claim-level citation entailment, full factual/contact accuracy, and the complete approved safety/injection suite are not established by the development subset.
@@ -47,7 +47,7 @@ Source-owner-authorized machine access or an approved official delivery channel 
 
 ## Code verification
 
-`npm run check` passed: lint, **160 tests**, and TypeScript/build checks. Client lint, eight contract tests and build also pass.
+Latest `npm run check` passed: lint, **168 tests**, and TypeScript/build checks. Client lint, eight contract tests and build passed at the preceding implementation checkpoint; the client was not changed in this revalidation.
 
 ## Strengthening and chatbot acceptance (4 October)
 
@@ -65,8 +65,16 @@ Source-owner-authorized machine access or an approved official delivery channel 
 
 See [README.md](README.md) for reproducible commands. Private reports and approvals stay under ignored `evaluation-results/`; the credential-free implementation and runbook are repository files.
 
-## Runtime at the final handoff
+## Previous runtime interruption
 
 After the interruption, Docker's Linux engine was unavailable and staging port 55432 refused connections. A normal background Docker Desktop startup did not restore the engine during verification. The additional live retry could not run; no retry report was fabricated. Local API port 5001 and preview port 5178 are also currently stopped.
 
-The final provider deadline change passed the complete 160-test server check, but still requires a fresh live staging run once Docker is healthy. Preserve the existing volume and reports. Start the database, then use the isolated preview commands in the architecture checkpoint. No production database was used as a fallback.
+At that handoff, the provider deadline change had passed the complete 160-test server check but needed a fresh live staging run once Docker recovered. The revalidation below completes those runs with the existing volume and retained reports. No production database was used as a fallback.
+
+## Revalidation on 4 October
+
+Docker was recovered by preserving and recreating its two stale runtime socket directories together, without resetting or deleting database volumes. The same isolated PostgreSQL/pgvector snapshot is healthy on port 55432. The updated live subset ran twice: **9/11**, including two enforced provider timeouts, then **11/11** with identical configuration. Four positive calendar cases now cover reading weeks and examination periods in both regular semesters. The database's exact stored passages match all six citations from successful answers across both runs.
+
+Real SQL stale/year/conflict checks, failed-refresh preservation, and authenticated chatbot API checks passed again. Synthetic API accounts were removed. Missing-semester clarification now occurs before retrieval; selected refusal/clarification cases assert measured zero external calls. The full-suite preflight still rejects five missing official documents.
+
+The agent inspected both original PDF pages and reviewed the draft cases and successful answers. Its triage is labelled separately from independent human judgments, which remain unfinished. All source limitations, failures, report names and review steps are in [PHASE5_REVALIDATION_2026-10-04.md](PHASE5_REVALIDATION_2026-10-04.md). Phase 5 remains open; Phase 6 has not begun. The acceptance-test HTTP server was stopped after its check, and no UI preview was left running on 5001/5178.

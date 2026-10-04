@@ -5,6 +5,7 @@ import { KnowledgeIngestionService } from "./KnowledgeIngestionService";
 import { loadKnowledgeManifest } from "./manifest";
 import { PostgresKnowledgeRepository } from "./PostgresKnowledgeRepository";
 import { SafeSourceFetcher } from "./SafeSourceFetcher";
+import { BrowserCaptureFetcher } from "./BrowserCaptureFetcher";
 import { assertSourceApproval, loadSourceApproval } from "./sourceApproval";
 import { getKnowledgeSource, KNOWLEDGE_SOURCE_REGISTRY_VERSION } from "./sourceRegistry";
 import { createKnowledgeStagingPool } from "./stagingDatabase";
@@ -18,6 +19,7 @@ async function main() {
     return value;
   };
   const manifest = await loadKnowledgeManifest(path.resolve(argument("--manifest")));
+  const capturePath = args.includes("--capture") ? path.resolve(argument("--capture")) : null;
   const approval = await loadSourceApproval(path.resolve(argument("--approval")));
   assertSourceApproval(approval, manifest, KNOWLEDGE_SOURCE_REGISTRY_VERSION,
     getKnowledgeSource(manifest.sourceId).maxStalenessHours);
@@ -41,7 +43,9 @@ async function main() {
         embedDocuments: async () => { throw new Error("Failure injection unexpectedly reached embeddings"); },
         embedQuery: async () => { throw new Error("Failure injection unexpectedly reached embeddings"); },
       },
-      fetcher: new SafeSourceFetcher({ maxDocumentBytes: 10 * 1024 * 1024, timeoutMs: 15_000 }),
+      fetcher: capturePath
+        ? new BrowserCaptureFetcher(capturePath, 10 * 1024 * 1024)
+        : new SafeSourceFetcher({ maxDocumentBytes: 10 * 1024 * 1024, timeoutMs: 15_000 }),
       registryVersion: KNOWLEDGE_SOURCE_REGISTRY_VERSION, repository: new PostgresKnowledgeRepository(pool),
     });
     let failureCode: string | null = null;

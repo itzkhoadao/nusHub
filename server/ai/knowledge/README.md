@@ -62,11 +62,32 @@ This deliberately mismatches the in-memory approved content hash, fetches the re
 
 Generation uses explicit `AI_THINKING_LEVEL=low` with a default combined thinking/output budget of 2,048 tokens. The previous 800-token budget produced a failed live structured-answer run. Truncated/invalid JSON still fails closed; it is never repaired into a guessed answer. Reports record thinking level and token budget so changing them requires a new evaluation run. Provider outages remain visible failures, even when a later run passes.
 
-As of 2026-10-03, the registrar PDF preview succeeded locally (5,200 characters, four chunks). The five HTML source pages returned access-control interstitials to this machine's fetcher; their manifests are **candidates, not ingestion-approved**. Recheck from the staging runtime or arrange an authorized source delivery mechanism. Do not copy browser-rendered text into the database as a workaround.
+On 2026-10-03, the registrar PDF preview succeeded locally (5,200 characters, four chunks), while the five HTML pages returned access-control interstitials to the direct fetcher. On 2026-10-04, the user authorized capture of those exact public pages from their open Chrome tabs. The controlled browser-capture delivery channel below is an explicit staging-only exception; it is not a general local-file override or a production source channel.
+
+The ignored `evaluation-results/browser-capture-20261004/` directory contains the original browser snapshots, visible text, URL/timestamp/hash metadata, FAQ panels, map images, and an inert `review.html`. OSA's raw HTML export was truncated by the browser transport; its separately captured visible text includes the expanded support tables. The staging delivery channel checks the allowlisted source URL, age, original HTML hash, visible-text hash, and, for UHC, FAQ-panel hash. It converts only selected visible text into inert HTML before the normal parser, approval, embedding and immutable publication path. For UHC, only appointment-related panels are selected; for OSA, only support routing and official NUS counselling/emergency contacts are selected. Route-map images are saved for review but their unstated details are not embedded.
+
+After saving a fresh set of five browser page snapshots, finalize their hashes before inspection:
+
+```powershell
+npm run ai:capture:finalize -- --capture evaluation-results/browser-capture-20261004
+```
+
+The finalizer verifies the browser-recorded HTML hash, byte size and text length before adding the text/FAQ hashes and HTML-completeness field. It does not approve or publish any source. A truncated raw HTML export is flagged; check the saved visible text and selected preview carefully before approving it.
+
+From `server/`, preview and publish an individual capture with its matching manifest and approval:
+
+```powershell
+npm run ai:inspect -- --manifest ai/knowledge/manifests/transport.json --capture evaluation-results/browser-capture-20261004 --out evaluation-results/transport-browser-preview.json
+npm run ai:source:approve -- --approve --manifest ai/knowledge/manifests/transport.json --preview evaluation-results/transport-browser-preview.json --reviewer YOUR_NAME --notes "Exact reviewed facts and any delegated inspection" --out evaluation-results/transport-source-approval.json
+npm run ai:ingest -- --staging --manifest ai/knowledge/manifests/transport.json --capture evaluation-results/browser-capture-20261004 --approval evaluation-results/transport-source-approval.json
+npm run ai:staging:verify -- --manifest ai/knowledge/manifests/transport.json --capture evaluation-results/browser-capture-20261004 --approval evaluation-results/transport-source-approval.json --out evaluation-results/transport-refresh-check.json
+```
+
+`--capture` is rejected for production ingestion. Each snapshot expires at its registry freshness limit (24 hours for these HTML sources), so fresh captures require a new preview, approval and staging publish. A durable deployment needs an authorized, continuously refreshable official delivery channel. A one-time browser capture does not satisfy that requirement.
 
 ## 3. Retrieval and answer evaluation
 
-`evaluation/knowledge-cases.v1.json` now contains the `knowledge-v2-draft` dataset with fourteen cases, including missing-year/semester clarification, mini-semester extraction limits and injection refusal. Its `reviewStatus` remains `pending_human_review`; the filename stays stable for existing tooling.
+`evaluation/knowledge-cases.v1.json` now contains the `knowledge-v3-draft` dataset with seventeen cases, including four positive regular-semester questions, missing-year/semester clarification, mini-semester extraction limits and injection refusal. Its `reviewStatus` remains `pending_human_review`; the filename stays stable for existing tooling. K007 explicitly identifies regular Semester 1 so wrong-year isolation is not mixed with semester ambiguity.
 
 ```powershell
 npm run eval:knowledge
@@ -80,10 +101,10 @@ Automatic citation checks prove that a citation points to a retrieved document; 
 When only Registrar is approved and available, a development-only pilot can exercise calendar, wrong-year and refusal cases:
 
 ```powershell
-npm run eval:knowledge -- --run --cases K001,K007,K008,K009,K011,K012,K013,K014 --out evaluation-results/knowledge-registrar-pilot.json
+npm run eval:knowledge -- --run --cases K001,K007,K008,K009,K011,K012,K013,K014,K015,K016,K017 --out evaluation-results/knowledge-registrar-pilot.json
 ```
 
-The report marks this as `development_subset`, lists omitted cases, and records dataset hash, registry, models, embedding dimensions and per-answer model/prompt identity. It never substitutes for the full suite. The full suite fails preflight if any expected source document is missing.
+The report marks this as `development_subset`, lists omitted cases, and records run ID, Git revision/dirty state, published source snapshot, dataset hash, registry, model/retrieval limits, embedding dimensions and per-answer model/prompt identity. Refusal and clarification cases with `expectNoExternalCalls` require measured zero answer-retrieval and generation calls; an empty result list alone does not pass this assertion. It never substitutes for the full suite. The full suite fails preflight if any expected source document is missing.
 
 Test stale filtering, wrong-year isolation and declared conflicts through the real SQL retriever:
 
@@ -107,6 +128,10 @@ npm run eval:knowledge:review -- --report evaluation-results/knowledge-live.json
 ```
 
 The validator rejects incomplete judgments, wrong report hashes, duplicate reviewers and future dates, and checks contact accuracy when the case declares it. A reviewed pilot pass still does not authorize Phase 6: claim-level release metrics, full approved safety/injection regression coverage, and stale/conflicting-source staging evidence remain mandatory.
+
+See [PHASE5_REVALIDATION_2026-10-04.md](PHASE5_REVALIDATION_2026-10-04.md) for the recovered staging identity, both expanded live runs (9/11 then 11/11), source/citation inspection, private review packets, and remaining gate requirements. Both failed attempts are retained. The two runs had six successful factual generations and two timeouts, so the later pass is not a reliability guarantee.
+
+See [PHASE5_FULL_CORPUS_2026-10-04.md](PHASE5_FULL_CORPUS_2026-10-04.md) for the browser-capture staging publication, complete seventeen-case evaluation, timeout diagnostic, exact citation triage and open release gates. The complete suite now runs against all six published sources, but retrieval success and automatic scores do not waive human review or provider reliability failures.
 
 ## Source provenance
 

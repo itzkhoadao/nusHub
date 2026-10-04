@@ -87,19 +87,21 @@ npm run dev -- --host 127.0.0.1 --port 5178 --strictPort
 
 Open http://127.0.0.1:5178/assistant and use a **staging account**. Normal application accounts are separate. Register a staging account through the local registration page if needed.
 
-These are restart commands, not a claim that the preview is currently running. At the final handoff, Docker's engine and ports 55432/5001/5178 were unavailable after the interruption. Restore Docker first and preserve the existing staging volume. The saved successful API/browser reports remain valid observations from their recorded runs.
+These are preview startup commands, not a claim that the preview is currently running. On 4 October Docker was recovered and the preserved database is healthy on port 55432. The live HTTP acceptance check used a temporary server and stopped it afterward; no preview was left on 5001/5178. See [the staging revalidation](knowledge/PHASE5_REVALIDATION_2026-10-04.md) for current observations and retained failures.
 
 The launcher checks database separation and migration 012 before importing application modules, binds to loopback, uses a separate JWT issuer/audience, and clears normal object-storage and Google OAuth credentials. It generates an ephemeral staging JWT secret unless `STAGING_JWT_SECRET` is privately configured; otherwise sign in again after restarting. Ports/origin can be overridden with `STAGING_API_PORT` and `STAGING_CLIENT_URL`.
 
 ## Verification and remaining work
 
-- Server: lint, 160 tests and TypeScript build passed, including a total provider deadline even when the SDK ignores cancellation.
+- Server: latest lint, 168 tests and TypeScript build passed, including a total provider deadline even when the SDK ignores cancellation, clarification before retrieval, and urgent guidance when retrieval fails.
 - Client: lint, stream/URL contract tests and production build passed.
-- Earlier real staging knowledge subset: 8/8 automatic checks passed. The later versioned run scored 7/8 because Gemini timed out; its report is retained. Dataset and answer review remain pending.
+- Earlier real staging knowledge subset: 8/8, then 7/8 with a retained Gemini timeout. The expanded seventeen-case v3 draft was evaluated on an eleven-case subset twice: 9/11 with two timeouts, then 11/11. Source coverage and independent dataset/answer review remain pending; all failed runs are retained.
 - Real PostgreSQL scenarios: stale evidence excluded, wrong year excluded, declared conflicts stop generation, rolled-back snapshot preserved.
 - Live authenticated HTTP/SQL/Gemini API check: owned resources, clarification follow-up, cited passages, idempotency, quota, feedback, rename and deletion passed.
 - Real Chromium acceptance uses explicit API fixtures: sending, source expansion, feedback, copying, rename, history search, mobile layout, Stop and delete dialogs passed. Screenshots and its report live under ignored `client/evaluation-results/assistant-ui/`.
 
 Browser fixtures validate UI behavior, not model factual quality. Run `client/scripts/assistant-browser-check.mjs` with Playwright installed or `PLAYWRIGHT_MODULE_PATH` pointing to the bundled package. Start the loopback preview first.
 
-Before Phase 6: obtain approved accessible delivery for the five blocked sources; complete independent case and claim-level citation review; run the full approved suite against the release thresholds. Then address multi-instance concurrency, process-crash recovery for unfinished messages, broader history pagination, load/failure testing, budgets, deployment rollback and limited beta.
+On 4 October all five formerly blocked HTML sources were published in isolated staging through a user-authorized, hash-checked browser capture channel. The first complete 17-case draft run retrieved the expected official evidence for every positive case but passed only 12/17 automatic checks because five Gemini generations timed out. A later minimal-thinking run scored 8/17. The final full run against the current code also scored **8/17**: all nine generation-dependent cases timed out, while the cited self-harm template passed without generation. The authenticated HTTP check on the expanded corpus timed out and its synthetic account was removed. See [the full-corpus checkpoint](knowledge/PHASE5_FULL_CORPUS_2026-10-04.md).
+
+Before Phase 6: obtain a continuously refreshable authorized official source channel; resolve provider reliability; complete independent case, contact and claim-level citation review; run the frozen full suite against the release thresholds. Then address multi-instance concurrency, process-crash recovery for unfinished messages, broader history pagination, load/failure testing, budgets, deployment rollback and limited beta.

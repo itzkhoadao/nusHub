@@ -10,6 +10,7 @@
     "ai:module": "tsx ai/moduleCli.ts",
     "ai:ingest": "tsx ai/knowledge/ingestCli.ts",
     "ai:inspect": "tsx ai/knowledge/inspectCli.ts",
+    "ai:capture:finalize": "node scripts/finalize-browser-capture.mjs",
     "ai:source:approve": "tsx ai/knowledge/reviewSourceCli.ts",
     "ai:staging:prepare": "tsx database/prepareKnowledgeStagingCli.ts",
     "ai:staging:verify": "tsx ai/knowledge/verifyStagingSnapshotCli.ts",

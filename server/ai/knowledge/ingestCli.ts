@@ -5,6 +5,7 @@ import { KnowledgeIngestionService } from "./KnowledgeIngestionService";
 import { loadKnowledgeManifest } from "./manifest";
 import { PostgresKnowledgeRepository } from "./PostgresKnowledgeRepository";
 import { SafeSourceFetcher } from "./SafeSourceFetcher";
+import { BrowserCaptureFetcher } from "./BrowserCaptureFetcher";
 import { KNOWLEDGE_SOURCE_REGISTRY_VERSION } from "./sourceRegistry";
 import { createKnowledgeStagingPool } from "./stagingDatabase";
 import { assertSourceApproval, loadSourceApproval } from "./sourceApproval";
@@ -14,6 +15,14 @@ async function main() {
   const args = process.argv.slice(2);
   const staging = args.includes("--staging");
   const production = args.includes("--production");
+  const captureIndex = args.indexOf("--capture");
+  const capturePath = captureIndex >= 0 ? args[captureIndex + 1] : undefined;
+  if (captureIndex >= 0 && (!capturePath || capturePath.startsWith("--"))) {
+    throw new Error("--capture requires the browser capture directory.");
+  }
+  if (production && capturePath) {
+    throw new Error("Browser captures are restricted to staging ingestion.");
+  }
   if (staging === production) {
     throw new Error("Specify exactly one of --staging or --production for knowledge ingestion.");
   }
@@ -46,10 +55,11 @@ async function main() {
       approval,
       embeddingBatchSize: env.AI_KNOWLEDGE_EMBEDDING_BATCH_SIZE,
       embeddingProvider,
-      fetcher: new SafeSourceFetcher({
+      fetcher: capturePath ? new BrowserCaptureFetcher(path.resolve(capturePath), env.AI_KNOWLEDGE_MAX_DOCUMENT_BYTES) : new SafeSourceFetcher({
         maxDocumentBytes: env.AI_KNOWLEDGE_MAX_DOCUMENT_BYTES,
         timeoutMs: env.AI_KNOWLEDGE_FETCH_TIMEOUT_MS,
       }),
+      runMetadata: capturePath ? { delivery_channel: "browser_capture" } : undefined,
       registryVersion: KNOWLEDGE_SOURCE_REGISTRY_VERSION,
       repository: new PostgresKnowledgeRepository(databasePool),
     });

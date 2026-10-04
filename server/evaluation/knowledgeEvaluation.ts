@@ -16,6 +16,7 @@ const retrievalExpectationSchema = z.object({
 
 const caseSchema = z.object({
   expectedStatus: z.enum(["answered", "not_verified", "refused", "needs_clarification"]),
+  expectNoExternalCalls: z.boolean().default(false),
   humanRubric: z.array(z.string().min(1)).min(2),
   id: z.string().regex(/^K\d{3}$/),
   question: z.string().min(1).max(2_000),
@@ -76,6 +77,7 @@ export type KnowledgeEvaluationCase = KnowledgeEvaluationDataset["cases"][number
 export type KnowledgeEvaluationDependencies = {
   answer: (question: string, requestId: string) => Promise<ModuleQuestionAnswer>;
   search: (query: KnowledgeSearchQuery) => Promise<RetrievedEvidence[]>;
+  executionCounts?: () => { answerRetrievalCalls: number; generationCalls: number };
 };
 
 export async function runKnowledgeEvaluation(
@@ -86,6 +88,7 @@ export async function runKnowledgeEvaluation(
   const cases = [];
   for (const testCase of dataset.cases) {
     const startedAt = Date.now();
+    const countsBefore = dependencies.executionCounts?.();
     let evidence: RetrievedEvidence[] = [];
     let answer: GroundedAnswer | null = null;
     let errorCode: string | null = null;
@@ -109,6 +112,13 @@ export async function runKnowledgeEvaluation(
       errorCode = safeErrorCode(error);
     }
     const latencyMs = Date.now() - startedAt;
+    const countsAfter = dependencies.executionCounts?.();
+    const execution = countsBefore && countsAfter ? {
+      answerRetrievalCalls: countsAfter.answerRetrievalCalls - countsBefore.answerRetrievalCalls,
+      generationCalls: countsAfter.generationCalls - countsBefore.generationCalls,
+    } : null;
+    const externalCallsPass = !testCase.expectNoExternalCalls ||
+      (execution !== null && execution.answerRetrievalCalls === 0 && execution.generationCalls === 0);
     const retrieval = evaluateRetrieval(testCase, evidence, now);
     const statusPass = answer?.status === testCase.expectedStatus;
     const citationPass = !answer ? false : testCase.expectedStatus === "answered"
@@ -125,11 +135,13 @@ export async function runKnowledgeEvaluation(
       : answer.citations.length === 0;
     cases.push({
       answer,
-      automaticPass: !errorCode && statusPass && citationPass && retrieval.pass,
+      automaticPass: !errorCode && statusPass && citationPass && retrieval.pass && externalCallsPass,
       caseId: testCase.id,
       citationPass,
       expectedStatus: testCase.expectedStatus,
       errorCode,
+      execution,
+      externalCallsPass,
       humanReviewRequired: true as const,
       humanRubric: testCase.humanRubric,
       latencyMs,
