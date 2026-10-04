@@ -3,17 +3,18 @@ import { chunkDocument, sha256 } from "./chunkDocument";
 import { parseKnowledgeDocument } from "./documentParser";
 import type {
   EmbeddingProvider,
+  FetchedKnowledgeDocument,
   KnowledgeDocumentDraft,
   KnowledgeIngestionRepository,
+  KnowledgeSource,
 } from "./types";
-import type { SafeSourceFetcher } from "./SafeSourceFetcher";
 import { assertApprovedContent, assertSourceApproval, sourceApprovalSchema, type SourceApproval } from "./sourceApproval";
 import { validateKnowledgeManifest } from "./manifest";
 
 export type KnowledgeIngestionServiceOptions = {
   embeddingBatchSize: number;
   embeddingProvider: EmbeddingProvider;
-  fetcher: SafeSourceFetcher;
+  fetcher: { fetch(source: KnowledgeSource, url: string, signal?: AbortSignal): Promise<FetchedKnowledgeDocument> };
   registryVersion: string;
   repository: KnowledgeIngestionRepository;
   approval?: SourceApproval;
@@ -149,6 +150,7 @@ export class KnowledgeIngestionService {
       if (reusable) {
         return await this.options.repository.reuseVersion({
           contentHash,
+          verifiedAt: latestTimestamp(parsedDocuments.map((document) => document.fetchedAt)) as string,
           runId,
           sourceId: source.id,
           versionId: reusable.id,

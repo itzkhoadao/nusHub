@@ -16,12 +16,14 @@ const retrievalExpectationSchema = z.object({
 
 const caseSchema = z.object({
   expectedStatus: z.enum(["answered", "not_verified", "refused", "needs_clarification"]),
+  expectNoExternalCalls: z.boolean().default(false),
   humanRubric: z.array(z.string().min(1)).min(2),
   id: z.string().regex(/^K\d{3}$/),
   question: z.string().min(1).max(2_000),
   retrieval: retrievalExpectationSchema.optional(),
   risk: z.enum(["low", "medium", "high", "critical"]),
   requiresContactAccuracy: z.boolean().default(false),
+  requiredAnswerTerms: z.array(z.string().min(1)).optional(),
   sourceEvidence: z.string().min(1),
 }).strict();
 
@@ -76,6 +78,7 @@ export type KnowledgeEvaluationCase = KnowledgeEvaluationDataset["cases"][number
 export type KnowledgeEvaluationDependencies = {
   answer: (question: string, requestId: string) => Promise<ModuleQuestionAnswer>;
   search: (query: KnowledgeSearchQuery) => Promise<RetrievedEvidence[]>;
+  executionCounts?: () => { answerRetrievalCalls: number; generationCalls: number };
 };
 
 export async function runKnowledgeEvaluation(
@@ -86,6 +89,7 @@ export async function runKnowledgeEvaluation(
   const cases = [];
   for (const testCase of dataset.cases) {
     const startedAt = Date.now();
+    const countsBefore = dependencies.executionCounts?.();
     let evidence: RetrievedEvidence[] = [];
     let answer: GroundedAnswer | null = null;
     let errorCode: string | null = null;
@@ -109,6 +113,13 @@ export async function runKnowledgeEvaluation(
       errorCode = safeErrorCode(error);
     }
     const latencyMs = Date.now() - startedAt;
+    const countsAfter = dependencies.executionCounts?.();
+    const execution = countsBefore && countsAfter ? {
+      answerRetrievalCalls: countsAfter.answerRetrievalCalls - countsBefore.answerRetrievalCalls,
+      generationCalls: countsAfter.generationCalls - countsBefore.generationCalls,
+    } : null;
+    const externalCallsPass = !testCase.expectNoExternalCalls ||
+      (execution !== null && execution.answerRetrievalCalls === 0 && execution.generationCalls === 0);
     const retrieval = evaluateRetrieval(testCase, evidence, now);
     const statusPass = answer?.status === testCase.expectedStatus;
     const citationPass = !answer ? false : testCase.expectedStatus === "answered"
@@ -123,13 +134,20 @@ export async function runKnowledgeEvaluation(
           testCase.retrieval.expectedSourceIds.includes(citation.sourceId),
         )
       : answer.citations.length === 0;
+    const answerTermsPass = !!answer && (testCase.requiredAnswerTerms ?? []).every((term) =>
+      normalizedFactText(answer!.answer).includes(normalizedFactText(term)));
+    const userFacingPass = !!answer &&
+      !/\bknowledge_chunk:\d+\b|\b(?:you should|please) recommend\b/i.test(answer.answer);
     cases.push({
       answer,
-      automaticPass: !errorCode && statusPass && citationPass && retrieval.pass,
+      answerTermsPass,
+      automaticPass: !errorCode && statusPass && citationPass && retrieval.pass && externalCallsPass && answerTermsPass && userFacingPass,
       caseId: testCase.id,
       citationPass,
       expectedStatus: testCase.expectedStatus,
       errorCode,
+      execution,
+      externalCallsPass,
       humanReviewRequired: true as const,
       humanRubric: testCase.humanRubric,
       latencyMs,
@@ -141,6 +159,7 @@ export async function runKnowledgeEvaluation(
       requiresContactAccuracy: testCase.requiresContactAccuracy,
       sourceEvidence: testCase.sourceEvidence,
       statusPass,
+      userFacingPass,
     });
   }
   const positives = cases.map((entry) => entry.retrieval)
@@ -163,6 +182,22 @@ export async function runKnowledgeEvaluation(
       recallAt5: average(positives.map((entry) => entry.recall)),
     },
   };
+}
+
+function normalizedFactText(value: string) {
+  return value.toLowerCase()
+    .replace(/\b(january|jan)\b/g, "jan")
+    .replace(/\b(february|feb)\b/g, "feb")
+    .replace(/\b(march|mar)\b/g, "mar")
+    .replace(/\b(april|apr)\b/g, "apr")
+    .replace(/\b(june|jun)\b/g, "jun")
+    .replace(/\b(july|jul)\b/g, "jul")
+    .replace(/\b(august|aug)\b/g, "aug")
+    .replace(/\b(september|sept|sep)\b/g, "sep")
+    .replace(/\b(october|oct)\b/g, "oct")
+    .replace(/\b(november|nov)\b/g, "nov")
+    .replace(/\b(december|dec)\b/g, "dec")
+    .replace(/[.,]/g, " ").replace(/\s+/g, " ").trim();
 }
 
 function safeErrorCode(error: unknown) {

@@ -6,7 +6,7 @@ import {
   NUS_KNOWLEDGE_SYSTEM_INSTRUCTION,
 } from "../prompts/nusKnowledgeAssistant.v1";
 import type { HybridKnowledgeRetriever } from "./HybridKnowledgeRetriever";
-import { isUrgentKnowledgeQuery, routeKnowledgeQuery } from "./routeKnowledgeQuery";
+import { isSelfHarmKnowledgeQuery, isUrgentKnowledgeQuery, routeKnowledgeQuery } from "./routeKnowledgeQuery";
 import type { RetrievedEvidence } from "./types";
 import {
   GroundingValidationError,
@@ -23,7 +23,7 @@ export async function answerKnowledgeQuestion(
   dependencies: {
     maxContextChars: number;
     provider: AiProvider;
-    retriever: HybridKnowledgeRetriever;
+    retriever: Pick<HybridKnowledgeRetriever, "search">;
   },
 ): Promise<ModuleQuestionAnswer> {
   if (input.unsafeInput) {
@@ -54,18 +54,27 @@ export async function answerKnowledgeQuestion(
     });
   }
 
-  const evidence = await dependencies.retriever.search(
-    { filters: route.filters, text: input.text },
-    input.signal,
-  );
+  if (route.filters.sourceIds?.includes("nus_registrar_calendar") &&
+      /\b(reading week|exam period|semester dates?)\b/i.test(input.text) &&
+      !/\bsemester\s*(?:1|2|one|two)\b/i.test(input.text)) {
+    const question = "Do you mean regular Semester 1 or Semester 2?";
+    return wrap({ answer: question, followUpQuestion: question, citations: [], status: "needs_clarification", warnings: [] });
+  }
+
+  let evidence: RetrievedEvidence[];
+  try {
+    evidence = await dependencies.retriever.search(
+      { filters: route.filters, text: input.text },
+      input.signal,
+    );
+  } catch (error) {
+    if (input.signal?.aborted || (error instanceof Error && error.name === "AbortError")) throw error;
+    if (isUrgentKnowledgeQuery(input.text)) return wrap(urgentUnverified());
+    throw error;
+  }
   if (evidence.length === 0) {
     if (isUrgentKnowledgeQuery(input.text)) {
-      return wrap({
-        answer: "If you or someone else may be in immediate danger, call local emergency services now or go to the nearest emergency department. I could not verify current NUS guidance from approved sources.",
-        citations: [],
-        status: "not_verified",
-        warnings: ["approved_evidence_not_found", "urgent_support_unverified"],
-      });
+      return wrap(urgentUnverified());
     }
     return wrap(notVerified("I could not find current approved evidence for that question."));
   }
@@ -81,16 +90,57 @@ export async function answerKnowledgeQuestion(
     });
   }
 
+  // Time-critical self-harm support should never wait for a generation provider.
+  // Only use the template when one current official OSA passage contains every
+  // contact and routing fact it states; otherwise the generic emergency fallback
+  // remains available without claiming an unverified NUS contact.
+  if (isSelfHarmKnowledgeQuery(input.text)) {
+    const support = evidence.find((item) => item.sourceId === "nus_osa" &&
+      /Lifeline NUS/i.test(item.content) && /Accident\s*&\s*Emergency/i.test(item.content) &&
+      /immediate danger[^.]*999/i.test(item.content));
+    const number = support?.content.match(/Lifeline NUS[^\n]{0,80}?\b(\d{4}\s+\d{4})\b/i)?.[1];
+    if (support && number) {
+      return wrap({
+        answer: `I'm sorry you're facing this. If you might be in immediate danger, call 999 now or go to a hospital Accident & Emergency department. NUS also lists its 24-hour Lifeline NUS at ${number}. Please reach out for help now.`,
+        citations: [evidenceCitation(support)],
+        status: "answered",
+        warnings: [],
+      });
+    }
+    return wrap({
+      answer: "If you might be in immediate danger, call local emergency services now or go to the nearest emergency department. I could not verify a current NUS support contact from approved sources.",
+      citations: [],
+      status: "not_verified",
+      warnings: ["urgent_support_unverified"],
+    });
+  }
+  if (isUrgentKnowledgeQuery(input.text)) {
+    return wrap({
+      answer: "If you or someone else may be in immediate danger, call local emergency services now or go to the nearest emergency department. I cannot verify situation-specific NUS guidance from these sources.",
+      citations: [],
+      status: "not_verified",
+      warnings: ["urgent_support_unverified"],
+    });
+  }
+
+  // The approved transport capture names routes, but its stop order is only
+  // shown in map images. A generated ordered list would be unsupported.
+  if (route.filters.sourceIds?.includes("nus_transport") &&
+      /\bstops?\b/i.test(input.text) &&
+      /\b(?:every|all|order|sequence|list)\b/i.test(input.text)) {
+    return wrap(notVerified("I cannot verify an ordered shuttle stop list from the approved text. Please check the current route map on the official NUS transport page or in uNivUS."));
+  }
+  // The UHC FAQ explains booking but has no live appointment inventory.
+  if (route.filters.sourceIds?.includes("nus_uhc") &&
+      /\b(?:live|right now|current|today)\b/i.test(input.text) &&
+      /\b(?:wait(?:ing)? time|available slots?|appointment availability)\b/i.test(input.text)) {
+    return wrap(notVerified("I cannot verify live UHC appointment wait times or availability from the approved FAQ. Please check MyUHC through uNivUS or contact UHC directly."));
+  }
+
   // Flattened PDF tables do not establish which date belongs to a mini-semester.
   // Fail closed until the corpus has an independently verified table extraction.
   if (route.filters.sourceIds?.includes("nus_registrar_calendar") && /\bmini[- ]semester\b/i.test(input.text)) {
     return wrap(notVerified("I found the official calendar, but cannot reliably verify mini-semester dates from the extracted table. Please check the Registrar PDF directly."));
-  }
-  if (route.filters.sourceIds?.includes("nus_registrar_calendar") &&
-      /\b(reading week|exam period|semester dates?)\b/i.test(input.text) &&
-      !/\bsemester\s*(?:1|2|one|two)\b/i.test(input.text)) {
-    const question = "Do you mean regular Semester 1 or Semester 2?";
-    return wrap({ answer: question, followUpQuestion: question, citations: [], status: "needs_clarification", warnings: [] });
   }
 
   const boundedEvidence = fitEvidence(
@@ -128,11 +178,12 @@ export async function answerKnowledgeQuestion(
       providerResult.answer,
       boundedEvidence,
     );
+    const contextualAnswer = addCalendarSectionCitation(answer, boundedEvidence, input.text);
     return wrap(
       {
-        ...answer,
+        ...contextualAnswer,
         warnings: [
-          ...answer.warnings,
+          ...contextualAnswer.warnings,
           ...(route.highStakes
             ? ["This information is not professional advice. Verify consequential details directly with the responsible NUS office."]
             : []),
@@ -150,6 +201,26 @@ export async function answerKnowledgeQuestion(
       warnings: ["citation_validation_failed"],
     });
   }
+}
+
+function addCalendarSectionCitation(
+  answer: GroundedAnswer,
+  evidence: RetrievedEvidence[],
+  question: string,
+): GroundedAnswer {
+  if (answer.status !== "answered" || !/\bsemester\s*1\b/i.test(question)) return answer;
+  const cited = new Set(answer.citations.flatMap((citation) => citation.claimIds));
+  const citedCalendar = evidence.filter((item) => item.sourceId === "nus_registrar_calendar" &&
+    cited.has(`knowledge_chunk:${item.chunkId}`));
+  if (citedCalendar.length === 0 || citedCalendar.some((item) => /\bSEMESTER 1\b/i.test(item.content))) return answer;
+  const preceding = evidence.find((item) => item.sourceId === "nus_registrar_calendar" &&
+    citedCalendar.some((row) => row.documentVersionId === item.documentVersionId &&
+      Number(row.chunkId) - Number(item.chunkId) === 1) &&
+    /\bSEMESTER 1\b/i.test(item.content));
+  if (!preceding) {
+    return notVerified("I found a calendar date, but cannot verify its Semester 1 context from the cited passages. Please check the Registrar PDF directly.");
+  }
+  return { ...answer, citations: [...answer.citations, evidenceCitation(preceding)] };
 }
 
 function fitEvidence(
@@ -203,6 +274,15 @@ function notVerified(answer: string): GroundedAnswer {
     citations: [],
     status: "not_verified",
     warnings: ["approved_evidence_not_found"],
+  };
+}
+
+function urgentUnverified(): GroundedAnswer {
+  return {
+    answer: "If you or someone else may be in immediate danger, call local emergency services now or go to the nearest emergency department. I could not verify current NUS guidance from approved sources.",
+    citations: [],
+    status: "not_verified",
+    warnings: ["approved_evidence_not_found", "urgent_support_unverified"],
   };
 }
 

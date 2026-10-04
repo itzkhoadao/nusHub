@@ -23,12 +23,19 @@ async function main() {
   const args = process.argv.slice(2);
   const output = args[args.indexOf("--out") + 1];
   if (!args.includes("--out") || !output || output.startsWith("--") || !env.GEMINI_API_KEY) throw new Error("Requires --out and a privately configured Gemini key");
+  const modelFlagIndex = args.indexOf("--generation-model");
+  const candidateModel = modelFlagIndex < 0 ? undefined : args[modelFlagIndex + 1];
+  if (modelFlagIndex >= 0 && (!candidateModel || candidateModel.startsWith("--"))) {
+    throw new Error("--generation-model requires a model identifier");
+  }
+  if (candidateModel && !/^[a-z0-9][a-z0-9.-]{2,79}$/.test(candidateModel)) throw new Error("Invalid generation model identifier");
+  const generationModel = candidateModel ?? env.AI_GENERATION_MODEL;
   const pool = createKnowledgeStagingPool();
   const userId = randomUUID();
   const store = new PostgresAiConversationStore(pool);
   let generations = 0;
   const provider = new GeminiAiProvider({ apiKey: env.GEMINI_API_KEY, maxInputChars: env.AI_MAX_CONTEXT_CHARS,
-    maxOutputTokens: env.AI_MAX_OUTPUT_TOKENS, model: env.AI_GENERATION_MODEL, requestTimeoutMs: env.AI_REQUEST_TIMEOUT_MS,
+    maxOutputTokens: env.AI_MAX_OUTPUT_TOKENS, model: generationModel, requestTimeoutMs: env.AI_REQUEST_TIMEOUT_MS,
     thinkingLevel: env.AI_THINKING_LEVEL });
   const retriever = new HybridKnowledgeRetriever(new PostgresKnowledgeRepository(pool), new GeminiEmbeddingProvider({
     apiKey: env.GEMINI_API_KEY, dimensions: env.AI_EMBEDDING_DIMENSIONS, model: env.AI_EMBEDDING_MODEL,
@@ -94,7 +101,7 @@ async function main() {
     assert.equal((await call(route, "PATCH", { title: "Reviewed staging fixture" })).status, 200);
     assert.equal((await call(route, "DELETE")).status, 204);
     assert.equal((await call(route)).status, 404);
-    const report = { checkedAt: new Date().toISOString(), environment: "staging", method: "authenticated loopback HTTP; real PostgreSQL; real Gemini; synthetic account removed",
+    const report = { checkedAt: new Date().toISOString(), environment: "staging", generationModel, method: "authenticated loopback HTTP; real PostgreSQL; real Gemini; synthetic account removed",
       checks: { ownership: true, clarificationFollowUp: true, groundedStreaming: true, exactPassages: true, idempotentReplay: true,
         keyConflict: true, atomicQuota: true, privateCacheHeaders: true, feedback: true, rename: true, cascadeDelete: true },
       generations, humanCitationReview: "pending", releaseApproval: false };

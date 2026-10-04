@@ -31,6 +31,7 @@ import { parseModuleQuestionText } from "../ai/orchestration/parseModuleQuestion
 import type { ModuleQuestion } from "../ai/orchestration/answerModuleQuestion";
 import { routeKnowledgeQuery } from "../ai/knowledge/routeKnowledgeQuery";
 import { awaitWithAbort } from "../ai/domain/abortableOperation";
+import { AiProviderError } from "../ai/domain/errors";
 import { AppError } from "../errors/AppError";
 import { readRequiredIdempotencyKey } from "../middleware/idempotency";
 
@@ -248,12 +249,14 @@ export function createAiConversationRouter(
           console.error("AI response failed", { requestId: req.requestId,
             code: error && typeof error === "object" && "code" in error && typeof error.code === "string" ? error.code.slice(0, 64) : "AI_RESPONSE_FAILED" });
           const timedOut = controller.signal.reason instanceof Error && controller.signal.reason.message === "AI_REQUEST_TIMEOUT";
+          const providerRateLimited = error instanceof AiProviderError && error.code === "AI_PROVIDER_RATE_LIMITED";
+          const failureCode = timedOut ? "AI_REQUEST_TIMEOUT" : providerRateLimited ? "AI_PROVIDER_RATE_LIMITED" : "AI_RESPONSE_FAILED";
           const interrupted = controller.signal.aborted ||
             (error instanceof Error && error.message === "AI_STREAM_CANCELLED");
           try {
             await store.failAssistant({
               assistantMessageId: exchange.assistantMessageId,
-              errorCode: timedOut ? "AI_REQUEST_TIMEOUT" : interrupted ? "AI_REQUEST_CANCELLED" : "AI_RESPONSE_FAILED",
+              errorCode: interrupted && !timedOut ? "AI_REQUEST_CANCELLED" : failureCode,
               interrupted: interrupted && !timedOut,
             });
           } catch {
@@ -265,8 +268,10 @@ export function createAiConversationRouter(
           }
           if (!res.destroyed && !res.writableEnded) {
             writeEvent(res, req.requestId, "response.failed", {
-              code: timedOut ? "AI_REQUEST_TIMEOUT" : "AI_RESPONSE_FAILED",
-              message: timedOut ? "The assistant took too long to respond. Please try again." : "The assistant could not complete this response.",
+              code: failureCode,
+              message: timedOut ? "The assistant took too long to respond. Please try again."
+                : providerRateLimited ? "The AI provider's request limit has been reached. Please try again later."
+                  : "The assistant could not complete this response.",
             });
             completed = true;
             res.end();

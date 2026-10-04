@@ -4,6 +4,7 @@ import { chunkDocument, sha256 } from "./chunkDocument";
 import { parseKnowledgeDocument } from "./documentParser";
 import { loadKnowledgeManifest } from "./manifest";
 import { SafeSourceFetcher } from "./SafeSourceFetcher";
+import { BrowserCaptureFetcher } from "./BrowserCaptureFetcher";
 import { getKnowledgeSource } from "./sourceRegistry";
 import { KNOWLEDGE_SOURCE_REGISTRY_VERSION } from "./sourceRegistry";
 import { knowledgeManifestHash } from "./sourceApproval";
@@ -12,12 +13,15 @@ async function main() {
   const args = process.argv.slice(2);
   const manifestPath = argument(args, "--manifest");
   const outputPath = argument(args, "--out", false);
+  const capturePath = argument(args, "--capture", false);
   if (!manifestPath) {
     throw new Error("Usage: npm run ai:inspect -- --manifest path/to/manifest.json [--out path/to/preview.json]");
   }
   const manifest = await loadKnowledgeManifest(path.resolve(manifestPath));
   const source = getKnowledgeSource(manifest.sourceId);
-  const fetcher = new SafeSourceFetcher({ maxDocumentBytes: 10 * 1024 * 1024, timeoutMs: 15_000 });
+  const fetcher = capturePath
+    ? new BrowserCaptureFetcher(path.resolve(capturePath), 10 * 1024 * 1024)
+    : new SafeSourceFetcher({ maxDocumentBytes: 10 * 1024 * 1024, timeoutMs: 15_000 });
   const documents = [];
   const contentHashes = new Set<string>();
   for (const input of manifest.documents) {
@@ -62,6 +66,7 @@ async function main() {
       manifestHash: knowledgeManifestHash(manifest),
       registryVersion: KNOWLEDGE_SOURCE_REGISTRY_VERSION,
       sourceId: source.id,
+      deliveryChannel: capturePath ? "browser_capture" : "direct_fetch",
       documents,
     }, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
     console.log(`Wrote preview to ${resolved}`);

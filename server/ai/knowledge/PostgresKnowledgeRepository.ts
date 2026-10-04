@@ -119,6 +119,7 @@ export class PostgresKnowledgeRepository
       if (!row) throw new Error("The reusable knowledge version no longer exists");
       const reused = await reuseStoredVersion(client, {
         contentHash: input.contentHash,
+        verifiedAt: input.verifiedAt,
         runId: input.runId,
         sourceId: input.sourceId,
         version: row,
@@ -166,6 +167,7 @@ export class PostgresKnowledgeRepository
       if (existing.rows[0]) {
         const reused = await reuseStoredVersion(client, {
           contentHash: input.contentHash,
+          verifiedAt: input.fetchedAt,
           runId: input.runId,
           sourceId: input.source.id,
           version: existing.rows[0],
@@ -340,6 +342,7 @@ async function reuseStoredVersion(
   client: PoolClient,
   input: {
     contentHash: string;
+    verifiedAt: string;
     runId: string;
     sourceId: string;
     version: Pick<VersionRow, "id" | "status">;
@@ -368,14 +371,14 @@ async function reuseStoredVersion(
     await client.query(
       `UPDATE ai_source_versions
        SET status = 'published', published_at = NOW(), superseded_at = NULL,
-           verified_at = NOW()
+           verified_at = $2
        WHERE id = $1`,
-      [input.version.id],
+      [input.version.id, input.verifiedAt],
     );
   } else {
     await client.query(
-      `UPDATE ai_source_versions SET verified_at = NOW() WHERE id = $1`,
-      [input.version.id],
+      `UPDATE ai_source_versions SET verified_at = $2 WHERE id = $1`,
+      [input.version.id, input.verifiedAt],
     );
   }
 

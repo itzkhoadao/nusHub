@@ -14,6 +14,7 @@ import type {
   ModuleAnswerService,
 } from "../ai/conversation/types";
 import type { GroundedAnswer } from "../ai/domain/types";
+import { AiProviderError } from "../ai/domain/errors";
 import { createAccessToken } from "../auth/tokens";
 import { errorHandler } from "../middleware/errorHandler";
 import { requestId } from "../middleware/requestId";
@@ -525,6 +526,26 @@ test("turns internal answer failures into stable SSE errors", async () => {
   assert.match(response.text, /AI_RESPONSE_FAILED/);
   assert.doesNotMatch(response.text, /secret-value/);
   assert.equal(store.failed[0].interrupted, false);
+});
+
+test("reports provider rate limits distinctly without exposing upstream details", async () => {
+  const store = new MemoryAiConversationStore();
+  const app = testApp(store, async () => {
+    throw new AiProviderError("AI_PROVIDER_RATE_LIMITED", "The AI provider rate limit was reached.",
+      { cause: new Error("private upstream account detail") });
+  });
+  const conversationId = await createConversation(app);
+  const response = await request(app)
+    .post(`/api/ai/conversations/${conversationId}/messages`)
+    .set("Accept", "text/event-stream")
+    .set("Authorization", authorization())
+    .set("Idempotency-Key", randomUUID())
+    .send({ content: "Where is NUS IT Care?" })
+    .expect(200);
+  assert.match(response.text, /AI_PROVIDER_RATE_LIMITED/);
+  assert.match(response.text, /Please try again later/);
+  assert.doesNotMatch(response.text, /private upstream account detail/);
+  assert.equal(store.failed[0].errorCode, "AI_PROVIDER_RATE_LIMITED");
 });
 
 test("cancels in-flight work and marks the message interrupted on disconnect", async () => {

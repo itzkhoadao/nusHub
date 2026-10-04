@@ -41,15 +41,18 @@ export async function parseKnowledgeDocument(
 
 function parseHtml(bytes: Uint8Array) {
   const html = Buffer.from(bytes).toString("utf8");
-  if (
-    /_Incapsula_Resource|SWUDNSAI=|<meta[^>]+robots[^>]+noindex[^>]+nofollow/i.test(html)
-  ) {
+  const $ = load(html);
+  const bodyText = normalizeInline($("body").text());
+  const hasChallengeMarker = /_Incapsula_Resource|SWUDNSAI=|<meta[^>]+robots[^>]+noindex[^>]+nofollow/i.test(html);
+  const challengeText = /access denied|request unsuccessful|verify you are human|incapsula incident|unusual traffic|security check|blocked by/i.test(bodyText);
+  const hasSubstantialPage = normalizeInline($("main,article").first().text()).length >= 200 || bodyText.length >= 1000;
+  if ((hasChallengeMarker && !hasSubstantialPage) ||
+      (challengeText && (hasChallengeMarker || !hasSubstantialPage))) {
     throw new KnowledgeSourcePolicyError(
       "SOURCE_FETCH_FAILED",
       "The source returned an access-control page rather than its published content.",
     );
   }
-  const $ = load(html);
   $("script,style,noscript,template,svg,form,nav,header,footer").remove();
   const title =
     $("main h1, article h1, h1").first().text().trim() ||
