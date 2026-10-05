@@ -1,5 +1,7 @@
 # Phase 5 owner decision and agent audit — 4 October 2026
 
+Historical decision. The owner revised the review and freshness operating policy on 5 October; see [the current policy](PHASE5_RELEASE_POLICY.md) and [completion evidence](PHASE5_COMPLETION_2026-10-05.md). The records below retain their original scope and date.
+
 **Decision: integrate the verified staging implementation into `main`; keep AI production promotion and Phase 6 gated.** The repository owner's 4 October instruction waived independent human review for this staging milestone and requested retaining the captured pages for one to two months. This document records that choice without inventing human reviewers or treating archived pages as newly verified.
 
 ## Saved source material and freshness

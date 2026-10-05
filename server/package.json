@@ -19,6 +19,7 @@
     "eval:knowledge": "tsx evaluation/knowledgeEvalCli.ts",
     "eval:chat:staging": "tsx evaluation/chatStagingCli.ts",
     "eval:knowledge:review": "tsx evaluation/knowledgeReviewCli.ts",
+    "eval:phase5:agent": "tsx evaluation/phase5AgentGateCli.ts",
     "eval:ai": "tsx evaluation/runCli.ts",
     "build": "tsc && node scripts/copy-migrations.mjs",
     "start": "node dist/index.js",

@@ -1,5 +1,5 @@
 import { getKnowledgeSource } from "./sourceRegistry";
-export const KNOWLEDGE_RETRIEVAL_POLICY_VERSION = "phase5.2026-10-04.v2";
+export const KNOWLEDGE_RETRIEVAL_POLICY_VERSION = "phase5.2026-10-05.v3";
 import type {
   EmbeddingProvider,
   KnowledgeSearchQuery,

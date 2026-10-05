@@ -1,5 +1,22 @@
 # Curated knowledge: staging and evaluation
 
+## Current Phase 5 policy (5 October 2026)
+
+The owner authorized Codex agent review and monthly manual updates, accepting
+unavailable answers between updates. [The current release policy](PHASE5_RELEASE_POLICY.md)
+supersedes the human-only Phase 5 release requirements in the historical runbook
+below. The current frozen dataset is `knowledge-v6-agent-review`, K001–K032.
+Its `pending_human_review` field continues to describe human review accurately;
+the hash-bound agent sidecar records the accepted agent approval separately.
+
+Use `npm run eval:phase5:agent` for the amended gate. The existing human-review
+command continues to enforce independent human review when that workflow is used.
+Neither validator changes runtime source freshness or enables production AI.
+
+Monthly refresh does not make HTML valid for a month: HTML still expires after
+24 hours and the Registrar after 168 hours. Read [the completion checkpoint](PHASE5_COMPLETION_2026-10-05.md)
+for evidence, reproduction commands and the operator handoff.
+
 This workflow intentionally separates a **source preview**, a **staging database**, and **human approval**. None of the commands below silently switches to the default `DATABASE_URL`.
 
 ## 1. Prepare staging

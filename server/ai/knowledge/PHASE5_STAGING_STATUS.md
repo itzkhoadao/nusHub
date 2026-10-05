@@ -1,6 +1,8 @@
-# Phase 5 staging evidence — updated 4 October 2026
+# Phase 5 staging evidence — updated 5 October 2026
 
-**Status: the six-source technical staging proof passed; the full Phase 5 release gate remains open. Phase 6 has not begun.** The latest expanded 22-case draft scored 22/22 automatic passes with `gemini-3.5-flash-lite`; see [the owner decision and agent audit](PHASE5_OWNER_DECISION_2026-10-04.md). The earlier `gemini-3.6-flash` 8/17 failure remains part of the evidence. The owner waived independent review for this staging exercise; durable HTML delivery and the guide's full release threshold proof remain open.
+**Current status: Phase 5 complete under the owner's amended policy.** The full 32-case live suite, explicit agent review of 24 material claims, real SQL/API/failed-refresh checks and 191 server tests passed. Monthly updates retain source expiry and safe unavailability. See [the completion checkpoint](PHASE5_COMPLETION_2026-10-05.md) and [current policy](PHASE5_RELEASE_POLICY.md). Phase 6 readiness work may begin; production AI has not been enabled.
+
+The sections below preserve the dated 3–4 October evidence and earlier review requirements. Statements that the gate was open describe those earlier checkpoints, not the current completion decision. Prior failures remain retained.
 
 ## Verified on the real staging database
 

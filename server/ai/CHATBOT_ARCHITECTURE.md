@@ -1,6 +1,6 @@
 # NUSHub chatbot: implementation checkpoint — 4 October 2026
 
-The chatbot UI and authenticated APIs are implemented and tested. Phase 5 has stronger staging evidence, but its release gate is still open. Five official HTML sources are blocked and excluded; independent factual/citation review remains pending.
+The chatbot UI and authenticated APIs are implemented and tested. Phase 5 is complete under the owner's 5 October agent-review and monthly-update policy: 32/32 live cases and 191 server tests passed, with all six official sources covered. See [completion evidence](knowledge/PHASE5_COMPLETION_2026-10-05.md) and [release policy](knowledge/PHASE5_RELEASE_POLICY.md). Expired sources remain unavailable; production readiness is Phase 6 work. Older evaluation figures below are historical checkpoints.
 
 ## Request flow
 

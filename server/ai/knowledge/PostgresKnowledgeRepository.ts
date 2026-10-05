@@ -263,6 +263,7 @@ export class PostgresKnowledgeRepository
            AND c.embedding_dimensions = 768
            AND c.embedding_model = $3 AND c.embedding_dimensions = $4
            AND sv.verified_at >= NOW() - make_interval(hours => s.max_staleness_hours)
+           AND sv.verified_at <= NOW()
            AND ($5::text[] IS NULL OR c.source_id = ANY($5::text[]))
            AND ($6::text[] IS NULL OR s.trust_tier = ANY($6::text[]))
            AND ($7::boolean IS NULL OR s.high_stakes = $7)
@@ -286,6 +287,7 @@ export class PostgresKnowledgeRepository
            AND c.embedding_dimensions = 768
            AND c.embedding_model = $3 AND c.embedding_dimensions = $4
            AND sv.verified_at >= NOW() - make_interval(hours => s.max_staleness_hours)
+           AND sv.verified_at <= NOW()
            AND ($5::text[] IS NULL OR c.source_id = ANY($5::text[]))
            AND ($6::text[] IS NULL OR s.trust_tier = ANY($6::text[]))
            AND ($7::boolean IS NULL OR s.high_stakes = $7)

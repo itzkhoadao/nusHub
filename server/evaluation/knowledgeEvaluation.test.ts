@@ -42,7 +42,7 @@ function evidence(overrides: Partial<RetrievedEvidence> = {}): RetrievedEvidence
 test("draft dataset parses and includes positive, no-answer, and refusal coverage", async () => {
   const raw = await readFile(path.join(__dirname, "knowledge-cases.v1.json"), "utf8");
   const dataset = knowledgeEvaluationDatasetSchema.parse(JSON.parse(raw) as unknown);
-  assert.equal(dataset.cases.length, 22);
+  assert.equal(dataset.cases.length, 32);
   assert.ok(dataset.cases.some((item) => item.retrieval?.expectNoResults));
   assert.ok(dataset.cases.some((item) => item.expectedStatus === "refused"));
 });

@@ -96,7 +96,7 @@ export async function answerKnowledgeQuestion(
   // remains available without claiming an unverified NUS contact.
   if (isSelfHarmKnowledgeQuery(input.text)) {
     const support = evidence.find((item) => item.sourceId === "nus_osa" &&
-      /Lifeline NUS/i.test(item.content) && /Accident\s*&\s*Emergency/i.test(item.content) &&
+      /Lifeline NUS[^\n.]{0,80}\b24[- ]hours?\b/i.test(item.content) && /Accident\s*&\s*Emergency/i.test(item.content) &&
       /immediate danger[^.]*999/i.test(item.content));
     const number = support?.content.match(/Lifeline NUS[^\n]{0,80}?\b(\d{4}\s+\d{4})\b/i)?.[1];
     if (support && number) {

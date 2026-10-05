@@ -1,0 +1,125 @@
+{
+  "policyId": "phase5-owner-agent-review-2026-10-05",
+  "milestone": "Phase 5 curated NUS knowledge retrieval",
+  "status": "complete_under_owner_amended_policy",
+  "recordedAt": "2026-10-05T07:07:25.310Z",
+  "reviewerKind": "agent",
+  "reviewer": "Codex",
+  "owner": "daoanhkhoa",
+  "gitBaseRevision": "edb1cfd5bc0e8844be35740bc8c4e9c820b007c1",
+  "workingTreeChangesIncluded": true,
+  "productionAuthorized": false,
+  "sourceUpdateCadence": "monthly_manual",
+  "nextPlannedManualUpdate": "2026-11-04",
+  "expiryPolicy": {
+    "htmlHours": 24,
+    "registrarHours": 168,
+    "unavailableAfterExpiry": true,
+    "archiveReplayDoesNotRefresh": true
+  },
+  "checks": {
+    "liveCasesPassed": 32,
+    "liveCasesTotal": 32,
+    "agentReviewedClaims": 24,
+    "agentReviewedContactCases": 5,
+    "sourcePreviewsMatched": 6,
+    "serverTestsPassed": 191,
+    "serverTestsTotal": 191,
+    "serverLintPassed": true,
+    "serverBuildPassed": true,
+    "sqlPassed": true,
+    "authenticatedApiPassed": true,
+    "failedRefreshPreserved": true,
+    "agentGatePassed": true
+  },
+  "datasetHash": "b28e899a48d437f7c3fbac376bca30fcf18b104f68ca17b922272cfaed2118e2",
+  "evidence": [
+    {
+      "path": "server/evaluation-results/phase5-close-live-20261005.json",
+      "sha256": "22f93e5647fef007a5eeb12747e8e5a70730b2893b0dd6952546fc34649e17ba"
+    },
+    {
+      "path": "server/evaluation-results/phase5-close-agent-reviews-20261005.json",
+      "sha256": "ccd009fe9a68471e4a2b1f72b1cb669c7e4438f557070bbc69a3b5f5c9903cf0"
+    },
+    {
+      "path": "server/evaluation-results/phase5-close-source-audit-20261005.json",
+      "sha256": "273eb87533ce16059528189e7a838ddb85e8e9e5f43c77bf4ec136dc9dc9dcbd"
+    },
+    {
+      "path": "server/evaluation-results/phase5-close-gate-20261005.json",
+      "sha256": "f3ddb588be896ddd6d0289ed0fac0e843214805fe35e96c2c384a389bdf90510"
+    },
+    {
+      "path": "server/evaluation-results/phase5-close-sql-v2-20261005.json",
+      "sha256": "e07bf2b93b7902935ca28b8f67c93a4a069f4b99762323615cd2e0cb812eb2c9"
+    },
+    {
+      "path": "server/evaluation-results/phase5-close-api-20261005.json",
+      "sha256": "bcbb0afaaa6ac8dd3a32b6ef0b40c3bae64a47d902c58993b85225a744866ca8"
+    },
+    {
+      "path": "server/evaluation-results/phase5-close-refresh-20261005.json",
+      "sha256": "0fc7d35e3eebc788124ab426f3111f67793d557b877e9711129f66593bccc4fc"
+    },
+    {
+      "path": "server/evaluation-results/phase5-close-check-final-20261005.log",
+      "sha256": "68e11b6cbda6f37c9d1b5f248fbb2d9ec64c3c6a29d118e08b24b4a53b912d6b"
+    }
+  ],
+  "implementation": [
+    {
+      "path": "server/ai/knowledge/HybridKnowledgeRetriever.ts",
+      "sha256": "6cf1867f89b003a71ccb1519974f7d8261e5755fbac102f99cb6b6248aa14c89"
+    },
+    {
+      "path": "server/ai/knowledge/PostgresKnowledgeRepository.ts",
+      "sha256": "d52e081ca005728b2750c858f3798dfcc16555471149001ff9716d3b3c3bc1e6"
+    },
+    {
+      "path": "server/ai/knowledge/answerKnowledgeQuestion.ts",
+      "sha256": "cd59b2be16db6c3ff152f4528f73f51cbca0d001c194a502603c62934887d37a"
+    },
+    {
+      "path": "server/ai/knowledge/knowledgeSafety.test.ts",
+      "sha256": "d8d866dbb25fbf6acea8da1f6f06aa6e786073777e5101b4155c3eb8c74a15d4"
+    },
+    {
+      "path": "server/ai/knowledge/stagingScenariosCli.ts",
+      "sha256": "acd9c33e5e6c82ce3984da4244155be0b90101375804ffc919bbd9cb807df213"
+    },
+    {
+      "path": "server/ai/knowledge/PHASE5_RELEASE_POLICY.md",
+      "sha256": "a5a4de92ab883da75cf3269c2f7764e2036cba416e77f632b048c9cafeb2164f"
+    },
+    {
+      "path": "server/evaluation/knowledge-cases.v1.json",
+      "sha256": "b28e899a48d437f7c3fbac376bca30fcf18b104f68ca17b922272cfaed2118e2"
+    },
+    {
+      "path": "server/evaluation/knowledgeEvaluation.test.ts",
+      "sha256": "3834d2d36bb39d6af77285f600760e0bdee2a2f8baab029504a4a2631b23a109"
+    },
+    {
+      "path": "server/evaluation/phase5AgentGate.ts",
+      "sha256": "38a6b95d8afd9924e157ee5b878d38defc019abf4b015ccb16cb44b54cd8427f"
+    },
+    {
+      "path": "server/evaluation/phase5AgentGate.test.ts",
+      "sha256": "2908a65d90ba0ac48616e6fe580cdfdfb552cea61e76c131edcf8f9a04a428fd"
+    },
+    {
+      "path": "server/evaluation/phase5AgentGateCli.ts",
+      "sha256": "02f220dc733cbbc1c8fd2fd82ab3ac00877b0ad27aea09bcd7e16f34dcf36f86"
+    },
+    {
+      "path": "server/package.json",
+      "sha256": "377ceb3f80215afd13cb0cf6b62b3c6c7d692371717733b0550b7d0b700d225c"
+    }
+  ],
+  "limitations": [
+    "Observed scoped-suite metrics; not independent human review or population reliability guarantees.",
+    "Detailed evidence stays local and ignored; receipt hashes identify artifacts without publishing raw captures.",
+    "No production promotion, broader E001–E150 certification, load test or beta is implied."
+  ]
+}
